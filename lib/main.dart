@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/theme/app_theme.dart';
 import 'features/geospatial/presentation/map_screen.dart';
 
 void main() {
@@ -21,12 +22,9 @@ class CycleCoreApp extends StatelessWidget {
     return MaterialApp(
       title: 'CycleCore',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-        useMaterial3: true,
-      ),
-      // Por ahora abrimos directo en el mapa para probar esta primera
-      // pieza. Más adelante esto pasa a ser la pantalla post-login.
+      // Todo el theming vive en core/theme -- cambiar colores de marca
+      // se hace en app_colors.dart, no aquí.
+      theme: AppTheme.light,
       home: const MapScreen(),
     );
   }
