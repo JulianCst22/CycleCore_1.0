@@ -1,4 +1,6 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_android/geolocator_android.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
 /// Única puerta de entrada a la ubicación del dispositivo.
 ///
@@ -7,8 +9,8 @@ import 'package:geolocator/geolocator.dart';
 /// archivo.
 class LocationService {
   /// Verifica que el servicio de ubicación esté encendido y que la app
-  /// tenga permiso concedido. Lanza una excepción con un mensaje claro
-  /// si algo falta, para que la UI pueda mostrarlo al usuario.
+  /// tenga permiso de primer plano concedido. Lanza una excepción con
+  /// un mensaje claro si algo falta, para que la UI pueda mostrarlo.
   Future<void> ensureLocationReady() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -29,8 +31,26 @@ class LocationService {
     }
   }
 
-  /// Obtiene la posición actual una sola vez (útil para centrar el mapa
-  /// al abrir la pantalla, antes de empezar a grabar).
+  /// Solicita el permiso de ubicación EN SEGUNDO PLANO y el de
+  /// notificaciones, necesarios para que la grabación siga funcionando
+  /// con la pantalla bloqueada.
+  ///
+  /// Debe llamarse DESPUÉS de [ensureLocationReady] -- Android exige
+  /// que el permiso de primer plano ya esté concedido antes de poder
+  /// pedir el de segundo plano; pedirlos juntos falla silenciosamente
+  /// desde Android 11.
+  ///
+  /// No lanza excepción si el usuario lo niega: la grabación puede
+  /// seguir funcionando en primer plano solamente, solo que se
+  /// detendrá si se bloquea la pantalla. Se devuelve `true`/`false`
+  /// para que la UI decida si advertir al usuario.
+  Future<bool> ensureBackgroundLocationReady() async {
+    final backgroundStatus = await ph.Permission.locationAlways.request();
+    final notificationStatus = await ph.Permission.notification.request();
+
+    return backgroundStatus.isGranted && notificationStatus.isGranted;
+  }
+
   Future<Position> getCurrentPosition() async {
     await ensureLocationReady();
     return Geolocator.getCurrentPosition(
@@ -40,20 +60,30 @@ class LocationService {
     );
   }
 
-  /// Stream continuo de posiciones, usado mientras se está grabando
-  /// una ruta o durante una sesión de entrenamiento en vivo.
+  /// Stream continuo de posiciones, usado mientras se está grabando una
+  /// ruta.
   ///
-  /// `distanceFilter: 5` significa que solo se emite un nuevo punto si
-  /// el usuario se movió al menos 5 metros desde el último punto reportado
-  /// -- esto evita saturar el flujo con ruido del GPS cuando el ciclista
-  /// está momentáneamente detenido (ej. en un semáforo).
+  /// Se configura como Foreground Service (con notificación persistente
+  /// "CycleCore está grabando tu ruta") para que Android no suspenda las
+  /// actualizaciones de ubicación cuando el usuario bloquea la pantalla
+  /// o cambia de app -- esto es exactamente lo que resuelve el bug de
+  /// "se detiene al bloquear el teléfono".
+  ///
+  /// `distanceFilter: 5` evita saturar el flujo con ruido del GPS
+  /// cuando el ciclista está momentáneamente detenido.
   Stream<Position> watchPosition() {
-    return Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 5,
+    final androidSettings = AndroidSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 5,
+      intervalDuration: const Duration(seconds: 2),
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
+        notificationTitle: 'CycleCore está grabando tu ruta',
+        notificationText: 'Toca para volver a la app',
+        enableWakeLock: true,
       ),
     );
+
+    return Geolocator.getPositionStream(locationSettings: androidSettings);
   }
 }
 

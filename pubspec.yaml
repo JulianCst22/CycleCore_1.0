@@ -42,6 +42,7 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   geolocator: ^13.0.1
+  geolocator_android: ^4.6.2
 
   # --- Sensores BLE ---
   flutter_blue_plus: ^1.32.12
@@ -63,6 +64,12 @@ dependencies:
 
   # --- Sensores del dispositivo (barómetro, para fusión de altitud) ---
   sensors_plus: ^6.0.1
+
+  # --- Persistencia simple de preferencias (ej. último sensor BLE emparejado) ---
+  shared_preferences: ^2.3.2
+
+  # --- Selección de fotos para actividades ---
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
