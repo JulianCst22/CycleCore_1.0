@@ -3,9 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
+import '../../../core/providers/heart_rate_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../shared_widgets/stat_tile.dart';
+import '../../activities/presentation/save_activity_screen.dart';
+import '../../profile/presentation/onboarding_screen.dart';
+import '../../sensors/presentation/sensors_screen.dart';
 import 'map_providers.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -24,10 +28,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// quiere explorar el mapa manualmente mientras graba.
   bool _followMe = true;
 
+  /// Muestras de FC tomadas mientras la grabación está activa y sin
+  /// pausar, solo para calcular el promedio/máximo de la sesión al
+  /// terminar. No se persiste esta lista en ningún lado; es transitoria.
+  final List<int> _heartRateSamples = [];
+
   @override
   Widget build(BuildContext context) {
     final currentPositionAsync = ref.watch(currentPositionProvider);
     final recordingState = ref.watch(routeRecordingProvider);
+    final recordingController = ref.read(routeRecordingProvider.notifier);
     final heartRate = ref.watch(heartRateBpmProvider);
 
     // Solo nos interesa que este provider dispare un rebuild cada
@@ -46,8 +56,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     });
 
+    // Vamos acumulando muestras de FC mientras se graba activamente
+    // (no en pausa), para poder calcular promedio/máximo al finalizar.
+    ref.listen<int?>(heartRateBpmProvider, (previous, next) {
+      final current = ref.read(routeRecordingProvider);
+      if (current.isRecording && !current.isPaused && next != null) {
+        _heartRateSamples.add(next);
+      }
+    });
+
     final elapsed = recordingState.startedAt != null
-        ? DateTime.now().difference(recordingState.startedAt!)
+        ? recordingController.elapsedDuration()
         : Duration.zero;
 
     return Scaffold(
@@ -150,7 +169,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
 
               // ---------------------------------------------------
-              // Barra superior flotante: título + indicador de grabación.
+              // Barra superior flotante: título + acciones (seguir/perfil).
               // ---------------------------------------------------
               SafeArea(
                 child: Padding(
@@ -165,11 +184,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (recordingState.isRecording) ...[
+                            if (recordingState.isRecording &&
+                                !recordingState.isPaused) ...[
                               const _PulsingDot(),
                               const SizedBox(width: 8),
                               const Text(
                                 'GRABANDO',
+                                style: TextStyle(
+                                  color: AppColors.textPrimaryOnPanel,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ] else if (recordingState.isRecording &&
+                                recordingState.isPaused) ...[
+                              const Icon(
+                                Icons.pause_circle_filled,
+                                color: AppColors.accentSlope,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              const Text(
+                                'EN PAUSA',
                                 style: TextStyle(
                                   color: AppColors.textPrimaryOnPanel,
                                   fontWeight: FontWeight.bold,
@@ -189,27 +226,49 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           ],
                         ),
                       ),
-                      _FloatingPill(
-                        onTap: () {
-                          setState(() => _followMe = !_followMe);
-                          if (_followMe) {
-                            _mapController.move(
-                              recordedLatLngs.isNotEmpty
-                                  ? recordedLatLngs.last
-                                  : initialCenter,
-                              _mapController.camera.zoom,
-                            );
-                          }
-                        },
-                        child: Icon(
-                          _followMe
-                              ? Icons.my_location
-                              : Icons.location_searching,
-                          size: 20,
-                          color: _followMe
-                              ? AppColors.primary
-                              : AppColors.textSecondaryOnPanel,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _FloatingPill(
+                            onTap: () {
+                              setState(() => _followMe = !_followMe);
+                              if (_followMe) {
+                                _mapController.move(
+                                  recordedLatLngs.isNotEmpty
+                                      ? recordedLatLngs.last
+                                      : initialCenter,
+                                  _mapController.camera.zoom,
+                                );
+                              }
+                            },
+                            child: Icon(
+                              _followMe
+                                  ? Icons.my_location
+                                  : Icons.location_searching,
+                              size: 20,
+                              color: _followMe
+                                  ? AppColors.primary
+                                  : AppColors.textSecondaryOnPanel,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _FloatingPill(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const OnboardingScreen(
+                                    isEditing: true,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.person_outline,
+                              size: 20,
+                              color: AppColors.textPrimaryOnPanel,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -226,38 +285,42 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   elapsed: elapsed,
                   distanceMeters: recordingState.cumulativeDistanceMeters,
                   currentSpeedKmh: recordingState.currentSpeedKmh,
-                  avgSpeedKmh: recordingState.averageSpeedKmh(),
+                  avgSpeedKmh:
+                      recordingState.averageSpeedKmhOver(elapsed),
                   elevationGainMeters: recordingState.elevationGainMeters,
                   slopePercent: recordingState.currentSlopePercent,
                   isRecording: recordingState.isRecording,
-                  onRecordPressed: () async {
-                    final controller = ref.read(
-                      routeRecordingProvider.notifier,
+                  isPaused: recordingState.isPaused,
+                  onHeartRateTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SensorsScreen(),
+                      ),
                     );
-                    if (recordingState.isRecording) {
-                      final pointsCount = recordingState.points.length;
-                      await controller.stopRecording();
+                  },
+                  onStartPressed: () async {
+                    _heartRateSamples.clear();
+                    try {
+                      await recordingController.startRecording();
+                    } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Ruta grabada con $pointsCount puntos.',
-                            ),
-                          ),
+                          SnackBar(content: Text(e.toString())),
                         );
-                      }
-                    } else {
-                      try {
-                        await controller.startRecording();
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
-                          );
-                        }
                       }
                     }
                   },
+                  onPauseResumePressed: () {
+                    if (recordingState.isPaused) {
+                      recordingController.resumeRecording();
+                    } else {
+                      recordingController.pauseRecording();
+                    }
+                  },
+                  onFinishPressed: () => _confirmAndFinish(
+                    context,
+                    recordingController,
+                  ),
                 ),
               ),
             ],
@@ -266,11 +329,75 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
     );
   }
+
+  Future<void> _confirmAndFinish(
+    BuildContext context,
+    RouteRecordingController controller,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.panelBackground,
+        title: const Text(
+          '¿Terminar actividad?',
+          style: TextStyle(color: AppColors.textPrimaryOnPanel),
+        ),
+        content: const Text(
+          'Vamos a mostrarte el resumen para que le pongas título y la '
+          'guardes.',
+          style: TextStyle(color: AppColors.textSecondaryOnPanel),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'Seguir grabando',
+              style: TextStyle(color: AppColors.textSecondaryOnPanel),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Terminar',
+              style: TextStyle(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    int? avgHeartRate;
+    int? maxHeartRate;
+    if (_heartRateSamples.isNotEmpty) {
+      avgHeartRate =
+          (_heartRateSamples.reduce((a, b) => a + b) /
+                  _heartRateSamples.length)
+              .round();
+      maxHeartRate = _heartRateSamples.reduce((a, b) => a > b ? a : b);
+    }
+
+    final summary = await controller.finishRecording(
+      avgHeartRate: avgHeartRate,
+      maxHeartRate: maxHeartRate,
+    );
+
+    _heartRateSamples.clear();
+
+    if (!mounted) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SaveActivityScreen(summary: summary),
+      ),
+    );
+  }
 }
 
 /// Panel oscuro con los datos del recorrido, anclado al fondo de la
-/// pantalla, con el botón de grabar/detener superpuesto en su borde
-/// superior (estilo cockpit de ciclocomputador).
+/// pantalla, con los botones de pausar/reanudar y terminar superpuestos
+/// en su borde superior (estilo cockpit de ciclocomputador).
 class _DataPanel extends StatelessWidget {
   final int? heartRate;
   final Duration elapsed;
@@ -280,7 +407,11 @@ class _DataPanel extends StatelessWidget {
   final double elevationGainMeters;
   final double slopePercent;
   final bool isRecording;
-  final VoidCallback onRecordPressed;
+  final bool isPaused;
+  final VoidCallback onStartPressed;
+  final VoidCallback onPauseResumePressed;
+  final VoidCallback onFinishPressed;
+  final VoidCallback onHeartRateTap;
 
   const _DataPanel({
     required this.heartRate,
@@ -291,7 +422,11 @@ class _DataPanel extends StatelessWidget {
     required this.elevationGainMeters,
     required this.slopePercent,
     required this.isRecording,
-    required this.onRecordPressed,
+    required this.isPaused,
+    required this.onStartPressed,
+    required this.onPauseResumePressed,
+    required this.onFinishPressed,
+    required this.onHeartRateTap,
   });
 
   @override
@@ -319,51 +454,62 @@ class _DataPanel extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // --- Tile "hero" de frecuencia cardíaca ---
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentHeartRate.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.favorite,
-                        color: AppColors.accentHeartRate,
-                        size: 26,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        heartRate?.toString() ?? '--',
-                        style: const TextStyle(
-                          color: AppColors.textPrimaryOnPanel,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+                // --- Tile "hero" de frecuencia cardíaca (táctil) ---
+                InkWell(
+                  onTap: onHeartRateTap,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          AppColors.accentHeartRate.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.favorite,
+                          color: AppColors.accentHeartRate,
+                          size: 26,
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'bpm',
-                        style: TextStyle(
+                        const SizedBox(width: 12),
+                        Text(
+                          heartRate?.toString() ?? '--',
+                          style: const TextStyle(
+                            color: AppColors.textPrimaryOnPanel,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'bpm',
+                          style: TextStyle(
+                            color: AppColors.textSecondaryOnPanel,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          heartRate == null
+                              ? 'Sin sensor · toca para conectar'
+                              : 'Frecuencia cardíaca',
+                          style: const TextStyle(
+                            color: AppColors.textSecondaryOnPanel,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.chevron_right,
                           color: AppColors.textSecondaryOnPanel,
-                          fontSize: 13,
+                          size: 18,
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        heartRate == null
-                            ? 'Sin sensor conectado'
-                            : 'Frecuencia cardíaca',
-                        style: const TextStyle(
-                          color: AppColors.textSecondaryOnPanel,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -426,37 +572,76 @@ class _DataPanel extends StatelessWidget {
           ),
         ),
 
-        // --- Botón de grabar/detener, superpuesto sobre el borde ---
+        // --- Botones superpuestos sobre el borde del panel ---
         Positioned(
           top: -28,
-          child: GestureDetector(
-            onTap: onRecordPressed,
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isRecording
-                    ? AppColors.recordButtonActive
-                    : AppColors.recordButtonInactive,
-                border: Border.all(color: AppColors.panelBackground, width: 4),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black45,
-                    blurRadius: 10,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Icon(
-                isRecording ? Icons.stop : Icons.fiber_manual_record,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-          ),
+          child: isRecording
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _CircleActionButton(
+                      icon: isPaused ? Icons.play_arrow : Icons.pause,
+                      backgroundColor: AppColors.accentSlope,
+                      onTap: onPauseResumePressed,
+                      size: 56,
+                    ),
+                    const SizedBox(width: 16),
+                    _CircleActionButton(
+                      icon: Icons.flag,
+                      backgroundColor: AppColors.recordButtonActive,
+                      onTap: onFinishPressed,
+                      size: 56,
+                    ),
+                  ],
+                )
+              : _CircleActionButton(
+                  icon: Icons.fiber_manual_record,
+                  backgroundColor: AppColors.recordButtonInactive,
+                  onTap: onStartPressed,
+                  size: 64,
+                ),
         ),
       ],
+    );
+  }
+}
+
+/// Botón circular reutilizable para las acciones sobre el borde del panel
+/// (grabar, pausar/reanudar, terminar).
+class _CircleActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color backgroundColor;
+  final VoidCallback onTap;
+  final double size;
+
+  const _CircleActionButton({
+    required this.icon,
+    required this.backgroundColor,
+    required this.onTap,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: backgroundColor,
+          border: Border.all(color: AppColors.panelBackground, width: 4),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black45,
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: Colors.white, size: size * 0.42),
+      ),
     );
   }
 }
