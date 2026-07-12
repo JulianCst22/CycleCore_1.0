@@ -6,6 +6,29 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Ubicación en segundo plano: necesaria para que la grabación no
+         se corte cuando el usuario bloquea la pantalla mientras pedalea. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- ============================================================ -->
+    <!-- FOREGROUND SERVICE de ubicación (Android 9+ requiere el      -->
+    <!-- permiso genérico; Android 14+ además exige el permiso de     -->
+    <!-- tipo específico "location"). Sin esto, el servicio en primer -->
+    <!-- plano de geolocator no puede arrancar.                        -->
+    <!-- ============================================================ -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- Requerido por el foreground service para mantener el CPU        -->
+    <!-- despierto y seguir recibiendo actualizaciones GPS mientras la    -->
+    <!-- pantalla está bloqueada. Sin esto, geolocator falla en          -->
+    <!-- silencio al intentar escuchar la posición en segundo plano.      -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- La notificación persistente que muestra el foreground service    -->
+    <!-- ("Grabando actividad...") requiere este permiso en Android 13+.  -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- ============================================================ -->
     <!-- PERMISOS DE BLUETOOTH (requeridos por flutter_blue_plus)      -->
     <!-- Android 12+ (API 31+) usa los nuevos permisos granulares.     -->
@@ -22,6 +45,16 @@
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="false" />
+
+    <!-- ============================================================ -->
+    <!-- FOTOS (requerido por image_picker en Android 12 o anterior;   -->
+    <!-- en Android 13+ el selector del sistema no necesita permiso,   -->
+    <!-- pero declararlo con maxSdkVersion mantiene compatibilidad     -->
+    <!-- hacia atrás sin pedir un permiso de más en versiones nuevas). -->
+    <!-- ============================================================ -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 
     <!-- ============================================================ -->
     <!-- INTERNET (requerido para descargar tiles del mapa y          -->

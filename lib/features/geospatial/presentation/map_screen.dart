@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/heart_rate_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../shared_widgets/stat_tile.dart';
+import '../../activities/domain/activity_summary.dart';
+import '../../activities/presentation/activities_list_screen.dart';
 import '../../activities/presentation/save_activity_screen.dart';
 import '../../profile/presentation/onboarding_screen.dart';
 import '../../sensors/presentation/sensors_screen.dart';
@@ -28,10 +31,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// quiere explorar el mapa manualmente mientras graba.
   bool _followMe = true;
 
-  /// Muestras de FC tomadas mientras la grabación está activa y sin
-  /// pausar, solo para calcular el promedio/máximo de la sesión al
-  /// terminar. No se persiste esta lista en ningún lado; es transitoria.
-  final List<int> _heartRateSamples = [];
+  /// Muestras de FC (con marca de tiempo) tomadas mientras la grabación
+  /// está activa y sin pausar. Se usan para calcular promedio/máximo Y
+  /// para "casar" cada punto GPS con la FC más reciente conocida en ese
+  /// instante (ver `RouteRecordingController.finishRecording`).
+  final List<HeartRateSample> _heartRateSamples = [];
+
+  /// TEMPORAL: comparte el CSV de depuración de la fusión de altitud
+  /// (ver AltitudeDebugLogger) mientras diagnosticamos el problema de
+  /// pendiente en campo real. Quitar este botón una vez resuelto.
+  Future<void> _shareDebugLog(
+    BuildContext context,
+    RouteRecordingController controller,
+  ) async {
+    final file = controller.debugLogFile;
+    if (file != null && await file.exists()) {
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Log de depuración de altitud - CycleCore',
+      );
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aún no hay log disponible.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +85,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ref.listen<int?>(heartRateBpmProvider, (previous, next) {
       final current = ref.read(routeRecordingProvider);
       if (current.isRecording && !current.isPaused && next != null) {
-        _heartRateSamples.add(next);
+        _heartRateSamples.add(
+          HeartRateSample(timestamp: DateTime.now(), bpm: next),
+        );
       }
     });
 
@@ -229,6 +255,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // TEMPORAL: compartir log de depuración de
+                          // altitud. Quitar este botón cuando ya no se
+                          // necesite diagnosticar el problema de pendiente.
+                          _FloatingPill(
+                            onTap: () => _shareDebugLog(
+                              context,
+                              recordingController,
+                            ),
+                            child: const Icon(
+                              Icons.bug_report_outlined,
+                              size: 20,
+                              color: AppColors.textPrimaryOnPanel,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _FloatingPill(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ActivitiesListScreen(),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.list_alt,
+                              size: 20,
+                              color: AppColors.textPrimaryOnPanel,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           _FloatingPill(
                             onTap: () {
                               setState(() => _followMe = !_followMe);
@@ -368,19 +424,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     if (confirmed != true) return;
 
-    int? avgHeartRate;
-    int? maxHeartRate;
-    if (_heartRateSamples.isNotEmpty) {
-      avgHeartRate =
-          (_heartRateSamples.reduce((a, b) => a + b) /
-                  _heartRateSamples.length)
-              .round();
-      maxHeartRate = _heartRateSamples.reduce((a, b) => a > b ? a : b);
-    }
-
     final summary = await controller.finishRecording(
-      avgHeartRate: avgHeartRate,
-      maxHeartRate: maxHeartRate,
+      heartRateSamples: List.of(_heartRateSamples),
     );
 
     _heartRateSamples.clear();

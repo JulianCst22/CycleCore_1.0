@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../core/sensors/altitude_debug_logger.dart';
 import '../../../core/sensors/altitude_fusion_service.dart';
 import '../../../core/sensors/barometer_service.dart';
 import '../../activities/domain/activity_summary.dart';
@@ -111,6 +113,10 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   final AltitudeFusionService _altitudeFusion = AltitudeFusionService();
   final SlopeWindowCalculator _slopeCalculator = SlopeWindowCalculator();
 
+  /// TEMPORAL -- herramienta de diagnóstico para el problema de
+  /// pendiente en campo real. Ver AltitudeDebugLogger.
+  final AltitudeDebugLogger _debugLogger = AltitudeDebugLogger();
+
   StreamSubscription<Position>? _positionSubscription;
   StreamSubscription<double>? _pressureSubscription;
   double? _lastPressureHpa;
@@ -140,6 +146,8 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     _lastPressureHpa = null;
     _accumulatedActiveDuration = Duration.zero;
     _activeSegmentStartedAt = DateTime.now();
+
+    await _debugLogger.start(DateTime.now().millisecondsSinceEpoch.toString());
 
     state = RouteRecordingState(isRecording: true, startedAt: DateTime.now());
 
@@ -239,6 +247,21 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       altitude: newPoint.altitude,
     );
 
+    // TEMPORAL: registro de depuración de la fusión de altitud.
+    final debugSnapshot = _altitudeFusion.lastDebugSnapshot;
+    if (debugSnapshot != null) {
+      _debugLogger.logSample(
+        timestamp: newPoint.timestamp,
+        gpsAltitude: debugSnapshot.gpsAltitude,
+        smoothedPressureHpa: debugSnapshot.smoothedPressureHpa,
+        barometricAltitude: debugSnapshot.barometricAltitude,
+        barometricDeltaRaw: debugSnapshot.barometricDeltaRaw,
+        barometricDeltaClamped: debugSnapshot.barometricDeltaClamped,
+        fusedAltitude: fusedAltitude,
+        slopePercent: slope,
+      );
+    }
+
     final speedKmh = newPoint.speedMetersPerSecond * 3.6;
     final clampedSpeedKmh = speedKmh < 0 ? 0.0 : speedKmh;
 
@@ -272,22 +295,84 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   /// usuario decide no continuar sin pasar por la pantalla de guardado).
   Future<void> cancelRecording() async {
     await _unsubscribeFromSensors();
+    await _debugLogger.stop();
     _activeSegmentStartedAt = null;
     _accumulatedActiveDuration = Duration.zero;
     state = const RouteRecordingState();
   }
 
-  /// Termina la actividad: detiene los sensores, arma el snapshot final
-  /// (`ActivitySummary`) para la pantalla de guardado, y resetea el
-  /// estado de grabación para dejarlo listo para una nueva sesión.
+  /// Termina la actividad: detiene los sensores, reconstruye cada punto
+  /// enriquecido (distancia acumulada, pendiente y FC más reciente
+  /// conocida en ese instante) para alimentar los gráficos del detalle,
+  /// arma el `ActivitySummary` final, y resetea el estado para la
+  /// próxima sesión.
   Future<ActivitySummary> finishRecording({
-    required int? avgHeartRate,
-    required int? maxHeartRate,
+    required List<HeartRateSample> heartRateSamples,
   }) async {
     await _unsubscribeFromSensors();
+    await _debugLogger.stop();
 
     final elapsed = elapsedDuration();
     final startedAt = state.startedAt ?? DateTime.now();
+
+    // Recalculamos la pendiente con una instancia NUEVA del calculador
+    // (la del controller ya consumió toda la sesión y no sirve para
+    // reconstruir la curva histórica desde cero) y vamos "casando" cada
+    // punto GPS con la última lectura de FC conocida hasta ese momento.
+    final slopeCalc = SlopeWindowCalculator();
+    double runningDistance = 0;
+    int hrIndex = 0;
+    int? carriedHr;
+    final enrichedPoints = <RoutePointSnapshot>[];
+
+    for (int i = 0; i < state.points.length; i++) {
+      final point = state.points[i];
+
+      if (i > 0) {
+        final previous = state.points[i - 1];
+        runningDistance += Geolocator.distanceBetween(
+          previous.latitude,
+          previous.longitude,
+          point.latitude,
+          point.longitude,
+        );
+      }
+
+      final slope = slopeCalc.addSample(
+        cumulativeDistanceMeters: runningDistance,
+        altitude: point.altitude,
+      );
+
+      while (hrIndex < heartRateSamples.length &&
+          !heartRateSamples[hrIndex].timestamp.isAfter(point.timestamp)) {
+        carriedHr = heartRateSamples[hrIndex].bpm;
+        hrIndex++;
+      }
+
+      final pointSpeedKmh = point.speedMetersPerSecond * 3.6;
+
+      enrichedPoints.add(
+        RoutePointSnapshot(
+          latitude: point.latitude,
+          longitude: point.longitude,
+          altitude: point.altitude,
+          distanceFromStartMeters: runningDistance,
+          slopePercent: slope,
+          speedKmh: pointSpeedKmh < 0 ? 0 : pointSpeedKmh,
+          secondsFromStart: point.timestamp.difference(startedAt).inSeconds,
+          heartRateBpm: carriedHr,
+        ),
+      );
+    }
+
+    int? avgHeartRate;
+    int? maxHeartRate;
+    if (heartRateSamples.isNotEmpty) {
+      final bpmValues = heartRateSamples.map((s) => s.bpm);
+      avgHeartRate =
+          (bpmValues.reduce((a, b) => a + b) / bpmValues.length).round();
+      maxHeartRate = bpmValues.reduce((a, b) => a > b ? a : b);
+    }
 
     final summary = ActivitySummary(
       startedAt: startedAt,
@@ -299,12 +384,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       elevationGainMeters: state.elevationGainMeters,
       avgHeartRate: avgHeartRate,
       maxHeartRate: maxHeartRate,
-      routePoints: state.points
-          .map((p) => RoutePointSnapshot(
-                latitude: p.latitude,
-                longitude: p.longitude,
-              ))
-          .toList(),
+      routePoints: enrichedPoints,
     );
 
     _activeSegmentStartedAt = null;
@@ -313,6 +393,10 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
     return summary;
   }
+
+  /// TEMPORAL: archivo del log de depuración de la sesión más reciente,
+  /// para compartirlo con share_plus desde la UI.
+  File? get debugLogFile => _debugLogger.currentFile;
 
   @override
   void dispose() {
