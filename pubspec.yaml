@@ -44,6 +44,9 @@ dependencies:
   # --- Sensores del dispositivo ---
   sensors_plus: ^6.0.1
 
+  # --- Descarga de teselas de elevación desde tu cloud ---
+  http: ^1.2.2
+
   # --- Preferencias ---
   shared_preferences: ^2.3.2
 

@@ -59,23 +59,31 @@ class LocationService {
       ),
     );
   }
-
-  /// Stream continuo de posiciones, usado mientras se está grabando una
+/// Stream continuo de posiciones, usado mientras se está grabando una
   /// ruta.
+  ///
+  /// [distanceFilterMeters] e [intervalDurationMs] son parametrizables:
+  /// RouteRecordingController los reconfigura en caliente según la
+  /// velocidad actual (interpolación continua, sin umbral duro -- ver
+  /// `_targetDistanceFilterMeters` / `_targetIntervalMs` en
+  /// map_providers.dart), para que un puente cruzado rápido no se quede
+  /// con solo 1-2 puntos GPS. Los defaults (5m / 2s) son los que se
+  /// usaban antes de esa reconfiguración, para cualquier llamador que
+  /// no los pase.
   ///
   /// Se configura como Foreground Service (con notificación persistente
   /// "CycleCore está grabando tu ruta") para que Android no suspenda las
   /// actualizaciones de ubicación cuando el usuario bloquea la pantalla
   /// o cambia de app -- esto es exactamente lo que resuelve el bug de
   /// "se detiene al bloquear el teléfono".
-  ///
-  /// `distanceFilter: 5` evita saturar el flujo con ruido del GPS
-  /// cuando el ciclista está momentáneamente detenido.
-  Stream<Position> watchPosition() {
+  Stream<Position> watchPosition({
+    double distanceFilterMeters = 5,
+    int intervalDurationMs = 2000,
+  }) {
     final androidSettings = AndroidSettings(
       accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 5,
-      intervalDuration: const Duration(seconds: 2),
+      distanceFilter: distanceFilterMeters.round(),
+      intervalDuration: Duration(milliseconds: intervalDurationMs),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'CycleCore está grabando tu ruta',
         notificationText: 'Toca para volver a la app',

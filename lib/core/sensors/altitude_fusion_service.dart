@@ -25,17 +25,21 @@ class AltitudeFusionDebugSnapshot {
 /// presión barométrica, usando un filtro complementario con dos
 /// protecciones adicionales: suavizado de la presión cruda y rechazo
 /// de outliers físicamente imposibles.
+///
+/// NUEVO en esta versión: [recalibrateOffset], que permite que la Capa
+/// 1 del modelo geoespacial (AltitudeFusionFilter) ancle este servicio
+/// contra el DEM cuando hay alta confianza en que el DEM es correcto,
+/// para que la deriva barométrica no se acumule sin control en rutas
+/// largas. Este servicio sigue sin saber nada de DEM ni de lógica
+/// difusa -- solo expone el gancho para que lo llamen desde afuera.
 class AltitudeFusionService {
   static const double _seaLevelPressureHpa = 1013.25;
   static const double _complementaryAlpha = 0.98;
   static const double _pressureSmoothingAlpha = 0.3;
 
   /// Velocidad vertical máxima considerada físicamente plausible para
-  /// un ciclista (metros/segundo). Bajado de 5.0 a 2.5: el valor
-  /// anterior era tan permisivo que dejaba pasar exactamente el tipo
-  /// de salto de presión corrupto que produce pendientes del -90%+ --
-  /// ni en el descenso más extremo real (30% de pendiente a 40 km/h)
-  /// se supera ~3.3 m/s de velocidad vertical.
+  /// un ciclista (metros/segundo). Ni en el descenso más extremo real
+  /// (30% de pendiente a 40 km/h) se supera ~3.3 m/s.
   static const double _maxPlausibleVerticalSpeedMs = 2.5;
 
   double? _fusedAltitude;
@@ -124,6 +128,26 @@ class AltitudeFusionService {
     );
 
     return _fusedAltitude!;
+  }
+
+  /// Recalibra el ancla de fusión (`_fusedAltitude`) hacia una
+  /// referencia externa confiable -- en la práctica, el DEM, y SOLO
+  /// cuando AltitudeFusionFilter (Capa 1) determinó que no hay
+  /// sospecha de estructura elevada en este punto.
+  ///
+  /// No reemplaza `_fusedAltitude` de golpe (eso causaría un salto
+  /// visible en la pendiente del siguiente punto); lo desplaza
+  /// gradualmente con [blend] hacia la referencia. Esto es lo que evita
+  /// que la deriva barométrica (la presión atmosférica cambia con el
+  /// clima durante el recorrido, no solo con la altitud) se acumule
+  /// sin control en una ruta larga.
+  void recalibrateOffset(double referenceAltitude, {double blend = 0.3}) {
+    if (_fusedAltitude == null) {
+      _fusedAltitude = referenceAltitude;
+      return;
+    }
+    _fusedAltitude =
+        (_fusedAltitude! * (1 - blend)) + (referenceAltitude * blend);
   }
 
   void reset() {

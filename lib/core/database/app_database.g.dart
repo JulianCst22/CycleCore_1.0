@@ -941,15 +941,353 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
   }
 }
 
+class $DownloadedElevationTilesTable extends DownloadedElevationTiles
+    with TableInfo<$DownloadedElevationTilesTable, DownloadedElevationTile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DownloadedElevationTilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _tileNameMeta = const VerificationMeta(
+    'tileName',
+  );
+  @override
+  late final GeneratedColumn<String> tileName = GeneratedColumn<String>(
+    'tile_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _filePathMeta = const VerificationMeta(
+    'filePath',
+  );
+  @override
+  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
+    'file_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _downloadedAtMeta = const VerificationMeta(
+    'downloadedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> downloadedAt = GeneratedColumn<DateTime>(
+    'downloaded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    tileName,
+    filePath,
+    sizeBytes,
+    downloadedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'downloaded_elevation_tiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DownloadedElevationTile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('tile_name')) {
+      context.handle(
+        _tileNameMeta,
+        tileName.isAcceptableOrUnknown(data['tile_name']!, _tileNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tileNameMeta);
+    }
+    if (data.containsKey('file_path')) {
+      context.handle(
+        _filePathMeta,
+        filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_filePathMeta);
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sizeBytesMeta);
+    }
+    if (data.containsKey('downloaded_at')) {
+      context.handle(
+        _downloadedAtMeta,
+        downloadedAt.isAcceptableOrUnknown(
+          data['downloaded_at']!,
+          _downloadedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_downloadedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {tileName};
+  @override
+  DownloadedElevationTile map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DownloadedElevationTile(
+      tileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tile_name'],
+      )!,
+      filePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_path'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      downloadedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}downloaded_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DownloadedElevationTilesTable createAlias(String alias) {
+    return $DownloadedElevationTilesTable(attachedDatabase, alias);
+  }
+}
+
+class DownloadedElevationTile extends DataClass
+    implements Insertable<DownloadedElevationTile> {
+  /// Nombre estándar de la tesela, ej. "N04W075.hgt".
+  final String tileName;
+  final String filePath;
+  final int sizeBytes;
+  final DateTime downloadedAt;
+  const DownloadedElevationTile({
+    required this.tileName,
+    required this.filePath,
+    required this.sizeBytes,
+    required this.downloadedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['tile_name'] = Variable<String>(tileName);
+    map['file_path'] = Variable<String>(filePath);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    map['downloaded_at'] = Variable<DateTime>(downloadedAt);
+    return map;
+  }
+
+  DownloadedElevationTilesCompanion toCompanion(bool nullToAbsent) {
+    return DownloadedElevationTilesCompanion(
+      tileName: Value(tileName),
+      filePath: Value(filePath),
+      sizeBytes: Value(sizeBytes),
+      downloadedAt: Value(downloadedAt),
+    );
+  }
+
+  factory DownloadedElevationTile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DownloadedElevationTile(
+      tileName: serializer.fromJson<String>(json['tileName']),
+      filePath: serializer.fromJson<String>(json['filePath']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      downloadedAt: serializer.fromJson<DateTime>(json['downloadedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'tileName': serializer.toJson<String>(tileName),
+      'filePath': serializer.toJson<String>(filePath),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'downloadedAt': serializer.toJson<DateTime>(downloadedAt),
+    };
+  }
+
+  DownloadedElevationTile copyWith({
+    String? tileName,
+    String? filePath,
+    int? sizeBytes,
+    DateTime? downloadedAt,
+  }) => DownloadedElevationTile(
+    tileName: tileName ?? this.tileName,
+    filePath: filePath ?? this.filePath,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    downloadedAt: downloadedAt ?? this.downloadedAt,
+  );
+  DownloadedElevationTile copyWithCompanion(
+    DownloadedElevationTilesCompanion data,
+  ) {
+    return DownloadedElevationTile(
+      tileName: data.tileName.present ? data.tileName.value : this.tileName,
+      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      downloadedAt: data.downloadedAt.present
+          ? data.downloadedAt.value
+          : this.downloadedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DownloadedElevationTile(')
+          ..write('tileName: $tileName, ')
+          ..write('filePath: $filePath, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('downloadedAt: $downloadedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(tileName, filePath, sizeBytes, downloadedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DownloadedElevationTile &&
+          other.tileName == this.tileName &&
+          other.filePath == this.filePath &&
+          other.sizeBytes == this.sizeBytes &&
+          other.downloadedAt == this.downloadedAt);
+}
+
+class DownloadedElevationTilesCompanion
+    extends UpdateCompanion<DownloadedElevationTile> {
+  final Value<String> tileName;
+  final Value<String> filePath;
+  final Value<int> sizeBytes;
+  final Value<DateTime> downloadedAt;
+  final Value<int> rowid;
+  const DownloadedElevationTilesCompanion({
+    this.tileName = const Value.absent(),
+    this.filePath = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.downloadedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DownloadedElevationTilesCompanion.insert({
+    required String tileName,
+    required String filePath,
+    required int sizeBytes,
+    required DateTime downloadedAt,
+    this.rowid = const Value.absent(),
+  }) : tileName = Value(tileName),
+       filePath = Value(filePath),
+       sizeBytes = Value(sizeBytes),
+       downloadedAt = Value(downloadedAt);
+  static Insertable<DownloadedElevationTile> custom({
+    Expression<String>? tileName,
+    Expression<String>? filePath,
+    Expression<int>? sizeBytes,
+    Expression<DateTime>? downloadedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (tileName != null) 'tile_name': tileName,
+      if (filePath != null) 'file_path': filePath,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (downloadedAt != null) 'downloaded_at': downloadedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DownloadedElevationTilesCompanion copyWith({
+    Value<String>? tileName,
+    Value<String>? filePath,
+    Value<int>? sizeBytes,
+    Value<DateTime>? downloadedAt,
+    Value<int>? rowid,
+  }) {
+    return DownloadedElevationTilesCompanion(
+      tileName: tileName ?? this.tileName,
+      filePath: filePath ?? this.filePath,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      downloadedAt: downloadedAt ?? this.downloadedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (tileName.present) {
+      map['tile_name'] = Variable<String>(tileName.value);
+    }
+    if (filePath.present) {
+      map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (downloadedAt.present) {
+      map['downloaded_at'] = Variable<DateTime>(downloadedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DownloadedElevationTilesCompanion(')
+          ..write('tileName: $tileName, ')
+          ..write('filePath: $filePath, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('downloadedAt: $downloadedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $ActivitiesTable activities = $ActivitiesTable(this);
+  late final $DownloadedElevationTilesTable downloadedElevationTiles =
+      $DownloadedElevationTilesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [activities];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    activities,
+    downloadedElevationTiles,
+  ];
 }
 
 typedef $$ActivitiesTableCreateCompanionBuilder =
@@ -1369,10 +1707,217 @@ typedef $$ActivitiesTableProcessedTableManager =
       Activity,
       PrefetchHooks Function()
     >;
+typedef $$DownloadedElevationTilesTableCreateCompanionBuilder =
+    DownloadedElevationTilesCompanion Function({
+      required String tileName,
+      required String filePath,
+      required int sizeBytes,
+      required DateTime downloadedAt,
+      Value<int> rowid,
+    });
+typedef $$DownloadedElevationTilesTableUpdateCompanionBuilder =
+    DownloadedElevationTilesCompanion Function({
+      Value<String> tileName,
+      Value<String> filePath,
+      Value<int> sizeBytes,
+      Value<DateTime> downloadedAt,
+      Value<int> rowid,
+    });
+
+class $$DownloadedElevationTilesTableFilterComposer
+    extends Composer<_$AppDatabase, $DownloadedElevationTilesTable> {
+  $$DownloadedElevationTilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get tileName => $composableBuilder(
+    column: $table.tileName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DownloadedElevationTilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DownloadedElevationTilesTable> {
+  $$DownloadedElevationTilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get tileName => $composableBuilder(
+    column: $table.tileName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DownloadedElevationTilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DownloadedElevationTilesTable> {
+  $$DownloadedElevationTilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get tileName =>
+      $composableBuilder(column: $table.tileName, builder: (column) => column);
+
+  GeneratedColumn<String> get filePath =>
+      $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$DownloadedElevationTilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DownloadedElevationTilesTable,
+          DownloadedElevationTile,
+          $$DownloadedElevationTilesTableFilterComposer,
+          $$DownloadedElevationTilesTableOrderingComposer,
+          $$DownloadedElevationTilesTableAnnotationComposer,
+          $$DownloadedElevationTilesTableCreateCompanionBuilder,
+          $$DownloadedElevationTilesTableUpdateCompanionBuilder,
+          (
+            DownloadedElevationTile,
+            BaseReferences<
+              _$AppDatabase,
+              $DownloadedElevationTilesTable,
+              DownloadedElevationTile
+            >,
+          ),
+          DownloadedElevationTile,
+          PrefetchHooks Function()
+        > {
+  $$DownloadedElevationTilesTableTableManager(
+    _$AppDatabase db,
+    $DownloadedElevationTilesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DownloadedElevationTilesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$DownloadedElevationTilesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DownloadedElevationTilesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> tileName = const Value.absent(),
+                Value<String> filePath = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<DateTime> downloadedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DownloadedElevationTilesCompanion(
+                tileName: tileName,
+                filePath: filePath,
+                sizeBytes: sizeBytes,
+                downloadedAt: downloadedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String tileName,
+                required String filePath,
+                required int sizeBytes,
+                required DateTime downloadedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => DownloadedElevationTilesCompanion.insert(
+                tileName: tileName,
+                filePath: filePath,
+                sizeBytes: sizeBytes,
+                downloadedAt: downloadedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DownloadedElevationTilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DownloadedElevationTilesTable,
+      DownloadedElevationTile,
+      $$DownloadedElevationTilesTableFilterComposer,
+      $$DownloadedElevationTilesTableOrderingComposer,
+      $$DownloadedElevationTilesTableAnnotationComposer,
+      $$DownloadedElevationTilesTableCreateCompanionBuilder,
+      $$DownloadedElevationTilesTableUpdateCompanionBuilder,
+      (
+        DownloadedElevationTile,
+        BaseReferences<
+          _$AppDatabase,
+          $DownloadedElevationTilesTable,
+          DownloadedElevationTile
+        >,
+      ),
+      DownloadedElevationTile,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
   $$ActivitiesTableTableManager get activities =>
       $$ActivitiesTableTableManager(_db, _db.activities);
+  $$DownloadedElevationTilesTableTableManager get downloadedElevationTiles =>
+      $$DownloadedElevationTilesTableTableManager(
+        _db,
+        _db.downloadedElevationTiles,
+      );
 }
