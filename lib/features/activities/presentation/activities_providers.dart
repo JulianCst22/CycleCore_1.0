@@ -1,13 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/database/database_providers.dart';
 import '../data/activities_repository.dart';
 
-final appDatabaseProvider = Provider<AppDatabase>((ref) {
-  final db = AppDatabase();
-  ref.onDispose(db.close);
-  return db;
-});
+export '../../../core/database/database_providers.dart' show appDatabaseProvider;
 
 final activitiesRepositoryProvider = Provider<ActivitiesRepository>((ref) {
   return ActivitiesRepository(ref.watch(appDatabaseProvider));

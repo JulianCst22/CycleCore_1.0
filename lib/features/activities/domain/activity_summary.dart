@@ -33,20 +33,78 @@ class ActivitySummary {
   });
 }
 
-/// Punto de ruta simplificado a solo lat/lng, para no acoplar esta capa
-/// al paquete `latlong2` que usa la capa de mapas.
+/// Punto de ruta enriquecido: no solo la posición, sino todo lo necesario
+/// para dibujar los gráficos de altimetría/FC/velocidad con scrubbing en
+/// el detalle de la actividad. Se guarda serializado dentro de
+/// `Activities.routePointsJson`, así que cualquier campo nuevo que se
+/// agregue aquí debe tener un valor de respaldo en `fromJson` para no
+/// romper actividades ya guardadas con una versión anterior del modelo.
 class RoutePointSnapshot {
   final double latitude;
   final double longitude;
+  final double altitude;
 
-  const RoutePointSnapshot({required this.latitude, required this.longitude});
+  /// Distancia acumulada (metros) desde el inicio de la actividad hasta
+  /// este punto. Es el eje X de los gráficos.
+  final double distanceFromStartMeters;
 
-  Map<String, dynamic> toJson() => {'lat': latitude, 'lng': longitude};
+  final double slopePercent;
+  final double speedKmh;
+
+  /// Segundos transcurridos desde el inicio (tiempo activo, sin pausas).
+  final int secondsFromStart;
+
+  /// Última lectura de FC conocida en este instante ("carry forward": si
+  /// el sensor no mandó una muestra justo en este punto, se usa la
+  /// última que sí llegó). Null si aún no había ninguna lectura de FC.
+  final int? heartRateBpm;
+
+  const RoutePointSnapshot({
+    required this.latitude,
+    required this.longitude,
+    this.altitude = 0,
+    this.distanceFromStartMeters = 0,
+    this.slopePercent = 0,
+    this.speedKmh = 0,
+    this.secondsFromStart = 0,
+    this.heartRateBpm,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'lat': latitude,
+        'lng': longitude,
+        'alt': altitude,
+        'dist': distanceFromStartMeters,
+        'slope': slopePercent,
+        'speed': speedKmh,
+        't': secondsFromStart,
+        'hr': heartRateBpm,
+      };
 
   factory RoutePointSnapshot.fromJson(Map<String, dynamic> json) {
     return RoutePointSnapshot(
       latitude: (json['lat'] as num).toDouble(),
       longitude: (json['lng'] as num).toDouble(),
+      // Los campos nuevos usan `??` con un valor de respaldo para poder
+      // seguir leyendo actividades grabadas antes de agregar estos datos
+      // (esas solo tenían lat/lng) sin que la app truene al abrirlas.
+      altitude: (json['alt'] as num?)?.toDouble() ?? 0,
+      distanceFromStartMeters: (json['dist'] as num?)?.toDouble() ?? 0,
+      slopePercent: (json['slope'] as num?)?.toDouble() ?? 0,
+      speedKmh: (json['speed'] as num?)?.toDouble() ?? 0,
+      secondsFromStart: (json['t'] as num?)?.toInt() ?? 0,
+      heartRateBpm: (json['hr'] as num?)?.toInt(),
     );
   }
+}
+
+/// Una lectura puntual de FC con su momento exacto, capturada mientras se
+/// graba. Se usa solo de forma transitoria para "casar" cada lectura de
+/// FC con el punto GPS más cercano en el tiempo (ver
+/// `RouteRecordingController.finishRecording`); no se persiste tal cual.
+class HeartRateSample {
+  final DateTime timestamp;
+  final int bpm;
+
+  const HeartRateSample({required this.timestamp, required this.bpm});
 }

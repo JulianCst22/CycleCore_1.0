@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/heart_rate_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../shared_widgets/stat_tile.dart';
+import '../../activities/domain/activity_summary.dart';
+import '../../activities/presentation/activities_list_screen.dart';
+import '../../elevation/presentation/elevation_download_dialog.dart';
+import '../../elevation/presentation/elevation_providers.dart';
 import '../../activities/presentation/save_activity_screen.dart';
 import '../../profile/presentation/onboarding_screen.dart';
 import '../../sensors/presentation/sensors_screen.dart';
@@ -19,19 +24,86 @@ class MapScreen extends ConsumerStatefulWidget {
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen>
+    with SingleTickerProviderStateMixin {
   final MapController _mapController = MapController();
 
   /// Cuando está en true, el mapa recentra automáticamente la cámara
   /// sobre la posición actual a medida que llegan nuevos puntos GPS.
-  /// El ciclista puede desactivarlo tocando el botón de ubicación si
-  /// quiere explorar el mapa manualmente mientras graba.
   bool _followMe = true;
 
-  /// Muestras de FC tomadas mientras la grabación está activa y sin
-  /// pausar, solo para calcular el promedio/máximo de la sesión al
-  /// terminar. No se persiste esta lista en ningún lado; es transitoria.
-  final List<int> _heartRateSamples = [];
+  final List<HeartRateSample> _heartRateSamples = [];
+
+  // --- Animación del marcador entre puntos GPS reales ("efecto Waze") ---
+  //
+  // Por qué: el GPS real solo entrega un punto nuevo cada ~2 segundos
+  // (ver `intervalDuration` en location_service.dart). Sin animación,
+  // el marcador salta de golpe de un punto al siguiente -- a más de
+  // 60 km/h esos saltos son de decenas de metros y se ven "a trompicones".
+  // Waze/Google Maps no reciben el GPS más rápido; interpolan
+  // visualmente el marcador entre una posición y la siguiente durante
+  // ese mismo intervalo. Aquí se hace lo mismo con un AnimationController.
+  late final AnimationController _markerAnimController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2), // valor inicial, se recalcula por punto
+  )..addListener(_onMarkerAnimationTick);
+
+  /// Límites de seguridad para la duración calculada: por debajo de
+  /// 300ms la animación sería imperceptible (y el listener dispararía
+  /// más rápido de lo necesario); por encima de 6s (p.ej. tras perder
+  /// señal GPS un rato) animar el salto completo se vería peor que un
+  /// corte directo -- ahí se prefiere el salto instantáneo.
+  static const Duration _minAnimDuration = Duration(milliseconds: 300);
+  static const Duration _maxAnimDuration = Duration(seconds: 6);
+
+  Animation<double>? _latAnim;
+  Animation<double>? _lngAnim;
+  latlng.LatLng? _animatedPosition;
+
+  @override
+  void dispose() {
+    _markerAnimController.dispose();
+    super.dispose();
+  }
+
+  void _onMarkerAnimationTick() {
+    if (_latAnim == null || _lngAnim == null) return;
+    final next = latlng.LatLng(_latAnim!.value, _lngAnim!.value);
+    setState(() => _animatedPosition = next);
+    if (_followMe) {
+      _mapController.move(next, _mapController.camera.zoom);
+    }
+  }
+
+  /// Arranca (o retoma) la animación del marcador hacia [target], desde
+  /// la posición animada actual -- así si llega un punto nuevo antes de
+  /// que termine la animación anterior, no hay salto brusco, se
+  /// re-interpola desde donde iba. [duration] debe ser el tiempo real
+  /// transcurrido entre el punto GPS anterior y este (medido por el
+  /// llamador con los timestamps reales) -- el GPS no entrega
+  /// exactamente cada `intervalDuration` configurado (varía por modo
+  /// doze, pérdida de señal, etc.), así que asumir un valor fijo
+  /// desincroniza la animación tarde o temprano.
+  void _animateMarkerTo(latlng.LatLng target, {Duration? duration}) {
+    final start = _animatedPosition ?? target;
+    _latAnim = Tween<double>(begin: start.latitude, end: target.latitude)
+        .animate(
+      CurvedAnimation(parent: _markerAnimController, curve: Curves.linear),
+    );
+    _lngAnim = Tween<double>(begin: start.longitude, end: target.longitude)
+        .animate(
+      CurvedAnimation(parent: _markerAnimController, curve: Curves.linear),
+    );
+    if (duration != null) {
+      var clamped = duration;
+      if (clamped < _minAnimDuration) clamped = _minAnimDuration;
+      if (clamped > _maxAnimDuration) clamped = _maxAnimDuration;
+      _markerAnimController.duration = clamped;
+    }
+    _markerAnimController
+      ..reset()
+      ..forward();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,28 +112,35 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final recordingController = ref.read(routeRecordingProvider.notifier);
     final heartRate = ref.watch(heartRateBpmProvider);
 
-    // Solo nos interesa que este provider dispare un rebuild cada
-    // segundo para refrescar el tiempo transcurrido; no usamos su valor.
     ref.watch(secondTickerProvider);
 
-    // Efecto secundario: si el usuario tiene activado "seguirme", movemos
-    // la cámara del mapa cada vez que llega un nuevo punto GPS.
+    // Efecto secundario: cada vez que llega un punto GPS nuevo, se
+    // anima el marcador hacia él (y la cámara lo sigue, si _followMe
+    // está activo). La duración de la animación se mide con el
+    // timestamp real entre el punto anterior y este -- no se asume un
+    // intervalo fijo, porque el GPS real no entrega exactamente cada
+    // `intervalDuration` configurado.
     ref.listen<RouteRecordingState>(routeRecordingProvider, (previous, next) {
-      if (_followMe && next.points.isNotEmpty) {
-        final last = next.points.last;
-        _mapController.move(
-          latlng.LatLng(last.latitude, last.longitude),
-          _mapController.camera.zoom,
-        );
+      if (next.points.isEmpty) return;
+      final last = next.points.last;
+
+      Duration? gap;
+      if (previous != null && previous.points.isNotEmpty) {
+        gap = last.timestamp.difference(previous.points.last.timestamp);
       }
+
+      _animateMarkerTo(
+        latlng.LatLng(last.latitude, last.longitude),
+        duration: gap,
+      );
     });
 
-    // Vamos acumulando muestras de FC mientras se graba activamente
-    // (no en pausa), para poder calcular promedio/máximo al finalizar.
     ref.listen<int?>(heartRateBpmProvider, (previous, next) {
       final current = ref.read(routeRecordingProvider);
       if (current.isRecording && !current.isPaused && next != null) {
-        _heartRateSamples.add(next);
+        _heartRateSamples.add(
+          HeartRateSample(timestamp: DateTime.now(), bpm: next),
+        );
       }
     });
 
@@ -93,19 +172,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               .map((p) => latlng.LatLng(p.latitude, p.longitude))
               .toList();
 
+          final markerPosition = _animatedPosition ??
+              (recordedLatLngs.isNotEmpty
+                  ? recordedLatLngs.last
+                  : initialCenter);
+
           return Stack(
             children: [
-              // ---------------------------------------------------
-              // Mapa a pantalla completa, de fondo.
-              // ---------------------------------------------------
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
                   initialCenter: initialCenter,
                   initialZoom: 16,
                   onPositionChanged: (position, hasGesture) {
-                    // Si el usuario arrastra el mapa manualmente,
-                    // dejamos de seguirlo automáticamente.
                     if (hasGesture && _followMe) {
                       setState(() => _followMe = false);
                     }
@@ -130,9 +209,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   MarkerLayer(
                     markers: [
                       Marker(
-                        point: recordedLatLngs.isNotEmpty
-                            ? recordedLatLngs.last
-                            : initialCenter,
+                        point: markerPosition,
                         width: 44,
                         height: 44,
                         child: Container(
@@ -148,10 +225,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               ),
                             ],
                           ),
-                          // Rotamos el ícono según el bearing (rumbo) real
-                          // reportado por el GPS, para que apunte hacia
-                          // donde el ciclista se está moviendo en vez de
-                          // quedar fijo hacia arriba.
                           child: Transform.rotate(
                             angle: recordingState.currentBearingDegrees *
                                 (3.14159265 / 180),
@@ -168,9 +241,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ],
               ),
 
-              // ---------------------------------------------------
-              // Barra superior flotante: título + acciones (seguir/perfil).
-              // ---------------------------------------------------
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -223,20 +293,67 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   fontSize: 13,
                                 ),
                               ),
+                            if (recordingState.isRecording &&
+                                recordingState.isApproximateElevation) ...[
+                              const SizedBox(width: 8),
+                              const Tooltip(
+                                message:
+                                    'Sin DEM confiable para esta zona (o '
+                                    'posible puente/viaducto): la pendiente '
+                                    'prioriza GPS/barómetro, menos precisa.',
+                                child: Icon(
+                                  Icons.signal_cellular_alt_outlined,
+                                  size: 14,
+                                  color: AppColors.textSecondaryOnPanel,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (!recordingState.isRecording &&
+                              recordingController.debugLogFile != null) ...[
+                            _FloatingPill(
+                              onTap: () {
+                                final file = recordingController.debugLogFile!;
+                                Share.shareXFiles(
+                                  [XFile(file.path)],
+                                    text: 'Log CycleCore',
+                                
+                                );
+                              },
+                              child: const Icon(
+                                Icons.bug_report_outlined,
+                                size: 20,
+                                color: AppColors.textPrimaryOnPanel,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          _FloatingPill(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ActivitiesListScreen(),
+                                ),
+                              );
+                            },
+                            child: const Icon(
+                              Icons.list_alt,
+                              size: 20,
+                              color: AppColors.textPrimaryOnPanel,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           _FloatingPill(
                             onTap: () {
                               setState(() => _followMe = !_followMe);
                               if (_followMe) {
                                 _mapController.move(
-                                  recordedLatLngs.isNotEmpty
-                                      ? recordedLatLngs.last
-                                      : initialCenter,
+                                  markerPosition,
                                   _mapController.camera.zoom,
                                 );
                               }
@@ -275,9 +392,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
 
-              // ---------------------------------------------------
-              // Panel inferior tipo "cockpit" con todos los datos.
-              // ---------------------------------------------------
               Align(
                 alignment: Alignment.bottomCenter,
                 child: _DataPanel(
@@ -288,7 +402,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   avgSpeedKmh:
                       recordingState.averageSpeedKmhOver(elapsed),
                   elevationGainMeters: recordingState.elevationGainMeters,
-                  slopePercent: recordingState.currentSlopePercent,
+                  // Se usa la pendiente ya formateada (bandas +
+                  // histéresis, estilo Garmin) para el panel en vivo --
+                  // ver SlopePresentationFormatter. La pendiente "cruda
+                  // de confianza" (currentSlopePercent) sigue siendo la
+                  // que se guarda y se grafica.
+                  slopePercent: recordingState.displaySlopePercent,
                   isRecording: recordingState.isRecording,
                   isPaused: recordingState.isPaused,
                   onHeartRateTap: () {
@@ -301,6 +420,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   onStartPressed: () async {
                     _heartRateSamples.clear();
                     try {
+                      final missingTiles = await ref.read(
+                        missingElevationTilesProvider.future,
+                      );
+                      if (missingTiles.isNotEmpty && context.mounted) {
+                        await showElevationDownloadDialog(
+                          context,
+                          missingTiles,
+                        );
+                      }
                       await recordingController.startRecording();
                     } catch (e) {
                       if (context.mounted) {
@@ -368,19 +496,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     if (confirmed != true) return;
 
-    int? avgHeartRate;
-    int? maxHeartRate;
-    if (_heartRateSamples.isNotEmpty) {
-      avgHeartRate =
-          (_heartRateSamples.reduce((a, b) => a + b) /
-                  _heartRateSamples.length)
-              .round();
-      maxHeartRate = _heartRateSamples.reduce((a, b) => a > b ? a : b);
-    }
-
     final summary = await controller.finishRecording(
-      avgHeartRate: avgHeartRate,
-      maxHeartRate: maxHeartRate,
+      heartRateSamples: List.of(_heartRateSamples),
     );
 
     _heartRateSamples.clear();
@@ -395,9 +512,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 }
 
-/// Panel oscuro con los datos del recorrido, anclado al fondo de la
-/// pantalla, con los botones de pausar/reanudar y terminar superpuestos
-/// en su borde superior (estilo cockpit de ciclocomputador).
 class _DataPanel extends StatelessWidget {
   final int? heartRate;
   final Duration elapsed;
@@ -454,7 +568,6 @@ class _DataPanel extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // --- Tile "hero" de frecuencia cardíaca (táctil) ---
                 InkWell(
                   onTap: onHeartRateTap,
                   borderRadius: BorderRadius.circular(16),
@@ -514,7 +627,6 @@ class _DataPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
 
-                // --- Grid de métricas derivadas del GPS ---
                 GridView.count(
                   crossAxisCount: 3,
                   shrinkWrap: true,
@@ -571,8 +683,6 @@ class _DataPanel extends StatelessWidget {
             ),
           ),
         ),
-
-        // --- Botones superpuestos sobre el borde del panel ---
         Positioned(
           top: -28,
           child: isRecording
@@ -606,8 +716,6 @@ class _DataPanel extends StatelessWidget {
   }
 }
 
-/// Botón circular reutilizable para las acciones sobre el borde del panel
-/// (grabar, pausar/reanudar, terminar).
 class _CircleActionButton extends StatelessWidget {
   final IconData icon;
   final Color backgroundColor;
@@ -646,7 +754,6 @@ class _CircleActionButton extends StatelessWidget {
   }
 }
 
-/// Contenedor "pastilla" translúcido usado en la barra superior flotante.
 class _FloatingPill extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -670,7 +777,6 @@ class _FloatingPill extends StatelessWidget {
   }
 }
 
-/// Punto rojo parpadeante que indica que hay una grabación en curso.
 class _PulsingDot extends StatefulWidget {
   const _PulsingDot();
 
