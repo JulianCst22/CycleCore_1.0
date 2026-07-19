@@ -30,6 +30,8 @@ class AppColors {
   static const Color accentHeartRate = Color(0xFFEF5350); // Rojo
   static const Color accentElevation = Color(0xFF81C784); // Verde
   static const Color accentSlope = Color(0xFFFFA726); // Naranja
+  static const Color accentPower = Color(0xFFAB47BC); // Violeta
+  static const Color accentCadence = Color(0xFF26A69A); // Verde azulado
 
   static const Color textPrimaryOnPanel = Color(0xFFFFFFFF);
   static const Color textSecondaryOnPanel = Color(0xFF9CA3AF);

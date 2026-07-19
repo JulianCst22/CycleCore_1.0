@@ -63,6 +63,34 @@ class AltitudeFusionFilter {
         ]),
         outputValue: 0.1,
       ),
+      // VÁLVULA DE ESCAPE -- agregada tras la prueba de campo del Alto
+      // del Águila (Zipaquirá, 2026-07-16): una discrepancia sostenida
+      // por CIENTOS de metros (deriva barométrica en una subida larga,
+      // la presión atmosférica cambia con el clima además de con la
+      // altitud) dispara exactamente la misma firma que
+      // 'estructura_elevada_confia_realtime' (magnitud grande +
+      // persistencia sostenida) -- ambas son indistinguibles con solo
+      // esas dos señales, y `persistenceSustained` se satura en 45m y
+      // se queda en 1.0 para siempre, así que un puente de 45m y una
+      // deriva de 2km pesaban EXACTAMENTE igual. El resultado medido:
+      // trustDem se quedaba en ~0.1 durante toda la subida, y como la
+      // recalibración solo se acumula cuando `!bridgeSuspected`, nunca
+      // se destrababa -- el error creció sin control de -3.5m a +21m
+      // en 20 minutos.
+      //
+      // Esta regla no reemplaza a la anterior con un booleano -- compite
+      // con ella en el promedio ponderado del motor (ver
+      // FuzzyInferenceEngine.infer). Ningún puente/viaducto real de la
+      // zona (Bogotá/Zipaquirá, "puentes cortos" según lo confirmado)
+      // se sostiene 300-600m, así que a partir de ahí esta regla gana
+      // peso gradualmente y empuja trustDem de vuelta hacia el DEM --
+      // lo que a su vez baja bridgeSuspected por debajo de 0.3 y
+      // destraba shouldRecalibrate().
+      FuzzyRule(
+        name: 'persistencia_excesiva_no_es_puente',
+        firingStrength: (d) => d['persistenceExcessive']!,
+        outputValue: 0.85,
+      ),
       FuzzyRule(
         name: 'zona_gris_mezcla',
         firingStrength: (d) =>
@@ -107,6 +135,7 @@ class AltitudeFusionFilter {
       'persistenceShort': rampDown(_persistenceDistance, 5, 20),
       'persistenceMedium': triangular(_persistenceDistance, 10, 25, 40),
       'persistenceSustained': rampUp(_persistenceDistance, 25, 45),
+      'persistenceExcessive': rampUp(_persistenceDistance, 300, 600),
       'gpsInaccurate': reading.gpsAccuracyMeters == null
           ? 0.0
           : rampUp(reading.gpsAccuracyMeters!, 15, 30),

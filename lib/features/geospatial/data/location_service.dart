@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_android/geolocator_android.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
@@ -59,31 +61,72 @@ class LocationService {
       ),
     );
   }
-/// Stream continuo de posiciones, usado mientras se está grabando una
-  /// ruta.
+
+  /// Espera hasta que llegue un fix con precisión razonable, o hasta que
+  /// venza [timeout] -- lo que ocurra primero. Pensado para llamarse
+  /// justo antes de arrancar una grabación.
   ///
-  /// [distanceFilterMeters] e [intervalDurationMs] son parametrizables:
-  /// RouteRecordingController los reconfigura en caliente según la
-  /// velocidad actual (interpolación continua, sin umbral duro -- ver
-  /// `_targetDistanceFilterMeters` / `_targetIntervalMs` en
-  /// map_providers.dart), para que un puente cruzado rápido no se quede
-  /// con solo 1-2 puntos GPS. Los defaults (5m / 2s) son los que se
-  /// usaban antes de esa reconfiguración, para cualquier llamador que
-  /// no los pase.
+  /// Complementa (no reemplaza) el buffer de calentamiento de
+  /// SlopePlausibilityFilter: esto reduce la probabilidad de arrancar
+  /// con un fix malo en el origen, pero no depende de conseguirlo
+  /// siempre -- si el timeout vence con el GPS todavía inestable, la
+  /// grabación arranca igual y el buffer de calentamiento actúa como
+  /// red de seguridad.
+  ///
+  /// Agregado tras confirmar en campo (Alto del Águila, 2026-07-16) que
+  /// el primer fix de un cold start puede llegar hasta ~19m desviado en
+  /// altitud.
+  Future<void> waitForStableFix({
+    Duration timeout = const Duration(seconds: 8),
+    double desiredAccuracyMeters = 20,
+  }) async {
+    final completer = Completer<void>();
+    StreamSubscription<Position>? sub;
+
+    final timer = Timer(timeout, () {
+      if (!completer.isCompleted) completer.complete();
+    });
+
+    sub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+      ),
+    ).listen(
+      (position) {
+        if (!completer.isCompleted &&
+            position.accuracy <= desiredAccuracyMeters) {
+          completer.complete();
+        }
+      },
+      onError: (_) {
+        // Si el stream falla acá, no bloqueamos el arranque de la
+        // grabación por esto -- se deja que watchPosition() en
+        // _subscribeToSensors() reporte el error real si persiste.
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
+
+    await completer.future;
+    timer.cancel();
+    await sub.cancel();
+  }
+
+  /// Stream continuo de posiciones, usado mientras se está grabando una
+  /// ruta.
   ///
   /// Se configura como Foreground Service (con notificación persistente
   /// "CycleCore está grabando tu ruta") para que Android no suspenda las
   /// actualizaciones de ubicación cuando el usuario bloquea la pantalla
   /// o cambia de app -- esto es exactamente lo que resuelve el bug de
   /// "se detiene al bloquear el teléfono".
-  Stream<Position> watchPosition({
-    double distanceFilterMeters = 5,
-    int intervalDurationMs = 2000,
-  }) {
+  ///
+  /// `distanceFilter: 5` evita saturar el flujo con ruido del GPS
+  /// cuando el ciclista está momentáneamente detenido.
+  Stream<Position> watchPosition() {
     final androidSettings = AndroidSettings(
       accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: distanceFilterMeters.round(),
-      intervalDuration: Duration(milliseconds: intervalDurationMs),
+      distanceFilter: 5,
+      intervalDuration: const Duration(seconds: 2),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'CycleCore está grabando tu ruta',
         notificationText: 'Toca para volver a la app',

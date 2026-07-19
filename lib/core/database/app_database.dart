@@ -10,9 +10,9 @@ part 'app_database.g.dart';
 /// Tabla de actividades grabadas (carreras/entrenamientos).
 ///
 /// `routePointsJson` guarda el trazado completo (lat/lng/altitud/
-/// pendiente/velocidad/FC por punto) serializado. `photoPathsJson` guarda
-/// rutas absolutas a los archivos ya copiados al almacenamiento
-/// permanente de la app (ver ActivitiesRepository).
+/// pendiente/velocidad/FC/potencia/cadencia por punto) serializado.
+/// `photoPathsJson` guarda rutas absolutas a los archivos ya copiados al
+/// almacenamiento permanente de la app (ver ActivitiesRepository).
 class Activities extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();
@@ -33,6 +33,15 @@ class Activities extends Table {
 
   IntColumn get avgHeartRate => integer().nullable()();
   IntColumn get maxHeartRate => integer().nullable()();
+
+  /// Null si no hubo medidor de potencia conectado durante la grabación.
+  IntColumn get avgPower => integer().nullable()();
+  IntColumn get maxPower => integer().nullable()();
+
+  /// Cadencia redondeada a RPM entero para el resumen -- el detalle por
+  /// punto (RoutePointSnapshot) sí guarda el valor sin redondear.
+  IntColumn get avgCadence => integer().nullable()();
+  IntColumn get maxCadence => integer().nullable()();
 
   TextColumn get notes => text().nullable()();
   TextColumn get routePointsJson =>
@@ -62,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -74,6 +83,16 @@ class AppDatabase extends _$AppDatabase {
           // elevación) solo necesita la tabla nueva; Activities no cambió.
           if (from < 2) {
             await m.createTable(downloadedElevationTiles);
+          }
+          // Quien venía de antes del módulo de potencia/cadencia (v3)
+          // necesita estas 4 columnas nuevas, todas nullable -- las
+          // actividades ya guardadas simplemente quedan con estos campos
+          // en null (equivalente a "sin sensor conectado ese día").
+          if (from < 3) {
+            await m.addColumn(activities, activities.avgPower);
+            await m.addColumn(activities, activities.maxPower);
+            await m.addColumn(activities, activities.avgCadence);
+            await m.addColumn(activities, activities.maxCadence);
           }
         },
       );

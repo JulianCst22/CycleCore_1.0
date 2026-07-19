@@ -17,6 +17,16 @@ class ActivitySummary {
   final int? avgHeartRate;
   final int? maxHeartRate;
 
+  /// Null si no hubo medidor de potencia conectado durante la grabación.
+  final int? avgPower;
+  final int? maxPower;
+
+  /// Null si no hubo sensor de cadencia (propio o vía medidor de
+  /// potencia) conectado durante la grabación. Redondeados a RPM entero
+  /// para el resumen -- el detalle por punto sí guarda el valor exacto.
+  final int? avgCadence;
+  final int? maxCadence;
+
   final List<RoutePointSnapshot> routePoints;
 
   const ActivitySummary({
@@ -30,15 +40,20 @@ class ActivitySummary {
     required this.routePoints,
     this.avgHeartRate,
     this.maxHeartRate,
+    this.avgPower,
+    this.maxPower,
+    this.avgCadence,
+    this.maxCadence,
   });
 }
 
 /// Punto de ruta enriquecido: no solo la posición, sino todo lo necesario
-/// para dibujar los gráficos de altimetría/FC/velocidad con scrubbing en
-/// el detalle de la actividad. Se guarda serializado dentro de
-/// `Activities.routePointsJson`, así que cualquier campo nuevo que se
-/// agregue aquí debe tener un valor de respaldo en `fromJson` para no
-/// romper actividades ya guardadas con una versión anterior del modelo.
+/// para dibujar los gráficos de altimetría/FC/velocidad/potencia/cadencia
+/// con scrubbing en el detalle de la actividad. Se guarda serializado
+/// dentro de `Activities.routePointsJson`, así que cualquier campo nuevo
+/// que se agregue aquí debe tener un valor de respaldo en `fromJson` para
+/// no romper actividades ya guardadas con una versión anterior del
+/// modelo.
 class RoutePointSnapshot {
   final double latitude;
   final double longitude;
@@ -59,6 +74,18 @@ class RoutePointSnapshot {
   /// última que sí llegó). Null si aún no había ninguna lectura de FC.
   final int? heartRateBpm;
 
+  /// Última lectura de potencia conocida en este instante (mismo
+  /// criterio de "carry forward" que heartRateBpm). Null si no había
+  /// medidor de potencia conectado todavía en este punto.
+  final int? powerWatts;
+
+  /// Última lectura de cadencia conocida en este instante (mismo
+  /// criterio de "carry forward"). Viene de `cadenceRpmProvider`, así
+  /// que ya trae la fusión con prioridad (potencia primero, CSC como
+  /// respaldo) resuelta -- este campo no sabe ni le importa de qué
+  /// sensor físico vino.
+  final double? cadenceRpm;
+
   const RoutePointSnapshot({
     required this.latitude,
     required this.longitude,
@@ -68,6 +95,8 @@ class RoutePointSnapshot {
     this.speedKmh = 0,
     this.secondsFromStart = 0,
     this.heartRateBpm,
+    this.powerWatts,
+    this.cadenceRpm,
   });
 
   Map<String, dynamic> toJson() => {
@@ -79,6 +108,8 @@ class RoutePointSnapshot {
         'speed': speedKmh,
         't': secondsFromStart,
         'hr': heartRateBpm,
+        'pw': powerWatts,
+        'cad': cadenceRpm,
       };
 
   factory RoutePointSnapshot.fromJson(Map<String, dynamic> json) {
@@ -87,13 +118,16 @@ class RoutePointSnapshot {
       longitude: (json['lng'] as num).toDouble(),
       // Los campos nuevos usan `??` con un valor de respaldo para poder
       // seguir leyendo actividades grabadas antes de agregar estos datos
-      // (esas solo tenían lat/lng) sin que la app truene al abrirlas.
+      // (esas solo tenían lat/lng, o luego lat/lng/.../hr) sin que la
+      // app truene al abrirlas.
       altitude: (json['alt'] as num?)?.toDouble() ?? 0,
       distanceFromStartMeters: (json['dist'] as num?)?.toDouble() ?? 0,
       slopePercent: (json['slope'] as num?)?.toDouble() ?? 0,
       speedKmh: (json['speed'] as num?)?.toDouble() ?? 0,
       secondsFromStart: (json['t'] as num?)?.toInt() ?? 0,
       heartRateBpm: (json['hr'] as num?)?.toInt(),
+      powerWatts: (json['pw'] as num?)?.toInt(),
+      cadenceRpm: (json['cad'] as num?)?.toDouble(),
     );
   }
 }
@@ -107,4 +141,22 @@ class HeartRateSample {
   final int bpm;
 
   const HeartRateSample({required this.timestamp, required this.bpm});
+}
+
+/// Igual que `HeartRateSample`, pero para potencia -- una lectura de
+/// `powerWattsProvider` con su momento exacto.
+class PowerSample {
+  final DateTime timestamp;
+  final int watts;
+
+  const PowerSample({required this.timestamp, required this.watts});
+}
+
+/// Igual que `HeartRateSample`, pero para cadencia -- una lectura de
+/// `cadenceRpmProvider` (ya fusionada) con su momento exacto.
+class CadenceSample {
+  final DateTime timestamp;
+  final double rpm;
+
+  const CadenceSample({required this.timestamp, required this.rpm});
 }

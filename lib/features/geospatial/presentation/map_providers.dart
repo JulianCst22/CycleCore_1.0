@@ -6,7 +6,6 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../../core/fuzzy_engine/altitude_fusion/altitude_fusion_filter.dart';
 import '../../../core/fuzzy_engine/altitude_fusion/altitude_source_reading.dart';
-import '../../../core/fuzzy_engine/core/fuzzy_membership.dart';
 import '../../../core/fuzzy_engine/slope_plausibility/slope_plausibility_filter.dart';
 import '../../../core/sensors/altitude_debug_logger.dart';
 import '../../../core/sensors/altitude_fusion_service.dart';
@@ -45,7 +44,8 @@ final secondTickerProvider = StreamProvider<int>((ref) {
 
 /// NOTA: heartRateBpmProvider vive ahora en
 /// features/sensors/presentation/sensor_providers.dart -- ver el
-/// resumen del proyecto para más contexto.
+/// resumen del proyecto para más contexto. Lo mismo aplica a
+/// powerWattsProvider y cadenceRpmProvider (features/sensors).
 
 /// Estado inmutable de una sesión de grabación de ruta / entrenamiento.
 class RouteRecordingState {
@@ -77,6 +77,13 @@ class RouteRecordingState {
   /// UI usa esto para el indicador de "modo aproximado".
   final bool isApproximateElevation;
 
+  /// true mientras se espera un fix de GPS con precisión razonable
+  /// justo después de pedir iniciar grabación (ver
+  /// LocationService.waitForStableFix) -- todavía no es
+  /// `isRecording`. La UI puede mostrar un spinner tipo "Buscando señal
+  /// GPS..." mientras esto esté en true.
+  final bool isAcquiringGps;
+
   const RouteRecordingState({
     this.isRecording = false,
     this.isPaused = false,
@@ -90,6 +97,7 @@ class RouteRecordingState {
     this.maxSpeedKmh = 0,
     this.currentBearingDegrees = 0,
     this.isApproximateElevation = true,
+    this.isAcquiringGps = false,
   });
 
   RouteRecordingState copyWith({
@@ -105,6 +113,7 @@ class RouteRecordingState {
     double? maxSpeedKmh,
     double? currentBearingDegrees,
     bool? isApproximateElevation,
+    bool? isAcquiringGps,
   }) {
     return RouteRecordingState(
       isRecording: isRecording ?? this.isRecording,
@@ -122,6 +131,7 @@ class RouteRecordingState {
           currentBearingDegrees ?? this.currentBearingDegrees,
       isApproximateElevation:
           isApproximateElevation ?? this.isApproximateElevation,
+      isAcquiringGps: isAcquiringGps ?? this.isAcquiringGps,
     );
   }
 
@@ -155,53 +165,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   StreamSubscription<double>? _pressureSubscription;
   double? _lastPressureHpa;
 
-  // --- Reconfiguración continua del stream GPS por velocidad (síntoma
-  // 2: puentes cruzados rápido con pocos puntos GPS) ---
-
-  /// distanceFilter (metros) en reposo/paseo: no tiene sentido pedirle
-  /// al SO más puntos de los que la Capa 1/2 puede aprovechar, y cuesta
-  /// batería.
-  static const double _lowSpeedDistanceFilterMeters = 8.0;
-
-  /// distanceFilter (metros) en crucero rápido (>= _highSpeedKmh): un
-  /// puente típico de Bogotá se cruza en pocos segundos a esa
-  /// velocidad, y la Capa 1 necesita varias muestras seguidas para que
-  /// `_persistenceDistance` acumule racha suficiente y decida bien
-  /// (`persistenceSustained` empieza en 25m -- con el distanceFilter
-  /// de reposo, un puente corto podría dar 1-2 puntos en total).
-  static const double _highSpeedDistanceFilterMeters = 3.0;
-
-  static const double _lowSpeedKmh = 8.0;
-  static const double _highSpeedKmh = 20.0; // confirmado en el informe
-
-  /// intervalDuration (ms) en reposo/paseo: el valor que ya se usaba
-  /// antes de esta reconfiguración.
-  static const int _lowSpeedIntervalMs = 2000;
-
-  /// intervalDuration (ms) en crucero rápido: en Android,
-  /// distanceFilter e intervalDuration actúan como dos condiciones
-  /// independientes (aprox. "lo que ocurra después"), así que bajar
-  /// solo el distanceFilter no sirve de mucho si el intervalo sigue
-  /// fijo en 2s -- a 20km/h eso son ~11m entre puntos igual, más que
-  /// el distanceFilter de 3m que se calculó para ese caso. Comparte el
-  /// mismo rango de velocidad que _targetDistanceFilterMeters, no hace
-  /// falta un segundo umbral.
-  static const int _highSpeedIntervalMs = 800;
-
-  /// Umbral mínimo de cambio para justificar cancelar y reabrir el
-  /// stream de posición. Sin esto, un target que varía en decimales de
-  /// metro entre lecturas (algo esperable con velocidad real, no
-  /// escalonada) reabriría el stream constantemente -- caro y, en
-  /// algunos SO, puede perder el punto en tránsito. El valor OBJETIVO
-  /// sigue siendo continuo (interpolado por velocidad, sin umbral duro
-  /// de decisión); esto es solo una histéresis de implementación para
-  /// no golpear el stream nativo en cada punto.
-  static const double _distanceFilterChangeThresholdMeters = 1.0;
-  static const int _intervalChangeThresholdMs = 200;
-
-  double _activeDistanceFilterMeters = _lowSpeedDistanceFilterMeters;
-  int _activeIntervalMs = _lowSpeedIntervalMs;
-
   /// Tiempo real de movimiento acumulado, EXCLUYENDO las pausas.
   Duration _accumulatedActiveDuration = Duration.zero;
   DateTime? _activeSegmentStartedAt;
@@ -231,8 +194,15 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     _lastPressureHpa = null;
     _accumulatedActiveDuration = Duration.zero;
     _activeSegmentStartedAt = DateTime.now();
-    _activeDistanceFilterMeters = _lowSpeedDistanceFilterMeters;
-    _activeIntervalMs = _lowSpeedIntervalMs;
+
+    // Espera acotada a que el GPS estabilice ANTES de empezar a grabar
+    // -- reduce la probabilidad de arrancar con un fix de cold start
+    // malo. No es infalible (puede vencer el timeout con el GPS
+    // todavía inestable): el buffer de calentamiento de
+    // SlopePlausibilityFilter es la segunda línea de defensa para ese
+    // caso. Ver LocationService.waitForStableFix.
+    state = state.copyWith(isAcquiringGps: true);
+    await _locationService.waitForStableFix();
 
     await _debugLogger.start(DateTime.now().millisecondsSinceEpoch.toString());
 
@@ -250,67 +220,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       },
     );
 
-    _positionSubscription = _locationService
-        .watchPosition(
-          distanceFilterMeters: _activeDistanceFilterMeters,
-          intervalDurationMs: _activeIntervalMs,
-        )
-        .listen(_onNewPosition);
-  }
-
-  /// Interpolación continua (sin umbral duro) del distanceFilter según
-  /// la velocidad actual: por debajo de [_lowSpeedKmh] pide puntos
-  /// espaciados (reposo/paseo); desde [_highSpeedKmh] pide puntos
-  /// seguidos (crucero, incluye el caso de puente cruzado rápido); en
-  /// el medio interpola linealmente. Reutiliza `rampUp` del kit difuso
-  /// genérico -- no es en sí una regla difusa (no hay defuzzificación
-  /// aquí), pero es la misma forma matemática y evita reinventar una
-  /// interpolación lineal a mano.
-  static double _targetDistanceFilterMeters(double speedKmh) {
-    final t = rampUp(speedKmh, _lowSpeedKmh, _highSpeedKmh);
-    return _lowSpeedDistanceFilterMeters -
-        (t * (_lowSpeedDistanceFilterMeters - _highSpeedDistanceFilterMeters));
-  }
-
-  /// Misma interpolación que [_targetDistanceFilterMeters], aplicada al
-  /// intervalDuration -- ver comentario de [_highSpeedIntervalMs] sobre
-  /// por qué hacía falta además del distanceFilter.
-  static int _targetIntervalMs(double speedKmh) {
-    final t = rampUp(speedKmh, _lowSpeedKmh, _highSpeedKmh);
-    final ms = _lowSpeedIntervalMs -
-        (t * (_lowSpeedIntervalMs - _highSpeedIntervalMs));
-    return ms.round();
-  }
-
-  /// Reabre el stream de posición con un nuevo distanceFilter/intervalo
-  /// si alguno de los dos objetivos (continuos, función de la
-  /// velocidad) se alejó lo suficiente del que está activo. No hace
-  /// nada si la grabación está pausada o detenida -- eso ya lo maneja
-  /// `_positionSubscription` siendo null.
-  void _maybeReconfigureGpsStream(double speedKmh) {
-    if (_positionSubscription == null) return;
-
-    final targetDistance = _targetDistanceFilterMeters(speedKmh);
-    final targetInterval = _targetIntervalMs(speedKmh);
-
-    final distanceChanged =
-        (targetDistance - _activeDistanceFilterMeters).abs() >=
-        _distanceFilterChangeThresholdMeters;
-    final intervalChanged =
-        (targetInterval - _activeIntervalMs).abs() >=
-        _intervalChangeThresholdMs;
-
-    if (!distanceChanged && !intervalChanged) return;
-
-    _activeDistanceFilterMeters = targetDistance;
-    _activeIntervalMs = targetInterval;
-    _positionSubscription?.cancel();
-    _positionSubscription = _locationService
-        .watchPosition(
-          distanceFilterMeters: _activeDistanceFilterMeters,
-          intervalDurationMs: _activeIntervalMs,
-        )
-        .listen(_onNewPosition);
+    _positionSubscription = _locationService.watchPosition().listen(
+      _onNewPosition,
+    );
   }
 
   Future<void> _unsubscribeFromSensors() async {
@@ -449,7 +361,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       trustedSlope = _slopePlausibility.filter(
         rawSlope: rawSlope,
         stepDistanceMeters: rawStepDistance,
-        gpsAccuracyMeters: position.accuracy,
       );
       displaySlope = _slopePresentation.format(trustedSlope);
     }
@@ -487,11 +398,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       isApproximateElevation:
           demAltitude == null || fusionResult.bridgeSuspected,
     );
-
-    // Va al final: usa la velocidad de ESTE punto para decidir con qué
-    // distanceFilter pedir el SIGUIENTE. Si el stream se reabre aquí,
-    // el punto actual ya quedó procesado y guardado sin interrupción.
-    _maybeReconfigureGpsStream(clampedSpeedKmh);
   }
 
   Duration elapsedDuration() {
@@ -531,8 +437,16 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   /// `RoutePoint.accuracyMeters` guardado por punto) -- ya no hay
   /// discrepancia entre lo que se vio en vivo y lo que queda en el
   /// resumen guardado.
+  ///
+  /// `powerSamples`/`cadenceSamples` siguen el mismo patrón de "carry
+  /// forward" que `heartRateSamples`: cada punto GPS se casa con la
+  /// última lectura conocida de ese sensor hasta ese instante. Listas
+  /// vacías (sin sensor conectado) simplemente dejan esos campos en
+  /// null en cada punto, y avg/max en null en el resumen.
   Future<ActivitySummary> finishRecording({
     required List<HeartRateSample> heartRateSamples,
+    required List<PowerSample> powerSamples,
+    required List<CadenceSample> cadenceSamples,
   }) async {
     await _unsubscribeFromSensors();
     await _debugLogger.stop();
@@ -546,6 +460,10 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     double lastTrustedSlope = 0;
     int hrIndex = 0;
     int? carriedHr;
+    int powerIndex = 0;
+    int? carriedPower;
+    int cadenceIndex = 0;
+    double? carriedCadence;
     final enrichedPoints = <RoutePointSnapshot>[];
 
     for (int i = 0; i < state.points.length; i++) {
@@ -582,7 +500,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
         lastTrustedSlope = slopePlausibility.filter(
           rawSlope: rawSlope,
           stepDistanceMeters: stepDistance,
-          gpsAccuracyMeters: point.accuracyMeters,
         );
       }
       final trustedSlope = lastTrustedSlope;
@@ -591,6 +508,18 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
           !heartRateSamples[hrIndex].timestamp.isAfter(point.timestamp)) {
         carriedHr = heartRateSamples[hrIndex].bpm;
         hrIndex++;
+      }
+
+      while (powerIndex < powerSamples.length &&
+          !powerSamples[powerIndex].timestamp.isAfter(point.timestamp)) {
+        carriedPower = powerSamples[powerIndex].watts;
+        powerIndex++;
+      }
+
+      while (cadenceIndex < cadenceSamples.length &&
+          !cadenceSamples[cadenceIndex].timestamp.isAfter(point.timestamp)) {
+        carriedCadence = cadenceSamples[cadenceIndex].rpm;
+        cadenceIndex++;
       }
 
       final pointSpeedKmh = point.speedMetersPerSecond * 3.6;
@@ -605,6 +534,8 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
           speedKmh: pointSpeedKmh < 0 ? 0 : pointSpeedKmh,
           secondsFromStart: point.timestamp.difference(startedAt).inSeconds,
           heartRateBpm: carriedHr,
+          powerWatts: carriedPower,
+          cadenceRpm: carriedCadence,
         ),
       );
     }
@@ -618,6 +549,24 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       maxHeartRate = bpmValues.reduce((a, b) => a > b ? a : b);
     }
 
+    int? avgPower;
+    int? maxPower;
+    if (powerSamples.isNotEmpty) {
+      final wattValues = powerSamples.map((s) => s.watts);
+      avgPower =
+          (wattValues.reduce((a, b) => a + b) / wattValues.length).round();
+      maxPower = wattValues.reduce((a, b) => a > b ? a : b);
+    }
+
+    int? avgCadence;
+    int? maxCadence;
+    if (cadenceSamples.isNotEmpty) {
+      final rpmValues = cadenceSamples.map((s) => s.rpm);
+      avgCadence =
+          (rpmValues.reduce((a, b) => a + b) / rpmValues.length).round();
+      maxCadence = rpmValues.reduce((a, b) => a > b ? a : b).round();
+    }
+
     final summary = ActivitySummary(
       startedAt: startedAt,
       endedAt: DateTime.now(),
@@ -628,6 +577,10 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       elevationGainMeters: state.elevationGainMeters,
       avgHeartRate: avgHeartRate,
       maxHeartRate: maxHeartRate,
+      avgPower: avgPower,
+      maxPower: maxPower,
+      avgCadence: avgCadence,
+      maxCadence: maxCadence,
       routePoints: enrichedPoints,
     );
 

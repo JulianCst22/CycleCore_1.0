@@ -43,6 +43,10 @@ class ActivitiesRepository {
       elevationGainMeters: summary.elevationGainMeters,
       avgHeartRate: Value(summary.avgHeartRate),
       maxHeartRate: Value(summary.maxHeartRate),
+      avgPower: Value(summary.avgPower),
+      maxPower: Value(summary.maxPower),
+      avgCadence: Value(summary.avgCadence),
+      maxCadence: Value(summary.maxCadence),
       notes: Value(notes),
       routePointsJson: Value(
         jsonEncode(summary.routePoints.map((r) => r.toJson()).toList()),

@@ -152,6 +152,50 @@ class $ActivitiesTable extends Activities
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _avgPowerMeta = const VerificationMeta(
+    'avgPower',
+  );
+  @override
+  late final GeneratedColumn<int> avgPower = GeneratedColumn<int>(
+    'avg_power',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _maxPowerMeta = const VerificationMeta(
+    'maxPower',
+  );
+  @override
+  late final GeneratedColumn<int> maxPower = GeneratedColumn<int>(
+    'max_power',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _avgCadenceMeta = const VerificationMeta(
+    'avgCadence',
+  );
+  @override
+  late final GeneratedColumn<int> avgCadence = GeneratedColumn<int>(
+    'avg_cadence',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _maxCadenceMeta = const VerificationMeta(
+    'maxCadence',
+  );
+  @override
+  late final GeneratedColumn<int> maxCadence = GeneratedColumn<int>(
+    'max_cadence',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -200,6 +244,10 @@ class $ActivitiesTable extends Activities
     elevationGainMeters,
     avgHeartRate,
     maxHeartRate,
+    avgPower,
+    maxPower,
+    avgCadence,
+    maxCadence,
     notes,
     routePointsJson,
     photoPathsJson,
@@ -335,6 +383,30 @@ class $ActivitiesTable extends Activities
         ),
       );
     }
+    if (data.containsKey('avg_power')) {
+      context.handle(
+        _avgPowerMeta,
+        avgPower.isAcceptableOrUnknown(data['avg_power']!, _avgPowerMeta),
+      );
+    }
+    if (data.containsKey('max_power')) {
+      context.handle(
+        _maxPowerMeta,
+        maxPower.isAcceptableOrUnknown(data['max_power']!, _maxPowerMeta),
+      );
+    }
+    if (data.containsKey('avg_cadence')) {
+      context.handle(
+        _avgCadenceMeta,
+        avgCadence.isAcceptableOrUnknown(data['avg_cadence']!, _avgCadenceMeta),
+      );
+    }
+    if (data.containsKey('max_cadence')) {
+      context.handle(
+        _maxCadenceMeta,
+        maxCadence.isAcceptableOrUnknown(data['max_cadence']!, _maxCadenceMeta),
+      );
+    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
@@ -420,6 +492,22 @@ class $ActivitiesTable extends Activities
         DriftSqlType.int,
         data['${effectivePrefix}max_heart_rate'],
       ),
+      avgPower: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}avg_power'],
+      ),
+      maxPower: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}max_power'],
+      ),
+      avgCadence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}avg_cadence'],
+      ),
+      maxCadence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}max_cadence'],
+      ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -457,6 +545,15 @@ class Activity extends DataClass implements Insertable<Activity> {
   final double elevationGainMeters;
   final int? avgHeartRate;
   final int? maxHeartRate;
+
+  /// Null si no hubo medidor de potencia conectado durante la grabación.
+  final int? avgPower;
+  final int? maxPower;
+
+  /// Cadencia redondeada a RPM entero para el resumen -- el detalle por
+  /// punto (RoutePointSnapshot) sí guarda el valor sin redondear.
+  final int? avgCadence;
+  final int? maxCadence;
   final String? notes;
   final String routePointsJson;
   final String photoPathsJson;
@@ -474,6 +571,10 @@ class Activity extends DataClass implements Insertable<Activity> {
     required this.elevationGainMeters,
     this.avgHeartRate,
     this.maxHeartRate,
+    this.avgPower,
+    this.maxPower,
+    this.avgCadence,
+    this.maxCadence,
     this.notes,
     required this.routePointsJson,
     required this.photoPathsJson,
@@ -497,6 +598,18 @@ class Activity extends DataClass implements Insertable<Activity> {
     }
     if (!nullToAbsent || maxHeartRate != null) {
       map['max_heart_rate'] = Variable<int>(maxHeartRate);
+    }
+    if (!nullToAbsent || avgPower != null) {
+      map['avg_power'] = Variable<int>(avgPower);
+    }
+    if (!nullToAbsent || maxPower != null) {
+      map['max_power'] = Variable<int>(maxPower);
+    }
+    if (!nullToAbsent || avgCadence != null) {
+      map['avg_cadence'] = Variable<int>(avgCadence);
+    }
+    if (!nullToAbsent || maxCadence != null) {
+      map['max_cadence'] = Variable<int>(maxCadence);
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -525,6 +638,18 @@ class Activity extends DataClass implements Insertable<Activity> {
       maxHeartRate: maxHeartRate == null && nullToAbsent
           ? const Value.absent()
           : Value(maxHeartRate),
+      avgPower: avgPower == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avgPower),
+      maxPower: maxPower == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxPower),
+      avgCadence: avgCadence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avgCadence),
+      maxCadence: maxCadence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxCadence),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -554,6 +679,10 @@ class Activity extends DataClass implements Insertable<Activity> {
       ),
       avgHeartRate: serializer.fromJson<int?>(json['avgHeartRate']),
       maxHeartRate: serializer.fromJson<int?>(json['maxHeartRate']),
+      avgPower: serializer.fromJson<int?>(json['avgPower']),
+      maxPower: serializer.fromJson<int?>(json['maxPower']),
+      avgCadence: serializer.fromJson<int?>(json['avgCadence']),
+      maxCadence: serializer.fromJson<int?>(json['maxCadence']),
       notes: serializer.fromJson<String?>(json['notes']),
       routePointsJson: serializer.fromJson<String>(json['routePointsJson']),
       photoPathsJson: serializer.fromJson<String>(json['photoPathsJson']),
@@ -576,6 +705,10 @@ class Activity extends DataClass implements Insertable<Activity> {
       'elevationGainMeters': serializer.toJson<double>(elevationGainMeters),
       'avgHeartRate': serializer.toJson<int?>(avgHeartRate),
       'maxHeartRate': serializer.toJson<int?>(maxHeartRate),
+      'avgPower': serializer.toJson<int?>(avgPower),
+      'maxPower': serializer.toJson<int?>(maxPower),
+      'avgCadence': serializer.toJson<int?>(avgCadence),
+      'maxCadence': serializer.toJson<int?>(maxCadence),
       'notes': serializer.toJson<String?>(notes),
       'routePointsJson': serializer.toJson<String>(routePointsJson),
       'photoPathsJson': serializer.toJson<String>(photoPathsJson),
@@ -596,6 +729,10 @@ class Activity extends DataClass implements Insertable<Activity> {
     double? elevationGainMeters,
     Value<int?> avgHeartRate = const Value.absent(),
     Value<int?> maxHeartRate = const Value.absent(),
+    Value<int?> avgPower = const Value.absent(),
+    Value<int?> maxPower = const Value.absent(),
+    Value<int?> avgCadence = const Value.absent(),
+    Value<int?> maxCadence = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     String? routePointsJson,
     String? photoPathsJson,
@@ -613,6 +750,10 @@ class Activity extends DataClass implements Insertable<Activity> {
     elevationGainMeters: elevationGainMeters ?? this.elevationGainMeters,
     avgHeartRate: avgHeartRate.present ? avgHeartRate.value : this.avgHeartRate,
     maxHeartRate: maxHeartRate.present ? maxHeartRate.value : this.maxHeartRate,
+    avgPower: avgPower.present ? avgPower.value : this.avgPower,
+    maxPower: maxPower.present ? maxPower.value : this.maxPower,
+    avgCadence: avgCadence.present ? avgCadence.value : this.avgCadence,
+    maxCadence: maxCadence.present ? maxCadence.value : this.maxCadence,
     notes: notes.present ? notes.value : this.notes,
     routePointsJson: routePointsJson ?? this.routePointsJson,
     photoPathsJson: photoPathsJson ?? this.photoPathsJson,
@@ -648,6 +789,14 @@ class Activity extends DataClass implements Insertable<Activity> {
       maxHeartRate: data.maxHeartRate.present
           ? data.maxHeartRate.value
           : this.maxHeartRate,
+      avgPower: data.avgPower.present ? data.avgPower.value : this.avgPower,
+      maxPower: data.maxPower.present ? data.maxPower.value : this.maxPower,
+      avgCadence: data.avgCadence.present
+          ? data.avgCadence.value
+          : this.avgCadence,
+      maxCadence: data.maxCadence.present
+          ? data.maxCadence.value
+          : this.maxCadence,
       notes: data.notes.present ? data.notes.value : this.notes,
       routePointsJson: data.routePointsJson.present
           ? data.routePointsJson.value
@@ -674,6 +823,10 @@ class Activity extends DataClass implements Insertable<Activity> {
           ..write('elevationGainMeters: $elevationGainMeters, ')
           ..write('avgHeartRate: $avgHeartRate, ')
           ..write('maxHeartRate: $maxHeartRate, ')
+          ..write('avgPower: $avgPower, ')
+          ..write('maxPower: $maxPower, ')
+          ..write('avgCadence: $avgCadence, ')
+          ..write('maxCadence: $maxCadence, ')
           ..write('notes: $notes, ')
           ..write('routePointsJson: $routePointsJson, ')
           ..write('photoPathsJson: $photoPathsJson')
@@ -696,6 +849,10 @@ class Activity extends DataClass implements Insertable<Activity> {
     elevationGainMeters,
     avgHeartRate,
     maxHeartRate,
+    avgPower,
+    maxPower,
+    avgCadence,
+    maxCadence,
     notes,
     routePointsJson,
     photoPathsJson,
@@ -717,6 +874,10 @@ class Activity extends DataClass implements Insertable<Activity> {
           other.elevationGainMeters == this.elevationGainMeters &&
           other.avgHeartRate == this.avgHeartRate &&
           other.maxHeartRate == this.maxHeartRate &&
+          other.avgPower == this.avgPower &&
+          other.maxPower == this.maxPower &&
+          other.avgCadence == this.avgCadence &&
+          other.maxCadence == this.maxCadence &&
           other.notes == this.notes &&
           other.routePointsJson == this.routePointsJson &&
           other.photoPathsJson == this.photoPathsJson);
@@ -736,6 +897,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
   final Value<double> elevationGainMeters;
   final Value<int?> avgHeartRate;
   final Value<int?> maxHeartRate;
+  final Value<int?> avgPower;
+  final Value<int?> maxPower;
+  final Value<int?> avgCadence;
+  final Value<int?> maxCadence;
   final Value<String?> notes;
   final Value<String> routePointsJson;
   final Value<String> photoPathsJson;
@@ -753,6 +918,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
     this.elevationGainMeters = const Value.absent(),
     this.avgHeartRate = const Value.absent(),
     this.maxHeartRate = const Value.absent(),
+    this.avgPower = const Value.absent(),
+    this.maxPower = const Value.absent(),
+    this.avgCadence = const Value.absent(),
+    this.maxCadence = const Value.absent(),
     this.notes = const Value.absent(),
     this.routePointsJson = const Value.absent(),
     this.photoPathsJson = const Value.absent(),
@@ -771,6 +940,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
     required double elevationGainMeters,
     this.avgHeartRate = const Value.absent(),
     this.maxHeartRate = const Value.absent(),
+    this.avgPower = const Value.absent(),
+    this.maxPower = const Value.absent(),
+    this.avgCadence = const Value.absent(),
+    this.maxCadence = const Value.absent(),
     this.notes = const Value.absent(),
     this.routePointsJson = const Value.absent(),
     this.photoPathsJson = const Value.absent(),
@@ -798,6 +971,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
     Expression<double>? elevationGainMeters,
     Expression<int>? avgHeartRate,
     Expression<int>? maxHeartRate,
+    Expression<int>? avgPower,
+    Expression<int>? maxPower,
+    Expression<int>? avgCadence,
+    Expression<int>? maxCadence,
     Expression<String>? notes,
     Expression<String>? routePointsJson,
     Expression<String>? photoPathsJson,
@@ -817,6 +994,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
         'elevation_gain_meters': elevationGainMeters,
       if (avgHeartRate != null) 'avg_heart_rate': avgHeartRate,
       if (maxHeartRate != null) 'max_heart_rate': maxHeartRate,
+      if (avgPower != null) 'avg_power': avgPower,
+      if (maxPower != null) 'max_power': maxPower,
+      if (avgCadence != null) 'avg_cadence': avgCadence,
+      if (maxCadence != null) 'max_cadence': maxCadence,
       if (notes != null) 'notes': notes,
       if (routePointsJson != null) 'route_points_json': routePointsJson,
       if (photoPathsJson != null) 'photo_paths_json': photoPathsJson,
@@ -837,6 +1018,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
     Value<double>? elevationGainMeters,
     Value<int?>? avgHeartRate,
     Value<int?>? maxHeartRate,
+    Value<int?>? avgPower,
+    Value<int?>? maxPower,
+    Value<int?>? avgCadence,
+    Value<int?>? maxCadence,
     Value<String?>? notes,
     Value<String>? routePointsJson,
     Value<String>? photoPathsJson,
@@ -855,6 +1040,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
       elevationGainMeters: elevationGainMeters ?? this.elevationGainMeters,
       avgHeartRate: avgHeartRate ?? this.avgHeartRate,
       maxHeartRate: maxHeartRate ?? this.maxHeartRate,
+      avgPower: avgPower ?? this.avgPower,
+      maxPower: maxPower ?? this.maxPower,
+      avgCadence: avgCadence ?? this.avgCadence,
+      maxCadence: maxCadence ?? this.maxCadence,
       notes: notes ?? this.notes,
       routePointsJson: routePointsJson ?? this.routePointsJson,
       photoPathsJson: photoPathsJson ?? this.photoPathsJson,
@@ -905,6 +1094,18 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
     if (maxHeartRate.present) {
       map['max_heart_rate'] = Variable<int>(maxHeartRate.value);
     }
+    if (avgPower.present) {
+      map['avg_power'] = Variable<int>(avgPower.value);
+    }
+    if (maxPower.present) {
+      map['max_power'] = Variable<int>(maxPower.value);
+    }
+    if (avgCadence.present) {
+      map['avg_cadence'] = Variable<int>(avgCadence.value);
+    }
+    if (maxCadence.present) {
+      map['max_cadence'] = Variable<int>(maxCadence.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -933,6 +1134,10 @@ class ActivitiesCompanion extends UpdateCompanion<Activity> {
           ..write('elevationGainMeters: $elevationGainMeters, ')
           ..write('avgHeartRate: $avgHeartRate, ')
           ..write('maxHeartRate: $maxHeartRate, ')
+          ..write('avgPower: $avgPower, ')
+          ..write('maxPower: $maxPower, ')
+          ..write('avgCadence: $avgCadence, ')
+          ..write('maxCadence: $maxCadence, ')
           ..write('notes: $notes, ')
           ..write('routePointsJson: $routePointsJson, ')
           ..write('photoPathsJson: $photoPathsJson')
@@ -1305,6 +1510,10 @@ typedef $$ActivitiesTableCreateCompanionBuilder =
       required double elevationGainMeters,
       Value<int?> avgHeartRate,
       Value<int?> maxHeartRate,
+      Value<int?> avgPower,
+      Value<int?> maxPower,
+      Value<int?> avgCadence,
+      Value<int?> maxCadence,
       Value<String?> notes,
       Value<String> routePointsJson,
       Value<String> photoPathsJson,
@@ -1324,6 +1533,10 @@ typedef $$ActivitiesTableUpdateCompanionBuilder =
       Value<double> elevationGainMeters,
       Value<int?> avgHeartRate,
       Value<int?> maxHeartRate,
+      Value<int?> avgPower,
+      Value<int?> maxPower,
+      Value<int?> avgCadence,
+      Value<int?> maxCadence,
       Value<String?> notes,
       Value<String> routePointsJson,
       Value<String> photoPathsJson,
@@ -1400,6 +1613,26 @@ class $$ActivitiesTableFilterComposer
 
   ColumnFilters<int> get maxHeartRate => $composableBuilder(
     column: $table.maxHeartRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get avgPower => $composableBuilder(
+    column: $table.avgPower,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get maxPower => $composableBuilder(
+    column: $table.maxPower,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get avgCadence => $composableBuilder(
+    column: $table.avgCadence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get maxCadence => $composableBuilder(
+    column: $table.maxCadence,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1493,6 +1726,26 @@ class $$ActivitiesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get avgPower => $composableBuilder(
+    column: $table.avgPower,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get maxPower => $composableBuilder(
+    column: $table.maxPower,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get avgCadence => $composableBuilder(
+    column: $table.avgCadence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get maxCadence => $composableBuilder(
+    column: $table.maxCadence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -1573,6 +1826,22 @@ class $$ActivitiesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get avgPower =>
+      $composableBuilder(column: $table.avgPower, builder: (column) => column);
+
+  GeneratedColumn<int> get maxPower =>
+      $composableBuilder(column: $table.maxPower, builder: (column) => column);
+
+  GeneratedColumn<int> get avgCadence => $composableBuilder(
+    column: $table.avgCadence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get maxCadence => $composableBuilder(
+    column: $table.maxCadence,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
@@ -1628,6 +1897,10 @@ class $$ActivitiesTableTableManager
                 Value<double> elevationGainMeters = const Value.absent(),
                 Value<int?> avgHeartRate = const Value.absent(),
                 Value<int?> maxHeartRate = const Value.absent(),
+                Value<int?> avgPower = const Value.absent(),
+                Value<int?> maxPower = const Value.absent(),
+                Value<int?> avgCadence = const Value.absent(),
+                Value<int?> maxCadence = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String> routePointsJson = const Value.absent(),
                 Value<String> photoPathsJson = const Value.absent(),
@@ -1645,6 +1918,10 @@ class $$ActivitiesTableTableManager
                 elevationGainMeters: elevationGainMeters,
                 avgHeartRate: avgHeartRate,
                 maxHeartRate: maxHeartRate,
+                avgPower: avgPower,
+                maxPower: maxPower,
+                avgCadence: avgCadence,
+                maxCadence: maxCadence,
                 notes: notes,
                 routePointsJson: routePointsJson,
                 photoPathsJson: photoPathsJson,
@@ -1664,6 +1941,10 @@ class $$ActivitiesTableTableManager
                 required double elevationGainMeters,
                 Value<int?> avgHeartRate = const Value.absent(),
                 Value<int?> maxHeartRate = const Value.absent(),
+                Value<int?> avgPower = const Value.absent(),
+                Value<int?> maxPower = const Value.absent(),
+                Value<int?> avgCadence = const Value.absent(),
+                Value<int?> maxCadence = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String> routePointsJson = const Value.absent(),
                 Value<String> photoPathsJson = const Value.absent(),
@@ -1681,6 +1962,10 @@ class $$ActivitiesTableTableManager
                 elevationGainMeters: elevationGainMeters,
                 avgHeartRate: avgHeartRate,
                 maxHeartRate: maxHeartRate,
+                avgPower: avgPower,
+                maxPower: maxPower,
+                avgCadence: avgCadence,
+                maxCadence: maxCadence,
                 notes: notes,
                 routePointsJson: routePointsJson,
                 photoPathsJson: photoPathsJson,

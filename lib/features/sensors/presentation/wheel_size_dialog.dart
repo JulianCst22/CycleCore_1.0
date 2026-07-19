@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../domain/wheel_size.dart';
-import 'cadence_speed_providers.dart';
+import 'speed_providers.dart';
 
 /// Popup que se muestra cuando el sensor de velocidad ya está conectado
 /// y reportando datos de rueda, pero todavía no hay una circunferencia
@@ -38,7 +38,7 @@ class _WheelSizeDialogContentState
 
   Future<void> _confirm(double mm) async {
     await ref
-        .read(cadenceSpeedSensorControllerProvider.notifier)
+        .read(speedSensorControllerProvider.notifier)
         .setWheelCircumferenceMm(mm);
     if (mounted) Navigator.of(context).pop();
   }

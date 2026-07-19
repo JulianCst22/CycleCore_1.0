@@ -356,6 +356,35 @@ class _ActivityDetailBody extends ConsumerWidget {
                         unit: '%',
                         label: 'PEND. MÍN',
                       ),
+                      // --- Nuevos: potencia y cadencia (Fase C) ---
+                      StatTile(
+                        icon: Icons.electric_bolt,
+                        accentColor: AppColors.accentPower,
+                        value: activity.avgPower?.toString() ?? '--',
+                        unit: 'W',
+                        label: 'POT. PROM.',
+                      ),
+                      StatTile(
+                        icon: Icons.bolt,
+                        accentColor: AppColors.accentPower,
+                        value: activity.maxPower?.toString() ?? '--',
+                        unit: 'W',
+                        label: 'POT. MÁX',
+                      ),
+                      StatTile(
+                        icon: Icons.autorenew,
+                        accentColor: AppColors.accentCadence,
+                        value: activity.avgCadence?.toString() ?? '--',
+                        unit: 'rpm',
+                        label: 'CAD. PROM.',
+                      ),
+                      StatTile(
+                        icon: Icons.loop,
+                        accentColor: AppColors.accentCadence,
+                        value: activity.maxCadence?.toString() ?? '--',
+                        unit: 'rpm',
+                        label: 'CAD. MÁX',
+                      ),
                     ],
                   ),
 
