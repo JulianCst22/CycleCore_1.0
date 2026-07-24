@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/geospatial/presentation/map_screen.dart';
 import '../../features/activities/presentation/activities_list_screen.dart';
 import '../../features/sensors/presentation/sensors_screen.dart';
-import '../../features/profile/presentation/onboarding_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 import '../../shared_widgets/app_bottom_nav_bar.dart';
 import '../theme/app_colors.dart';
 
@@ -39,7 +39,7 @@ class _AppShellState extends State<AppShell> {
     MapScreen(),
     SensorsScreen(),
     ActivitiesListScreen(),
-    OnboardingScreen(isEditing: true),
+    ProfileScreen(),
   ];
 
   @override

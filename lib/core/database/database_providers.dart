@@ -7,6 +7,7 @@ import 'app_database.dart';
 /// Vive en `core` -- y no dentro de una feature específica -- justamente
 /// para evitar que dos features terminen abriendo dos conexiones
 /// distintas al mismo archivo `.sqlite`.
+
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(db.close);

@@ -48,7 +48,7 @@ class ActivityTypeUi {
         return const ActivityTypeUi(
           label: 'Entrenamiento',
           icon: Icons.fitness_center,
-          color: AppColors.accentElevation,
+          color: AppColors.accentTraining,
         );
     }
   }

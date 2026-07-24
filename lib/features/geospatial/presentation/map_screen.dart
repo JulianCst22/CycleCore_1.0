@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +16,8 @@ import '../../elevation/presentation/elevation_providers.dart';
 import '../../activities/presentation/save_activity_screen.dart';
 import '../../sensors/presentation/cadence_providers.dart';
 import '../../sensors/presentation/power_providers.dart';
+import '../../voice/domain/voice_event.dart';
+import '../../voice/presentation/voice_providers.dart';
 import '../data/cockpit_layout_repository.dart';
 import '../domain/cockpit_field.dart';
 import 'cockpit_field_ui.dart';
@@ -32,18 +36,59 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final MapController _mapController = MapController();
 
   /// Cuando está en true, el mapa recentra automáticamente la cámara
   /// sobre la posición actual a medida que llegan nuevos puntos GPS.
   bool _followMe = true;
 
+  /// Modo de rotación del mapa, estilo Google Maps/Waze:
+  /// - false (por defecto): "norte arriba" -- el mapa queda fijo y es
+  ///   el MARCADOR el que rota según el rumbo real (comportamiento
+  ///   original de esta pantalla).
+  /// - true: "rumbo arriba" -- es el MAPA el que rota para que la
+  ///   dirección en la que vas siempre apunte hacia arriba de la
+  ///   pantalla, como en navegación.
+  /// Se activa/desactiva con el botón de brújula.
+  bool _headingUp = false;
+
+  /// Rotación actual del mapa en grados, espejada desde
+  /// `mapEventStream` -- se usa para que el ÍCONO de la brújula rote
+  /// en sentido contrario y siempre señale el norte real, sin
+  /// importar cómo esté girado el mapa en ese momento.
+  double _currentMapRotationDegrees = 0;
+
+  late final StreamSubscription<MapEvent> _mapEventSubscription;
+
+  /// Margen derecho compartido entre la barra lateral de datos y el
+  /// botón de recentrar, para que ambos queden alineados en la misma
+  /// columna vertical. Cambiá este único valor para mover a los dos
+  /// juntos más cerca/lejos del borde.
+  static const double _sideRightMargin = 16;
+
+  /// Cuántos píxeles subir la barra lateral desde el centro vertical
+  /// exacto de la pantalla. 0 = centrada exacto. Un valor positivo la
+  /// sube (queda "un poquito más arriba" del centro); negativo la
+  /// bajaría. Ajustá solo este número para reposicionarla.
+  static const double _lateralBarLiftPixels = 40;
+
   /// Referencia al panel deslizable -- se usa para poder colapsarlo
   /// desde afuera (p.ej. cuando el cockpit fullscreen pide cerrarse
   /// desde su propia manija de arriba).
   final GlobalKey<CockpitSlidingPanelState> _slidingPanelKey =
       GlobalKey<CockpitSlidingPanelState>();
+
+  /// true cuando el cockpit está en pantalla completa -- se usa para
+  /// desvanecer la barra lateral, el botón de recentrar y el de
+  /// brújula mientras tanto (ver LateralDataBar): si el mismo dato
+  /// que muestra la barra también aparece como campo en la grilla,
+  /// ese tile ya adopta el estilo de gauge (ver CockpitGridLayout),
+  /// así que mostrar la barra ADEMÁS sería redundante -- se "funden"
+  /// en un solo lugar en vez de duplicarse. Los controles del mapa
+  /// (recentrar, brújula) tampoco tienen sentido flotando sobre un
+  /// panel que tapa el mapa por completo.
+  bool _isCockpitExpanded = false;
 
   final List<HeartRateSample> _heartRateSamples = [];
   final List<PowerSample> _powerSamples = [];
@@ -52,12 +97,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
   // --- Animación del marcador entre puntos GPS reales ("efecto Waze") ---
   //
   // NOTA: esto es la animación de POSICIÓN del marcador (interpola
-  // entre un punto GPS y el siguiente para que no salte de golpe), y
-  // sigue igual que antes. Lo que SÍ se quitó de esta pantalla es la
-  // rotación/inclinación del MAPA completo tipo navegación GPS -- se
-  // probó y no se sintió bien, así que el mapa volvió a ser plano y
-  // con norte fijo; el marcador vuelve a rotar según el rumbo real,
-  // como al principio.
+  // entre un punto GPS y el siguiente para que no salte de golpe).
+  // Sigue igual que antes, e independiente de la rotación del mapa:
+  // el marcador se sigue moviendo suave entre puntos GPS reales sin
+  // importar si estás en modo "norte arriba" o "rumbo arriba".
   late final AnimationController _markerAnimController = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 2),
@@ -70,10 +113,46 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Animation<double>? _lngAnim;
   latlng.LatLng? _animatedPosition;
 
+  // --- Animación de la rotación del mapa (transición suave al tocar
+  // el botón de brújula, en vez de un salto brusco de golpe). ---
+  late final AnimationController _compassAnimController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 350),
+  )..addListener(_onCompassAnimationTick);
+
+  Animation<double>? _compassRotationAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    // Escucha todo movimiento/rotación del mapa -- tanto el que
+    // provocamos nosotros (seguir posición, animar la brújula) como
+    // el que hace el usuario con gestos (arrastrar, pellizcar,
+    // girar con dos dedos).
+    _mapEventSubscription = _mapController.mapEventStream.listen(_onMapEvent);
+  }
+
   @override
   void dispose() {
+    _mapEventSubscription.cancel();
     _markerAnimController.dispose();
+    _compassAnimController.dispose();
     super.dispose();
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (!mounted) return;
+    setState(() => _currentMapRotationDegrees = event.camera.rotation);
+
+    // Si el usuario gira el mapa a mano (gesto de dos dedos) mientras
+    // estamos en modo "rumbo arriba", soltamos el bloqueo automático
+    // -- igual que Google Maps: el gesto manual tiene prioridad y el
+    // ícono de brújula vuelve a su estado neutro.
+    final isManualRotationGesture =
+        event is MapEventRotate && event.source == MapEventSource.onMultiFinger;
+    if (isManualRotationGesture && _headingUp) {
+      setState(() => _headingUp = false);
+    }
   }
 
   void _onMarkerAnimationTick() {
@@ -83,6 +162,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (_followMe) {
       _mapController.move(next, _mapController.camera.zoom);
     }
+  }
+
+  void _onCompassAnimationTick() {
+    if (_compassRotationAnim == null) return;
+    _mapController.rotate(_compassRotationAnim!.value);
   }
 
   void _animateMarkerTo(latlng.LatLng target, {Duration? duration}) {
@@ -104,6 +188,47 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _markerAnimController
       ..reset()
       ..forward();
+  }
+
+  /// Distancia angular más corta entre dos ángulos (en grados),
+  /// para que la animación de rotación siempre gire por el camino
+  /// más corto (p.ej. de 350° a 10° gira +20°, no -340°).
+  double _shortestAngleDelta(double from, double to) {
+    double delta = (to - from) % 360;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    return delta;
+  }
+
+  /// Anima el mapa desde su rotación actual hasta [targetDegrees],
+  /// por el camino más corto.
+  void _animateMapRotationTo(double targetDegrees) {
+    final current = _mapController.camera.rotation;
+    final delta = _shortestAngleDelta(current, targetDegrees);
+    _compassRotationAnim = Tween<double>(
+      begin: current,
+      end: current + delta,
+    ).animate(
+      CurvedAnimation(parent: _compassAnimController, curve: Curves.easeOut),
+    );
+    _compassAnimController
+      ..reset()
+      ..forward();
+  }
+
+  /// Botón de brújula: alterna entre "norte arriba" (mapa fijo, el
+  /// marcador rota según el rumbo -- comportamiento original) y
+  /// "rumbo arriba" (el mapa rota para que la dirección en la que
+  /// vas siempre quede hacia arriba, como en navegación).
+  void _toggleHeadingUp() {
+    final goingHeadingUp = !_headingUp;
+    setState(() => _headingUp = goingHeadingUp);
+    if (goingHeadingUp) {
+      final bearing = ref.read(routeRecordingProvider).currentBearingDegrees;
+      _animateMapRotationTo(-bearing);
+    } else {
+      _animateMapRotationTo(0);
+    }
   }
 
   T? _maxOrNull<T extends num>(Iterable<T> values) {
@@ -138,6 +263,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
         latlng.LatLng(last.latitude, last.longitude),
         duration: gap,
       );
+
+      // En modo "rumbo arriba", cada vez que llega un rumbo nuevo el
+      // mapa se re-orienta para que siga apuntando hacia arriba.
+      if (_headingUp) {
+        _mapController.rotate(-next.currentBearingDegrees);
+      }
     });
 
     ref.listen<int?>(heartRateBpmProvider, (previous, next) {
@@ -215,15 +346,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ? recordedLatLngs.last
                   : initialCenter);
 
-          // Antes esto era un Column con [Expanded(Stack), NavBar] --
-          // la nav bar ya no vive acá (la renderiza AppShell una sola
-          // vez para toda la app), así que el Stack ocupa directamente
-          // toda el área que le da el Scaffold de esta pantalla.
           return Stack(
             children: [
-              // --- Mapa: plano, norte fijo -- como estaba
-              // originalmente. El marcador rota según el rumbo
-              // real (sin depender de que el mapa gire). ---
+              // --- Mapa. En modo "norte arriba" queda plano y es el
+              // marcador el que rota; en modo "rumbo arriba" es el
+              // MAPA el que rota (ver _toggleHeadingUp / el listener
+              // de arriba) y el marcador, al rotar solidario con el
+              // mapa (no usa `Marker.rotate: true`), termina
+              // mostrándose siempre apuntando hacia arriba en
+              // pantalla sin necesidad de lógica extra. ---
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
@@ -293,8 +424,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
               if (recordingState.isAcquiringGps)
                 const Positioned.fill(child: GpsAcquiringOverlay()),
 
-              // Único elemento flotante que queda sobre el mapa aparte
-              // del cockpit: el estado de grabación.
+              // Fila superior: brújula (izquierda) + píldora de estado
+              // + botón de compartir log (derecha).
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -303,6 +434,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ),
                   child: Row(
                     children: [
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 400),
+                        opacity: _isCockpitExpanded ? 0.0 : 1.0,
+                        child: IgnorePointer(
+                          ignoring: _isCockpitExpanded,
+                          child: _CompassButton(
+                            isHeadingUp: _headingUp,
+                            rotationDegrees: _currentMapRotationDegrees,
+                            onTap: _toggleHeadingUp,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       _StatusPill(
                         isRecording: recordingState.isRecording,
                         isPaused: recordingState.isPaused,
@@ -327,15 +471,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 ),
               ),
 
-              // --- Panel inferior: cockpit compacto/fullscreen,
-              // con transición de desplazamiento real
-              // (arrastrar). Ocupa TODO el alto disponible del
-              // mapa (antes tenía un tope fijo del 62%, por eso
-              // el cockpit fullscreen no llegaba a cubrir toda
-              // la pantalla). ---
+              // --- Panel inferior: cockpit compacto/fullscreen, con
+              // transición de desplazamiento real (arrastrar). Ocupa
+              // TODO el alto disponible del mapa. ---
               Positioned.fill(
                 child: CockpitSlidingPanel(
                   key: _slidingPanelKey,
+                  // Se entera cuándo queda completamente expandido o
+                  // completamente compacto -- de ahí se desprende si
+                  // la barra lateral debe desvanecerse (ver más abajo).
+                  onExpandedChanged: (expanded) {
+                    if (expanded != _isCockpitExpanded) {
+                      setState(() => _isCockpitExpanded = expanded);
+                    }
+                  },
                   compact: _CompactCockpitPanel(
                     liveData: liveData,
                     isRecording: recordingState.isRecording,
@@ -356,6 +505,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           );
                         }
                         await recordingController.startRecording();
+                        // Voz: la actividad acaba de arrancar.
+                        ref
+                            .read(voiceSettingsProvider.notifier)
+                            .speak(VoiceEventType.activityStarted);
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -367,8 +520,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     onPauseResumePressed: () {
                       if (recordingState.isPaused) {
                         recordingController.resumeRecording();
+                        // Voz: se reanudó tras una pausa.
+                        ref
+                            .read(voiceSettingsProvider.notifier)
+                            .speak(VoiceEventType.activityResumed);
                       } else {
                         recordingController.pauseRecording();
+                        // Voz: la actividad se puso en pausa.
+                        ref
+                            .read(voiceSettingsProvider.notifier)
+                            .speak(VoiceEventType.activityPaused);
                       }
                     },
                     onFinishPressed: () => _confirmAndFinish(
@@ -379,9 +540,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   expanded: CockpitFullscreenView(
                     tiles: cockpitTiles,
                     liveData: liveData,
-                    // Antes esto quedaba vacío -- era exactamente
-                    // el bug de "no me cierra, queda trabado".
-                    // Ahora sí colapsa el panel de verdad.
                     onSwipeDown: () =>
                         _slidingPanelKey.currentState?.collapse(),
                   ),
@@ -389,48 +547,66 @@ class _MapScreenState extends ConsumerState<MapScreen>
               ),
 
               // Barra lateral tipo Waze/Maps -- independiente del
-              // cockpit compacto/fullscreen (sigue visible sin
-              // importar cuál de los dos esté abierto). Muestra
-              // el dato que el usuario haya elegido (pendiente
-              // por defecto); tocar el ícono de arriba abre el
-              // selector.
+              // cockpit compacto/fullscreen en cuanto a SU EXISTENCIA
+              // (vive todo el tiempo que se está grabando), pero se
+              // desvanece mientras el cockpit está en pantalla
+              // completa (isCockpitExpanded) para no duplicar el dato
+              // si ese mismo campo aparece como tile en la grilla.
+              //
+              // Se centra verticalmente en toda la pantalla (top: 0,
+              // bottom: 0 + Center) y luego se sube un poco con
+              // Transform.translate según _lateralBarLiftPixels -- así
+              // queda "un poco arriba del centro" y es fácil de
+              // ajustar tocando esa única constante. El right usa el
+              // mismo margen que el botón de recentrar para que
+              // ambos queden alineados en la misma columna.
               if (recordingState.isRecording)
                 Positioned(
-                  right: 12,
+                  right: _sideRightMargin,
                   top: 0,
                   bottom: 0,
                   child: Center(
-                    child: SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.4,
-                      child: LateralDataBar(
-                        liveData: liveData,
-                        isApproximate:
-                            recordingState.isApproximateElevation,
+                    child: Transform.translate(
+                      offset: const Offset(0, -_lateralBarLiftPixels),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.3,
+                        child: LateralDataBar(
+                          liveData: liveData,
+                          isApproximate:
+                              recordingState.isApproximateElevation,
+                          isCockpitExpanded: _isCockpitExpanded,
+                        ),
                       ),
                     ),
                   ),
                 ),
 
-              // Botón flotante "recentrar" -- reemplaza al ítem
-              // "Ubicación" que antes vivía en la nav bar. Ya no es
-              // una sección de la app a la que navegar, es una
-              // acción contextual del mapa (mismo patrón que el botón
-              // de recentrar de Google Maps/Waze). Se ubica arriba
-              // del panel compacto para no quedar tapado por él.
+              // Botón flotante "recentrar" -- acción contextual del
+              // mapa (mismo patrón que Google Maps/Waze), no una
+              // sección a la que navegar. Se desvanece junto con la
+              // barra lateral y la brújula cuando el cockpit está en
+              // pantalla completa.
               Positioned(
-                right: 16,
+                right: _sideRightMargin,
                 bottom: 170 + MediaQuery.of(context).padding.bottom,
-                child: _RecenterButton(
-                  isFollowingMe: _followMe,
-                  onTap: () {
-                    setState(() => _followMe = !_followMe);
-                    if (_followMe) {
-                      _mapController.move(
-                        markerPosition,
-                        _mapController.camera.zoom,
-                      );
-                    }
-                  },
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 400),
+                  opacity: _isCockpitExpanded ? 0.0 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: _isCockpitExpanded,
+                    child: _RecenterButton(
+                      isFollowingMe: _followMe,
+                      onTap: () {
+                        setState(() => _followMe = !_followMe);
+                        if (_followMe) {
+                          _mapController.move(
+                            markerPosition,
+                            _mapController.camera.zoom,
+                          );
+                        }
+                      },
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -484,6 +660,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
       cadenceSamples: List.of(_cadenceSamples),
     );
 
+    // Voz: la actividad terminó y ya se generó el resumen.
+    ref.read(voiceSettingsProvider.notifier).speak(
+          VoiceEventType.activityFinished,
+        );
+
     _heartRateSamples.clear();
     _powerSamples.clear();
     _cadenceSamples.clear();
@@ -500,8 +681,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
 /// Botón flotante circular para recentrar el mapa sobre la posición
 /// actual. Se resalta en Páramo cuando el seguimiento automático está
-/// activo -- mismo criterio de color que usaba el ítem "Ubicación" de
-/// la nav bar antigua.
+/// activo.
 class _RecenterButton extends StatelessWidget {
   final bool isFollowingMe;
   final VoidCallback onTap;
@@ -512,7 +692,7 @@ class _RecenterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: isFollowingMe
-          ? CyclecorePalette.ubicacionActiva   
+          ? CyclecorePalette.ubicacionActiva
           : Colors.black.withValues(alpha: 0.55),
       shape: const CircleBorder(),
       elevation: 4,
@@ -532,8 +712,55 @@ class _RecenterButton extends StatelessWidget {
   }
 }
 
-/// Píldora de estado -- lo único que queda flotando sobre el mapa
-/// además del cockpit y el botón de recentrar.
+/// Botón flotante de brújula, estilo Google Maps/Waze:
+/// - Un toque alterna entre "norte arriba" (mapa fijo) y "rumbo
+///   arriba" (el mapa gira para que la dirección en la que vas
+///   siempre apunte hacia arriba).
+/// - El ícono rota en sentido contrario a la rotación actual del
+///   mapa, así que SIEMPRE señala el norte real -- igual que la
+///   brújula de cualquier app de navegación.
+/// - Se resalta en Páramo cuando el modo "rumbo arriba" está activo,
+///   mismo lenguaje visual que el botón de recentrar.
+class _CompassButton extends StatelessWidget {
+  final bool isHeadingUp;
+  final double rotationDegrees;
+  final VoidCallback onTap;
+
+  const _CompassButton({
+    required this.isHeadingUp,
+    required this.rotationDegrees,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isHeadingUp
+          ? CyclecorePalette.ubicacionActiva
+          : Colors.black.withValues(alpha: 0.55),
+      shape: const CircleBorder(),
+      elevation: 4,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Transform.rotate(
+            angle: -rotationDegrees * (3.14159265 / 180),
+            child: const Icon(
+              Icons.explore,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Píldora de estado -- vive en la misma fila superior que la
+/// brújula y el botón de compartir log.
 class _StatusPill extends StatelessWidget {
   final bool isRecording;
   final bool isPaused;

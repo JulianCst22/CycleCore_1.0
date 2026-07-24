@@ -35,6 +35,9 @@ dependencies:
   # --- Voz (recomendaciones TTS) ---
   flutter_tts: ^4.0.2
 
+  # --- Voz (reproducción de audios pre-grabados / voice packs) ---
+  audioplayers: ^6.0.0
+
   # --- Conectividad ---
   connectivity_plus: ^6.0.5
 
@@ -68,3 +71,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Descomenta esto cuando agregues audios pre-grabados para el
+  # módulo de voz (assets/voice_packs/<persona>/<evento>/0.mp3, etc.)
+  # assets:
+  #   - assets/voice_packs/

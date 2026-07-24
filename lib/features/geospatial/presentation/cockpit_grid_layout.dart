@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/cyclecore_palette.dart';
-import '../domain/cockpit_field.dart';
 import '../domain/cockpit_tile_config.dart';
 import 'cockpit_field_ui.dart';
+import '../domain/cockpit_field.dart';
+import 'gauge_value.dart';
 
 /// Resultado de acomodar un campo dentro de la grilla interna de 2
 /// columnas: en qué celda (fila/columna) cae y cuántas celdas ocupa.
@@ -182,18 +184,28 @@ class CockpitGridLayout extends StatelessWidget {
 /// overflow que aparecía antes con combinaciones de 4/6/8 campos: sin
 /// importar qué tan chico quede el tile, el texto se ajusta a lo que
 /// realmente cabe en vez de asumir un tamaño de pantalla típico.
-class _CockpitTile extends StatelessWidget {
+class _CockpitTile extends ConsumerWidget {
   final CockpitTileConfig config;
   final CockpitLiveData liveData;
 
   const _CockpitTile({required this.config, required this.liveData});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final display = config.field.display(liveData);
-    final isSlope = config.field == CockpitField.pendiente;
-    final accentColor = isSlope
-        ? CyclecorePalette.slopeColorFor(liveData.slopePercent)
+
+    // El tile se "combina" con el estilo de gauge cuando su campo es
+    // el mismo que el usuario eligió para la barra lateral del mapa
+    // (ver LateralDataBar/gauge_value.dart) -- así, en pantalla
+    // completa, ese dato no se muestra dos veces (barra + tile) sino
+    // que el tile ES la barra, fundido en un solo lugar. Antes esto
+    // solo pasaba para pendiente a secas; ahora aplica a cualquier
+    // campo trackeable (velocidad, FC, potencia, cadencia).
+    final trackedField = ref.watch(lateralGaugeFieldProvider);
+    final isTracked = config.field == trackedField &&
+        kLateralGaugeFields.contains(config.field);
+    final accentColor = isTracked
+        ? gaugeValueFor(config.field, liveData).color
         : display.color;
 
     return LayoutBuilder(
@@ -210,7 +222,7 @@ class _CockpitTile extends StatelessWidget {
         return Container(
           padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
-            gradient: isSlope
+            gradient: isTracked
                 ? LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -220,7 +232,7 @@ class _CockpitTile extends StatelessWidget {
                     ],
                   )
                 : null,
-            color: isSlope ? null : Colors.white.withValues(alpha: 0.05),
+            color: isTracked ? null : Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: accentColor.withValues(alpha: 0.28),

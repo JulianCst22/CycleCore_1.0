@@ -13,6 +13,7 @@ part 'app_database.g.dart';
 /// pendiente/velocidad/FC/potencia/cadencia por punto) serializado.
 /// `photoPathsJson` guarda rutas absolutas a los archivos ya copiados al
 /// almacenamiento permanente de la app (ver ActivitiesRepository).
+
 class Activities extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();

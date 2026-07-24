@@ -32,12 +32,11 @@ class CyclecorePalette {
   /// verde "success" genérico.
   static const Color paramo = Color.fromARGB(255, 255, 108, 54);
 
-  /// Acento del botón flotante de "recentrar mapa" cuando el
-  /// seguimiento automático está activo. Deliberadamente separado de
-  /// `paramo` -- ese color ya lo usa la nav bar (ítem activo) y el
-  /// extremo "terreno plano" del gradiente de pendiente; si compartieran
-  /// color, "estoy siguiendo mi ubicación" y "estás en terreno plano"
-  /// se confundirían visualmente por coincidencia, no por diseño.
+  /// Color del botón de recentrar el mapa cuando el seguimiento
+  /// automático está activo. Alias de [paramo] -- es el mismo acento
+  /// de marca, con nombre propio porque semánticamente representa otra
+  /// cosa ("ubicación siguiendo activamente") y así queda más claro en
+  /// el sitio donde se usa (`_RecenterButton`).
   static const Color ubicacionActiva = Color.fromARGB(255, 52, 81, 106); 
 
   /// Punto intermedio del gradiente de pendiente (uso interno de

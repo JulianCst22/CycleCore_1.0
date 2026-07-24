@@ -1,123 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/cyclecore_palette.dart';
 import '../domain/cockpit_field.dart';
 import 'cockpit_field_ui.dart';
+import 'gauge_value.dart';
 import 'gps_status_widgets.dart';
 
-/// Campos que tiene sentido monitorear como "gauge" lateral -- un
-/// subconjunto curado de `CockpitField`. Tiempo y distancia, por
-/// ejemplo, no encajan aquí porque no tienen un rango natural que
-/// normalizar visualmente (siempre crecen, no hay un "máximo típico").
-const List<CockpitField> kLateralGaugeFields = [
-  CockpitField.pendiente,
-  CockpitField.velocidad,
-  CockpitField.frecuenciaCardiaca,
-  CockpitField.potencia,
-  CockpitField.cadencia,
-];
-
-/// Persiste qué campo eligió el usuario para la barra lateral --
-/// SharedPreferences directo (no hace falta el mismo mecanismo de
-/// migración que el cockpit, es un solo valor).
-class _LateralGaugeFieldNotifier extends StateNotifier<CockpitField> {
-  static const _prefsKey = 'lateral_gauge_field_v1';
-
-  _LateralGaugeFieldNotifier() : super(CockpitField.pendiente) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefsKey);
-    if (raw == null) return;
-    try {
-      state = CockpitField.values.byName(raw);
-    } catch (_) {
-      // Nombre desconocido (versión vieja) -- se ignora, queda el
-      // valor por defecto (pendiente).
-    }
-  }
-
-  Future<void> setField(CockpitField field) async {
-    state = field;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, field.name);
-  }
-}
-
-final lateralGaugeFieldProvider =
-    StateNotifierProvider<_LateralGaugeFieldNotifier, CockpitField>(
-  (ref) => _LateralGaugeFieldNotifier(),
-);
-
-/// Normaliza el valor actual de [field] a 0..1 (cuánto llenar la
-/// barra) y decide su color.
-///
-/// Solo la pendiente usa el gradiente continuo Páramo→Óxido -- ese
-/// gradiente comunica "qué tan exigente/peligroso" es el tramo, una
-/// semántica que no aplica igual a velocidad o cadencia (más rápido no
-/// es "peor"). Los demás campos usan el color propio que ya tienen
-/// definido en `CockpitFieldDisplay`, como relleno sólido.
-class _GaugeValue {
-  final double fraction;
-  final Color color;
-  const _GaugeValue(this.fraction, this.color);
-}
-
-_GaugeValue _gaugeValueFor(CockpitField field, CockpitLiveData liveData) {
-  final display = field.display(liveData);
-
-  switch (field) {
-    case CockpitField.pendiente:
-      final v = liveData.slopePercent.clamp(-12.0, 12.0);
-      return _GaugeValue(
-        (v + 12) / 24,
-        CyclecorePalette.slopeColorFor(liveData.slopePercent),
-      );
-    case CockpitField.velocidad:
-      final v = liveData.currentSpeedKmh.clamp(0.0, 60.0);
-      return _GaugeValue(v / 60, display.color);
-    case CockpitField.frecuenciaCardiaca:
-      final bpm = liveData.heartRateBpm;
-      if (bpm == null) return _GaugeValue(0, display.color);
-      final v = bpm.clamp(60, 190);
-      return _GaugeValue((v - 60) / 130, display.color);
-    case CockpitField.potencia:
-      final w = liveData.powerWatts;
-      if (w == null) return _GaugeValue(0, display.color);
-      final v = w.clamp(0, 400);
-      return _GaugeValue(v / 400, display.color);
-    case CockpitField.cadencia:
-      final rpm = liveData.cadenceRpm;
-      if (rpm == null) return _GaugeValue(0, display.color);
-      final v = rpm.clamp(0, 120);
-      return _GaugeValue(v / 120, display.color);
-    default:
-      return _GaugeValue(0, display.color);
-  }
-}
-
 /// Barra lateral tipo "indicador de tráfico" de Waze/Google Maps: un
-/// gauge vertical fijo al costado del mapa, siempre visible mientras se
-/// graba, sin importar si el cockpit está compacto o en pantalla
-/// completa -- es independiente de ese panel, igual que el indicador de
-/// tráfico no depende de si tienes abierta la vista de direcciones.
+/// gauge vertical al costado del mapa, siempre visible mientras se
+/// graba Y el cockpit está en su forma compacta.
 ///
-/// El ícono de arriba es tocable: abre un selector para elegir qué
-/// dato mostrar aquí (por defecto, pendiente). La elección se recuerda
-/// entre sesiones.
+/// Dos cambios respecto a la primera versión, por feedback directo:
+/// - Visual más integrado al mapa: sin panel sólido ni sombra dura --
+///   ahora es una forma tipo cápsula que se desvanece hacia los bordes
+///   (gradiente a transparente), y su opacidad general sube o baja
+///   según qué tan "intenso" es el valor actual (`gauge.fraction`) --
+///   en un tramo plano o sin nada que destacar, se atenúa y casi se
+///   funde con el mapa; en una subida fuerte o un pulso alto, se
+///   vuelve más presente. Es "dinámica" en el sentido de que reacciona
+///   a los datos, no solo al tacto.
+/// - Ya NO se muestra cuando el cockpit está en pantalla completa
+///   (`isCockpitExpanded`): si el mismo campo elegido aquí aparece
+///   también como tile en la grilla, ESE tile adopta el estilo de
+///   gauge (ver `CockpitGridLayout`) en vez de duplicar la barra al
+///   lado -- se "funde" con el campo, como se pidió.
 class LateralDataBar extends ConsumerWidget {
   final CockpitLiveData liveData;
   final bool isApproximate;
+  final bool isCockpitExpanded;
 
   const LateralDataBar({
     super.key,
     required this.liveData,
     required this.isApproximate,
+    this.isCockpitExpanded = false,
   });
 
   Future<void> _pickField(BuildContext context, WidgetRef ref) async {
@@ -171,116 +89,123 @@ class LateralDataBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final field = ref.watch(lateralGaugeFieldProvider);
     final display = field.display(liveData);
-    final gauge = _gaugeValueFor(field, liveData);
+    final gauge = gaugeValueFor(field, liveData);
     final isSlope = field == CockpitField.pendiente;
 
-    return Container(
-      width: 46,
-      decoration: BoxDecoration(
-        color: CyclecorePalette.panel.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black38, blurRadius: 10),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          // El relleno tipo gauge -- crece desde abajo, con animación
-          // suave para no saltar con cada muestra nueva. En modo
-          // aproximado (sin DEM confiable / posible puente) se atenúa
-          // en vez de mostrarse a toda intensidad, comunicando "esto es
-          // menos certero" sin necesitar texto.
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: AnimatedFractionallySizedBox(
-              duration: const Duration(milliseconds: 450),
-              curve: Curves.easeOut,
-              heightFactor: gauge.fraction.clamp(0.03, 1.0),
-              widthFactor: 1,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 450),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      gauge.color.withValues(
-                        alpha: (isSlope && isApproximate) ? 0.45 : 0.85,
-                      ),
-                      gauge.color.withValues(
-                        alpha: (isSlope && isApproximate) ? 0.2 : 0.4,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Ícono arriba -- tocable, abre el selector de campo.
-          Positioned(
-            top: 10,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () => _pickField(context, ref),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(
-                    display.icon,
-                    size: 18,
-                    color: AppColors.textPrimaryOnPanel,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Badge de "modo aproximado" -- solo aplica cuando el campo
-          // mostrado es pendiente. Reutiliza el mismo bottom sheet
-          // explicativo que ya existe en el mapa.
-          if (isSlope && isApproximate)
-            const Positioned(
-              top: 4,
-              right: 4,
-              child: ApproximateElevationBadge(),
-            ),
-
-          // Valor + unidad -- siempre abajo, fijo (no se mueve con el
-          // relleno, para que sea legible sin perseguir el gauge).
-          Positioned(
-            bottom: 10,
-            left: 2,
-            right: 2,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    display.value,
-                    style: const TextStyle(
-                      color: AppColors.textPrimaryOnPanel,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-                if (display.unit.isNotEmpty)
-                  Text(
-                    display.unit,
-                    style: const TextStyle(
-                      color: AppColors.textSecondaryOnPanel,
-                      fontSize: 9,
-                    ),
-                  ),
+    // Opacidad general de la barra: base baja (0.4) para que en reposo
+    // se sienta parte del mapa y no un panel encima -- sube hasta 1.0
+    // según qué tan intenso es el valor (una pendiente fuerte, un
+    // pulso alto). `fraction` ya viene 0..1 desde gaugeValueFor.
+final dynamicOpacity =
+    (2.5 + (gauge.fraction.clamp(0.0, 1.0) * 0.6)).clamp(0.0, 1.0);
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 400),
+      opacity: isCockpitExpanded ? 0.0 : dynamicOpacity,
+      child: IgnorePointer(
+        ignoring: isCockpitExpanded,
+        child: Container(
+          width: 38,
+          decoration: BoxDecoration(
+            // Gradiente horizontal hacia transparente en vez de un
+            // panel sólido -- da la sensación de "emerger" del borde
+            // del mapa en vez de flotar como una tarjeta aparte.
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                CyclecorePalette.grafito.withValues(alpha: 0.35),
+                CyclecorePalette.grafito.withValues(alpha: 0.85),
               ],
             ),
+            borderRadius: BorderRadius.circular(19),
           ),
-        ],
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // Relleno tipo gauge -- crece desde abajo, animado.
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AnimatedFractionallySizedBox(
+                  duration: const Duration(milliseconds: 450),
+                  curve: Curves.easeOut,
+                  heightFactor: gauge.fraction.clamp(0.03, 1.0),
+                  widthFactor: 1,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 450),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          gauge.color.withValues(
+                            alpha: (isSlope && isApproximate) ? 0.4 : 0.75,
+                          ),
+                          gauge.color.withValues(alpha: 0.15),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              Positioned(
+                top: 10,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _pickField(context, ref),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        display.icon,
+                        size: 16,
+                        color: AppColors.textPrimaryOnPanel,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              if (isSlope && isApproximate)
+                const Positioned(
+                  top: 4,
+                  right: 2,
+                  child: ApproximateElevationBadge(),
+                ),
+
+              Positioned(
+                bottom: 10,
+                left: 2,
+                right: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        display.value,
+                        style: const TextStyle(
+                          color: AppColors.textPrimaryOnPanel,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (display.unit.isNotEmpty)
+                      Text(
+                        display.unit,
+                        style: const TextStyle(
+                          color: AppColors.textSecondaryOnPanel,
+                          fontSize: 9,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

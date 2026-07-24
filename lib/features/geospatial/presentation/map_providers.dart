@@ -13,6 +13,7 @@ import '../../../core/sensors/barometer_service.dart';
 import '../../activities/domain/activity_summary.dart';
 import '../../elevation/data/elevation_repository.dart';
 import '../../elevation/presentation/elevation_providers.dart';
+import '../../sensors/presentation/speed_providers.dart';
 import '../data/location_service.dart';
 import '../domain/route_point.dart';
 import '../domain/slope_presentation_formatter.dart';
@@ -149,6 +150,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   final LocationService _locationService;
   final BarometerService _barometerService;
   final ElevationRepository _elevationRepository;
+  final Ref _ref;
   final AltitudeFusionService _altitudeFusion = AltitudeFusionService();
   final SlopeWindowCalculator _slopeCalculator = SlopeWindowCalculator();
 
@@ -169,10 +171,28 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   Duration _accumulatedActiveDuration = Duration.zero;
   DateTime? _activeSegmentStartedAt;
 
+  // --- Fuente de distancia/velocidad: sensor BLE con prioridad, GPS
+  // como respaldo. `_sensorDistanceOffset` se recalcula cada vez que el
+  // sensor pasa de "no disponible" a "disponible" (al inicio de la
+  // grabación, o tras reconectar a mitad de ella) para que la distancia
+  // mostrada nunca salte ni se duplique -- ver _onNewPosition.
+  double? _sensorDistanceOffset;
+
+  /// Historial punto a punto de la distancia/velocidad YA priorizada
+  /// (sensor o GPS, lo que haya aplicado en cada momento) -- alineado
+  /// índice a índice con `state.points`. `finishRecording()` reutiliza
+  /// esto en vez de recalcular todo desde cero con Geolocator, para que
+  /// el resumen final sea fiel a lo que se vio en vivo -- crítico para
+  /// actividades indoor, donde el GPS no se mueve pero el sensor sí
+  /// reporta datos reales.
+  final List<double> _liveDistanceHistory = [];
+  final List<double> _liveSpeedHistory = [];
+
   RouteRecordingController(
     this._locationService,
     this._barometerService,
     this._elevationRepository,
+    this._ref,
   ) : super(const RouteRecordingState());
 
   /// Archivo CSV de la sesión más reciente (o ya cerrada), por si la UI
@@ -194,6 +214,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     _lastPressureHpa = null;
     _accumulatedActiveDuration = Duration.zero;
     _activeSegmentStartedAt = DateTime.now();
+    _sensorDistanceOffset = null;
+    _liveDistanceHistory.clear();
+    _liveSpeedHistory.clear();
 
     // Espera acotada a que el GPS estabilice ANTES de empezar a grabar
     // -- reduce la probabilidad de arrancar con un fix de cold start
@@ -255,16 +278,10 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   }
 
   /// Umbral mínimo adaptativo de distancia para contarla como
-  /// movimiento real en vez de ruido/jitter del GPS. Antes se sumaba
-  /// SIEMPRE la distancia entre puntos consecutivos, sin importar qué
-  /// tan cerca quedaran -- eso hacía que el jitter normal del GPS
-  /// (típico detenido en un semáforo o yendo muy lento) se sumara como
-  /// si fuera desplazamiento real, inflando la distancia total Y
-  /// amplificando el ruido de pendiente (una diferencia de altitud
-  /// diminuta dividida entre una distancia diminuta da un porcentaje
-  /// absurdo). El umbral se adapta a la precisión reportada por el
-  /// GPS: con peor precisión, se necesita más distancia para confiar
-  /// en que el movimiento fue real.
+  /// movimiento real en vez de ruido/jitter del GPS. Sigue aplicando
+  /// SOLO a la pendiente (ver comentario en _onNewPosition) -- la
+  /// distancia/velocidad ya no dependen de este piso cuando hay sensor
+  /// BLE conectado.
   static double _distanceNoiseFloor(double? gpsAccuracyMeters) {
     if (gpsAccuracyMeters == null) return 4.0;
     return (gpsAccuracyMeters * 0.5).clamp(2.0, 8.0);
@@ -272,8 +289,8 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
   void _onNewPosition(Position position) {
     // --- Distancia desde el punto anterior (cruda, antes del filtro
-    // de ruido -- la necesitamos cruda para las Capas 1 y 2, que la
-    // usan como señal de "qué tan juntos están los puntos"). ---
+    // de ruido -- la necesitamos cruda para las Capas 1 y 2 de altitud,
+    // y para decidir si la pendiente se alimenta). ---
     double rawStepDistance = 0;
     if (state.points.isNotEmpty) {
       final previous = state.points.last;
@@ -288,7 +305,8 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     final noiseFloor = _distanceNoiseFloor(position.accuracy);
     final addedDistance = rawStepDistance > noiseFloor ? rawStepDistance : 0.0;
 
-    // --- CAPA 1: fusión difusa multi-fuente de altitud ---
+    // --- CAPA 1: fusión difusa multi-fuente de altitud (sin cambios,
+    // sigue dependiendo exclusivamente de GPS/barómetro/DEM) ---
     final demAltitude = _elevationRepository.elevationAtSync(
       position.latitude,
       position.longitude,
@@ -334,16 +352,37 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       }
     }
 
-    final newCumulativeDistance =
-        state.cumulativeDistanceMeters + addedDistance;
+    // --- Distancia y velocidad: sensor de velocidad BLE con
+    // prioridad, GPS como respaldo. El offset se recalcula solo cuando
+    // el sensor "aparece" (pasa de no disponible a disponible), para
+    // no saltar ni duplicar distancia ya acumulada por GPS antes de que
+    // se conectara (o tras una reconexión a mitad de la grabación). Si
+    // el sensor se desconecta, se cae de vuelta a GPS sin más -- el
+    // offset se limpia para recalcularse la próxima vez que reaparezca.
+    final sensorSpeedKmh = _ref.read(speedKmhProvider);
+    final sensorTotalDistance = _ref.read(speedDistanceMetersProvider);
+    final sensorAvailable =
+        sensorSpeedKmh != null && sensorTotalDistance != null;
 
-    // La ventana de regresión (Capa de pendiente cruda) y la Capa 2
-    // solo avanzan cuando hubo movimiento real (addedDistance > 0). Si
-    // el paso quedó filtrado por el piso de ruido, meterlo igual
-    // repetiría la misma distancia acumulada (mismo X de la regresión)
-    // con una altitud distinta solo por ruido de grilla del DEM (Y
-    // ruidosa) -- justo el peor punto para alimentar una regresión. En
-    // ese caso se conserva la última pendiente calculada tal cual.
+    double newCumulativeDistance;
+    double clampedSpeedKmh;
+
+    if (sensorAvailable) {
+      _sensorDistanceOffset ??=
+          sensorTotalDistance - state.cumulativeDistanceMeters;
+      newCumulativeDistance = sensorTotalDistance - _sensorDistanceOffset!;
+      clampedSpeedKmh = sensorSpeedKmh < 0 ? 0.0 : sensorSpeedKmh;
+    } else {
+      _sensorDistanceOffset = null;
+      newCumulativeDistance = state.cumulativeDistanceMeters + addedDistance;
+      final speedKmh = newPoint.speedMetersPerSecond * 3.6;
+      clampedSpeedKmh = speedKmh < 0 ? 0.0 : speedKmh;
+    }
+
+    // La ventana de regresión de pendiente sigue dependiendo SOLO del
+    // piso de ruido de GPS (addedDistance) para decidir si se alimenta
+    // -- esto es intencional, la pendiente no cambia de fuente, solo
+    // distancia/velocidad.
     double trustedSlope = state.currentSlopePercent;
     double displaySlope = state.displaySlopePercent;
 
@@ -353,20 +392,12 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
         altitude: newPoint.altitude,
       );
 
-      // rawStepDistance == addedDistance en esta rama (los dos ya
-      // superaron el mismo piso de ruido) -- se deja rawStepDistance
-      // explícito porque es la señal semánticamente correcta ("qué tan
-      // juntos están los puntos"), y así queda consistente con lo que
-      // hace finishRecording() en la reconstrucción histórica.
       trustedSlope = _slopePlausibility.filter(
         rawSlope: rawSlope,
         stepDistanceMeters: rawStepDistance,
       );
       displaySlope = _slopePresentation.format(trustedSlope);
     }
-
-    final speedKmh = newPoint.speedMetersPerSecond * 3.6;
-    final clampedSpeedKmh = speedKmh < 0 ? 0.0 : speedKmh;
 
     _debugLogger.logSample(
       timestamp: DateTime.now(),
@@ -382,6 +413,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       fusedAltitude: fusionResult.fusedAltitude,
       slopePercent: trustedSlope,
     );
+
+    _liveDistanceHistory.add(newCumulativeDistance);
+    _liveSpeedHistory.add(clampedSpeedKmh);
 
     state = state.copyWith(
       points: [...state.points, newPoint],
@@ -414,6 +448,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     await _debugLogger.stop();
     _activeSegmentStartedAt = null;
     _accumulatedActiveDuration = Duration.zero;
+    _sensorDistanceOffset = null;
+    _liveDistanceHistory.clear();
+    _liveSpeedHistory.clear();
     state = const RouteRecordingState();
   }
 
@@ -421,22 +458,15 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   /// enriquecido para alimentar los gráficos del detalle, arma el
   /// `ActivitySummary` final, y resetea el estado.
   ///
-  /// Usa instancias NUEVAS de SlopeWindowCalculator y
-  /// SlopePlausibilityFilter para que la reconstrucción histórica dé
-  /// exactamente el mismo resultado que lo que se vio en vivo, punto
-  /// por punto.
-  ///
-  /// NOTA: aquí no se puede repetir la Capa 1 (fusión de altitud) --
-  /// esa ya corrió en vivo y su resultado quedó guardado en
-  /// `point.altitude` de cada RoutePoint. Repetirla no tendría sentido
-  /// porque dependía de estado en tiempo real (presión del barómetro
-  /// en ese instante exacto) que ya no existe.
-  ///
-  /// El filtro de distancia fantasma usa el MISMO piso de ruido
-  /// adaptativo que en vivo (`_distanceNoiseFloor`, basado en
-  /// `RoutePoint.accuracyMeters` guardado por punto) -- ya no hay
-  /// discrepancia entre lo que se vio en vivo y lo que queda en el
-  /// resumen guardado.
+  /// La pendiente/altitud se reconstruyen igual que antes (instancias
+  /// nuevas de los filtros, misma fidelidad punto por punto). La
+  /// distancia y velocidad de cada punto YA NO se recalculan con
+  /// Geolocator desde cero -- se reutiliza `_liveDistanceHistory`/
+  /// `_liveSpeedHistory`, que ya tienen priorizado sensor-vs-GPS
+  /// correctamente para cada instante. El incremento entre punto y
+  /// punto de esa distancia ya priorizada es lo que decide si se
+  /// alimenta la regresión de pendiente (reemplaza el antiguo cálculo
+  /// de `stepDistance` vía Geolocator + piso de ruido).
   ///
   /// `powerSamples`/`cadenceSamples` siguen el mismo patrón de "carry
   /// forward" que `heartRateSamples`: cada punto GPS se casa con la
@@ -456,7 +486,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
     final slopeCalc = SlopeWindowCalculator();
     final slopePlausibility = SlopePlausibilityFilter();
-    double runningDistance = 0;
     double lastTrustedSlope = 0;
     int hrIndex = 0;
     int? carriedHr;
@@ -468,30 +497,15 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
     for (int i = 0; i < state.points.length; i++) {
       final point = state.points[i];
+      final runningDistance = _liveDistanceHistory[i];
+      final pointSpeedKmh = _liveSpeedHistory[i];
 
-      double stepDistance = 0;
-      if (i > 0) {
-        final previous = state.points[i - 1];
-        final rawStep = Geolocator.distanceBetween(
-          previous.latitude,
-          previous.longitude,
-          point.latitude,
-          point.longitude,
-        );
-        // Mismo piso adaptativo que en vivo, ahora posible porque
-        // RoutePoint guarda accuracyMeters por punto.
-        final noiseFloor = _distanceNoiseFloor(point.accuracyMeters);
-        if (rawStep > noiseFloor) {
-          runningDistance += rawStep;
-          stepDistance = rawStep;
-        }
-      }
+      final stepDistance =
+          i == 0 ? 0.0 : runningDistance - _liveDistanceHistory[i - 1];
 
-      // Mismo criterio que en vivo (_onNewPosition): si no hubo
-      // movimiento real, no se alimenta la regresión de pendiente ni
-      // la Capa 2 -- se conserva la última pendiente calculada. Esto
-      // es lo que hace que la reconstrucción sea fiel, punto por
-      // punto, a lo que se vio en vivo.
+      // Mismo criterio que en vivo: si no hubo movimiento real, no se
+      // alimenta la regresión de pendiente ni la Capa 2 -- se conserva
+      // la última pendiente calculada.
       if (stepDistance > 0) {
         final rawSlope = slopeCalc.addSample(
           cumulativeDistanceMeters: runningDistance,
@@ -522,8 +536,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
         cadenceIndex++;
       }
 
-      final pointSpeedKmh = point.speedMetersPerSecond * 3.6;
-
       enrichedPoints.add(
         RoutePointSnapshot(
           latitude: point.latitude,
@@ -531,7 +543,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
           altitude: point.altitude,
           distanceFromStartMeters: runningDistance,
           slopePercent: trustedSlope,
-          speedKmh: pointSpeedKmh < 0 ? 0 : pointSpeedKmh,
+          speedKmh: pointSpeedKmh,
           secondsFromStart: point.timestamp.difference(startedAt).inSeconds,
           heartRateBpm: carriedHr,
           powerWatts: carriedPower,
@@ -539,6 +551,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
         ),
       );
     }
+
+    final finalDistance =
+        _liveDistanceHistory.isEmpty ? 0.0 : _liveDistanceHistory.last;
 
     int? avgHeartRate;
     int? maxHeartRate;
@@ -571,7 +586,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       startedAt: startedAt,
       endedAt: DateTime.now(),
       duration: elapsed,
-      distanceMeters: runningDistance,
+      distanceMeters: finalDistance,
       avgSpeedKmh: state.averageSpeedKmhOver(elapsed),
       maxSpeedKmh: state.maxSpeedKmh,
       elevationGainMeters: state.elevationGainMeters,
@@ -586,6 +601,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
     _activeSegmentStartedAt = null;
     _accumulatedActiveDuration = Duration.zero;
+    _sensorDistanceOffset = null;
+    _liveDistanceHistory.clear();
+    _liveSpeedHistory.clear();
     state = const RouteRecordingState();
 
     return summary;
@@ -610,5 +628,6 @@ final routeRecordingProvider =
         locationService,
         barometerService,
         elevationRepository,
+        ref,
       );
     });

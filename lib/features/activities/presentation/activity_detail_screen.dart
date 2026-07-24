@@ -13,23 +13,47 @@ import '../../../core/utils/format_utils.dart';
 import '../../../shared_widgets/stat_tile.dart';
 import '../domain/activity_colors.dart';
 import '../domain/activity_json_helpers.dart';
+import '../domain/activity_records.dart';
 import '../domain/activity_summary.dart';
 import 'activities_providers.dart';
 import 'activity_charts.dart';
+import 'save_activity_screen.dart';
+import 'widgets/personal_record_banner.dart';
+import 'widgets/photo_viewer_screen.dart';
 
-class ActivityDetailScreen extends ConsumerWidget {
+class ActivityDetailScreen extends ConsumerStatefulWidget {
   final int activityId;
 
   const ActivityDetailScreen({super.key, required this.activityId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final database = ref.watch(appDatabaseProvider);
+  ConsumerState<ActivityDetailScreen> createState() =>
+      _ActivityDetailScreenState();
+}
 
+class _ActivityDetailScreenState extends ConsumerState<ActivityDetailScreen> {
+  late Future<Activity?> _activityFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  // Vuelve a pedir la actividad a la base de datos. Se llama al volver
+  // de editar, para que los cambios se reflejen sin salir de la
+  // pantalla de detalle.
+  void _reload() {
+    final database = ref.read(appDatabaseProvider);
+    _activityFuture = database.getActivityById(widget.activityId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.panelBackground,
       body: FutureBuilder<Activity?>(
-        future: database.getActivityById(activityId),
+        future: _activityFuture,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(
@@ -47,7 +71,10 @@ class ActivityDetailScreen extends ConsumerWidget {
             );
           }
 
-          return _ActivityDetailBody(activity: activity);
+          return _ActivityDetailBody(
+            activity: activity,
+            onEdited: () => setState(_reload),
+          );
         },
       ),
     );
@@ -107,8 +134,24 @@ class _DerivedStats {
 
 class _ActivityDetailBody extends ConsumerWidget {
   final Activity activity;
+  final VoidCallback onEdited;
 
-  const _ActivityDetailBody({required this.activity});
+  const _ActivityDetailBody({required this.activity, required this.onEdited});
+
+  Future<void> _edit(BuildContext context) async {
+    final result = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute(
+        builder: (_) => SaveActivityScreen(existingActivity: activity),
+      ),
+    );
+    if (!context.mounted) return;
+    if (result == 'deleted') {
+      // La actividad ya no existe -- cerramos también el detalle.
+      Navigator.of(context).pop();
+    } else if (result == true) {
+      onEdited();
+    }
+  }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
@@ -159,6 +202,20 @@ class _ActivityDetailBody extends ConsumerWidget {
       'es',
     ).format(activity.startedAt);
 
+    // Récord personal: se compara contra el resto de actividades del
+    // mismo tipo (misma fuente que usa la lista, así el badge de la
+    // lista y este desglose siempre coinciden). Mientras el listado
+    // completo no haya cargado, simplemente no se muestra nada -- en
+    // cuanto llega, este widget se reconstruye solo.
+    final allActivitiesAsync = ref.watch(activitiesListProvider);
+    final personalRecords = allActivitiesAsync.maybeWhen(
+      data: (all) => computeActivityRecords(
+        activity: activity,
+        allActivities: all,
+      ).records,
+      orElse: () => const <RecordType>{},
+    );
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -171,6 +228,11 @@ class _ActivityDetailBody extends ConsumerWidget {
             style: const TextStyle(color: AppColors.textPrimaryOnPanel),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              color: AppColors.textPrimaryOnPanel,
+              onPressed: () => _edit(context),
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               color: AppColors.textPrimaryOnPanel,
@@ -216,6 +278,20 @@ class _ActivityDetailBody extends ConsumerWidget {
                       ),
                     ],
                   ),
+
+                  // Debajo de "Entrenamiento": el desglose de récord
+                  // personal, con qué métrica(s) se superaron y su
+                  // valor -- esto es lo que faltaba en el badge de la
+                  // lista, que solo decía "Récord personal" sin decir
+                  // de qué.
+                  if (personalRecords.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    PersonalRecordBanner(
+                      activity: activity,
+                      records: personalRecords,
+                    ),
+                  ],
+
                   const SizedBox(height: 4),
                   Text(
                     dateLabel,
@@ -235,49 +311,68 @@ class _ActivityDetailBody extends ConsumerWidget {
                     mainAxisSpacing: 8,
                     childAspectRatio: 1.15,
                     children: [
-                      StatTile(
-                        icon: Icons.straighten,
-                        accentColor: AppColors.accentDistance,
-                        value: formatDistanceKm(activity.distanceMeters),
-                        unit: 'km',
-                        label: 'DISTANCIA',
-                      ),
-                      StatTile(
-                        icon: Icons.timer_outlined,
-                        accentColor: AppColors.accentTime,
-                        value: formatDuration(
-                          Duration(seconds: activity.durationSeconds),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.straighten,
+                          accentColor: AppColors.accentDistance,
+                          value: formatDistanceKm(activity.distanceMeters),
+                          unit: 'km',
+                          label: 'DISTANCIA',
                         ),
-                        unit: '',
-                        label: 'TIEMPO',
                       ),
-                      StatTile(
-                        icon: Icons.speed,
-                        accentColor: AppColors.accentSpeed,
-                        value: formatSpeedKmh(activity.avgSpeedKmh),
-                        unit: 'km/h',
-                        label: 'PROMEDIO',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.timer_outlined,
+                          accentColor: AppColors.accentTime,
+                          value: formatDuration(
+                            Duration(seconds: activity.durationSeconds),
+                          ),
+                          unit: '',
+                          label: 'TIEMPO',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.bolt,
-                        accentColor: AppColors.accentSpeed,
-                        value: formatSpeedKmh(activity.maxSpeedKmh),
-                        unit: 'km/h',
-                        label: 'VEL. MÁX',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.speed,
+                          accentColor: AppColors.accentSpeed,
+                          value: formatSpeedKmh(activity.avgSpeedKmh),
+                          unit: 'km/h',
+                          label: 'PROMEDIO',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.terrain,
-                        accentColor: AppColors.accentElevation,
-                        value: activity.elevationGainMeters.toStringAsFixed(0),
-                        unit: 'm',
-                        label: 'DESNIVEL +',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.bolt,
+                          accentColor: AppColors.accentSpeed,
+                          value: formatSpeedKmh(activity.maxSpeedKmh),
+                          unit: 'km/h',
+                          label: 'VEL. MÁX',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.favorite,
-                        accentColor: AppColors.accentHeartRate,
-                        value: activity.avgHeartRate?.toString() ?? '--',
-                        unit: 'bpm',
-                        label: 'FC PROM.',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.terrain,
+                          accentColor: AppColors.accentElevation,
+                          value:
+                              activity.elevationGainMeters.toStringAsFixed(0),
+                          unit: 'm',
+                          label: 'DESNIVEL +',
+                        ),
+                      ),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.favorite,
+                          accentColor: AppColors.accentHeartRate,
+                          value: activity.avgHeartRate?.toString() ?? '--',
+                          unit: 'bpm',
+                          label: 'FC PROM.',
+                        ),
                       ),
                     ],
                   ),
@@ -308,82 +403,118 @@ class _ActivityDetailBody extends ConsumerWidget {
                     mainAxisSpacing: 8,
                     childAspectRatio: 1.15,
                     children: [
-                      StatTile(
-                        icon: Icons.favorite,
-                        accentColor: AppColors.accentHeartRate,
-                        value: activity.maxHeartRate?.toString() ?? '--',
-                        unit: 'bpm',
-                        label: 'FC MÁXIMA',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.favorite,
+                          accentColor: AppColors.accentHeartRate,
+                          value: activity.maxHeartRate?.toString() ?? '--',
+                          unit: 'bpm',
+                          label: 'FC MÁXIMA',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.south,
-                        accentColor: AppColors.accentElevation,
-                        value: derived.elevationLossMeters
-                                ?.toStringAsFixed(0) ??
-                            '--',
-                        unit: 'm',
-                        label: 'DESNIVEL −',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.south,
+                          accentColor: AppColors.accentElevation,
+                          value: derived.elevationLossMeters
+                                  ?.toStringAsFixed(0) ??
+                              '--',
+                          unit: 'm',
+                          label: 'DESNIVEL −',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.height,
-                        accentColor: AppColors.accentElevation,
-                        value: derived.minAltitude?.toStringAsFixed(0) ?? '--',
-                        unit: 'm',
-                        label: 'ALT. MÍNIMA',
+                      // Esta era la tarjeta que se desbordaba ("right
+                      // overflowed by 1.6 px") con valores de 4 dígitos
+                      // como 2587 -- el FittedBox la achica solo lo
+                      // necesario para que quepa, sin tocar StatTile.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.height,
+                          accentColor: AppColors.accentElevation,
+                          value:
+                              derived.minAltitude?.toStringAsFixed(0) ?? '--',
+                          unit: 'm',
+                          label: 'ALT. MÍNIMA',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.height,
-                        accentColor: AppColors.accentElevation,
-                        value: derived.maxAltitude?.toStringAsFixed(0) ?? '--',
-                        unit: 'm',
-                        label: 'ALT. MÁXIMA',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.height,
+                          accentColor: AppColors.accentElevation,
+                          value:
+                              derived.maxAltitude?.toStringAsFixed(0) ?? '--',
+                          unit: 'm',
+                          label: 'ALT. MÁXIMA',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.trending_up,
-                        accentColor: AppColors.accentSlope,
-                        value: derived.maxSlopePercent != null
-                            ? formatSlopePercent(derived.maxSlopePercent!)
-                            : '--',
-                        unit: '%',
-                        label: 'PEND. MÁX',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.trending_up,
+                          accentColor: AppColors.accentSlope,
+                          value: derived.maxSlopePercent != null
+                              ? formatSlopePercent(derived.maxSlopePercent!)
+                              : '--',
+                          unit: '%',
+                          label: 'PEND. MÁX',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.trending_down,
-                        accentColor: AppColors.accentSlope,
-                        value: derived.minSlopePercent != null
-                            ? formatSlopePercent(derived.minSlopePercent!)
-                            : '--',
-                        unit: '%',
-                        label: 'PEND. MÍN',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.trending_down,
+                          accentColor: AppColors.accentSlope,
+                          value: derived.minSlopePercent != null
+                              ? formatSlopePercent(derived.minSlopePercent!)
+                              : '--',
+                          unit: '%',
+                          label: 'PEND. MÍN',
+                        ),
                       ),
                       // --- Nuevos: potencia y cadencia (Fase C) ---
-                      StatTile(
-                        icon: Icons.electric_bolt,
-                        accentColor: AppColors.accentPower,
-                        value: activity.avgPower?.toString() ?? '--',
-                        unit: 'W',
-                        label: 'POT. PROM.',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.electric_bolt,
+                          accentColor: AppColors.accentPower,
+                          value: activity.avgPower?.toString() ?? '--',
+                          unit: 'W',
+                          label: 'POT. PROM.',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.bolt,
-                        accentColor: AppColors.accentPower,
-                        value: activity.maxPower?.toString() ?? '--',
-                        unit: 'W',
-                        label: 'POT. MÁX',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.bolt,
+                          accentColor: AppColors.accentPower,
+                          value: activity.maxPower?.toString() ?? '--',
+                          unit: 'W',
+                          label: 'POT. MÁX',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.autorenew,
-                        accentColor: AppColors.accentCadence,
-                        value: activity.avgCadence?.toString() ?? '--',
-                        unit: 'rpm',
-                        label: 'CAD. PROM.',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.autorenew,
+                          accentColor: AppColors.accentCadence,
+                          value: activity.avgCadence?.toString() ?? '--',
+                          unit: 'rpm',
+                          label: 'CAD. PROM.',
+                        ),
                       ),
-                      StatTile(
-                        icon: Icons.loop,
-                        accentColor: AppColors.accentCadence,
-                        value: activity.maxCadence?.toString() ?? '--',
-                        unit: 'rpm',
-                        label: 'CAD. MÁX',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: StatTile(
+                          icon: Icons.loop,
+                          accentColor: AppColors.accentCadence,
+                          value: activity.maxCadence?.toString() ?? '--',
+                          unit: 'rpm',
+                          label: 'CAD. MÁX',
+                        ),
                       ),
                     ],
                   ),
@@ -545,10 +676,22 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
               itemCount: widget.photoPaths.length,
               onPageChanged: (i) => setState(() => _currentPage = i),
               itemBuilder: (context, index) {
-                return Image.file(
-                  File(widget.photoPaths[index]),
-                  fit: BoxFit.cover,
-                  width: double.infinity,
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PhotoViewerScreen(
+                          photoPaths: widget.photoPaths,
+                          initialIndex: index,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Image.file(
+                    File(widget.photoPaths[index]),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  ),
                 );
               },
             ),

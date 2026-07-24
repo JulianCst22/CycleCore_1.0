@@ -38,4 +38,7 @@ class AppColors {
 
   static const Color recordButtonActive = Color(0xFFE53935); // Grabando
   static const Color recordButtonInactive = Color(0xFF43A047); // Detenido
+
+// Training
+  static const Color accentTraining = Color(0xFF00BFFF);
 }

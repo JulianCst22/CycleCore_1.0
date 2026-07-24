@@ -65,6 +65,13 @@ class SpeedConnectionState {
 
 const _prefsLastDeviceIdKey = 'last_speed_device_id';
 
+/// Máximo del contador de revoluciones de rueda (uint32) -- mismo valor
+/// que usa CadenceSpeedCalculator, duplicado aquí a propósito: el
+/// odómetro necesita su PROPIO tracking de "última lectura" separado
+/// del que ya lleva el calculador para la velocidad instantánea, para
+/// no interferir entre sí.
+const _wheelCounterMax = 0x100000000;
+
 class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
   final BleSpeedService _bleService;
   final WheelSizeRepository _wheelSizeRepository;
@@ -77,6 +84,12 @@ class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
   Timer? _reconnectAlertTimer;
   BluetoothDevice? _connectedDevice;
   double? _wheelCircumferenceMm;
+
+  // --- Odómetro propio (metros totales desde que se conectó este
+  // sensor) -- lo usa RouteRecordingController como fuente de distancia
+  // con prioridad sobre el GPS. Ver speedDistanceMetersProvider.
+  double _odometerMeters = 0;
+  int? _lastOdometerWheelRevs;
 
   SpeedSensorController(
     this._bleService,
@@ -121,6 +134,8 @@ class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
     await stopScan();
     state = state.copyWith(status: SensorConnectionStatus.connecting);
     _calculator.reset();
+    _odometerMeters = 0;
+    _lastOdometerWheelRevs = null;
 
     try {
       final bleDevice = await _bleService.connect(device.id);
@@ -154,8 +169,24 @@ class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
             return;
           }
 
+          // --- Odómetro: metros totales desde que se conectó, con su
+          // propio rollover independiente del cálculo de velocidad
+          // instantánea (CadenceSpeedCalculator necesita DOS lecturas
+          // para dar km/h, pero la distancia acumulada solo necesita el
+          // delta de revoluciones -- se calculan por separado para que
+          // uno no dependa del estado interno del otro). ---
+          final currentRevs = reading.cumulativeWheelRevolutions!;
+          if (_lastOdometerWheelRevs != null) {
+            var revDelta = currentRevs - _lastOdometerWheelRevs!;
+            if (revDelta < 0) revDelta += _wheelCounterMax;
+            _odometerMeters += revDelta * (_wheelCircumferenceMm! / 1000);
+            _ref.read(speedDistanceMetersProvider.notifier).state =
+                _odometerMeters;
+          }
+          _lastOdometerWheelRevs = currentRevs;
+
           final kmh = _calculator.updateSpeedKmh(
-            cumulativeWheelRevolutions: reading.cumulativeWheelRevolutions!,
+            cumulativeWheelRevolutions: currentRevs,
             lastWheelEventTime: reading.lastWheelEventTime!,
             wheelCircumferenceMm: _wheelCircumferenceMm!,
           );
@@ -205,6 +236,7 @@ class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
     if (connectionState == BluetoothConnectionState.disconnected) {
       state = state.copyWith(status: SensorConnectionStatus.reconnecting);
       _ref.read(speedKmhProvider.notifier).state = null;
+      _ref.read(speedDistanceMetersProvider.notifier).state = null;
       _ref.read(speedSourcedCadenceRpmProvider.notifier).state = null;
       _startReconnectAlertTimer();
       _attemptAutoReconnect();
@@ -251,7 +283,10 @@ class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
     _reconnectAlertTimer?.cancel();
     _connectedDevice = null;
     _calculator.reset();
+    _odometerMeters = 0;
+    _lastOdometerWheelRevs = null;
     _ref.read(speedKmhProvider.notifier).state = null;
+    _ref.read(speedDistanceMetersProvider.notifier).state = null;
     _ref.read(speedSourcedCadenceRpmProvider.notifier).state = null;
     // alsoProvidesCadence se reinicia a false a propósito: es una
     // propiedad de ESTE dispositivo conectado, no una preferencia
@@ -273,6 +308,12 @@ class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
 /// Velocidad en km/h en tiempo real. El resto de la app la lee sin
 /// saber que existe BLE detrás.
 final speedKmhProvider = StateProvider<double?>((ref) => null);
+
+/// Metros totales acumulados por el sensor de velocidad desde que se
+/// conectó (no desde que arrancó la grabación -- eso lo traduce
+/// RouteRecordingController con su propio offset). Null si no hay
+/// sensor conectado.
+final speedDistanceMetersProvider = StateProvider<double?>((ref) => null);
 
 /// Cadencia derivada del sensor de VELOCIDAD cuando el usuario marcó que
 /// es un combo (`alsoProvidesCadence`). NO es pública -- ver

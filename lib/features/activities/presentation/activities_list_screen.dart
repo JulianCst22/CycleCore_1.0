@@ -10,6 +10,9 @@ import '../../../core/utils/format_utils.dart';
 import 'activities_providers.dart';
 import 'activity_detail_screen.dart';
 import '../domain/activity_json_helpers.dart';
+import '../domain/activity_records.dart';
+import 'widgets/activity_record_badge.dart';
+import 'widgets/pressable_scale.dart';
 import 'widgets/route_hero_background.dart';
 
 class ActivitiesListScreen extends ConsumerWidget {
@@ -45,11 +48,25 @@ class ActivitiesListScreen extends ConsumerWidget {
           if (activities.isEmpty) {
             return const _EmptyState();
           }
+
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             itemCount: activities.length,
             itemBuilder: (context, index) {
-              return _ActivityCard(activity: activities[index]);
+              final activity = activities[index];
+              // Récord personal: ahora cubre distancia, duración,
+              // velocidad máxima, potencia máxima y desnivel -- el
+              // mismo cálculo que usa la pantalla de detalle, así el
+              // badge de la lista y el desglose del detalle siempre
+              // coinciden.
+              final records = computeActivityRecords(
+                activity: activity,
+                allActivities: activities,
+              );
+              return _ActivityCard(
+                activity: activity,
+                isPersonalRecord: !records.isEmpty,
+              );
             },
           );
         },
@@ -106,8 +123,12 @@ class _EmptyState extends StatelessWidget {
 /// del carrusel está el usuario, para animar los puntos indicadores.
 class _ActivityCard extends ConsumerStatefulWidget {
   final Activity activity;
+  final bool isPersonalRecord;
 
-  const _ActivityCard({required this.activity});
+  const _ActivityCard({
+    required this.activity,
+    this.isPersonalRecord = false,
+  });
 
   @override
   ConsumerState<_ActivityCard> createState() => _ActivityCardState();
@@ -129,82 +150,131 @@ class _ActivityCardState extends ConsumerState<_ActivityCard> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(24),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ActivityDetailScreen(activityId: activity.id),
-              ),
-            );
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildMediaHeader(
-                context,
-                activity: activity,
-                typeUi: typeUi,
-                dateLabel: dateLabel,
-                photoPaths: photoPaths,
-                pageCount: pageCount,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      activity.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimaryOnPanel,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
+      child: Container(
+        // El color del tipo de actividad ya no vive en un borde plano
+        // (se perdía sobre el fondo oscuro) sino en un glow de sombra
+        // teñido, combinado con una sombra neutra para dar profundidad
+        // real -- efecto "la tarjeta flota y emite luz de su color".
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: typeUi.color.withValues(alpha: 0.28),
+              blurRadius: 26,
+              spreadRadius: -6,
+              offset: const Offset(0, 12),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(30),
+          clipBehavior: Clip.antiAlias,
+          child: PressableScale(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ActivityDetailScreen(activityId: activity.id),
+                ),
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Línea superior en degradado: ancla el color del tipo
+                // de actividad de forma elegante, sin competir con el
+                // resto de la tarjeta como hacía el borde perimetral.
+                // Se desvanece en ambos extremos y flota con un margen
+                // respecto al borde -- así se integra como un detalle
+                // sutil en vez de "gritar" como una barra sólida.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 10, 28, 0),
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        stops: const [0.0, 0.5, 1.0],
+                        colors: [
+                          typeUi.color.withValues(alpha: 0.0),
+                          typeUi.color.withValues(alpha: 0.85),
+                          typeUi.color.withValues(alpha: 0.0),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _HeroStat(
-                            icon: Icons.straighten,
-                            value: formatDistanceKm(activity.distanceMeters),
-                            unit: 'km',
-                            label: 'Distancia',
-                          ),
-                        ),
-                        const _StatDivider(),
-                        Expanded(
-                          child: _HeroStat(
-                            icon: Icons.timer_outlined,
-                            value: formatDuration(
-                              Duration(seconds: activity.durationSeconds),
-                            ),
-                            unit: '',
-                            label: 'Duración',
-                          ),
-                        ),
-                        const _StatDivider(),
-                        Expanded(
-                          child: _HeroStat(
-                            icon: Icons.terrain,
-                            value: activity.elevationGainMeters
-                                .toStringAsFixed(0),
-                            unit: 'm',
-                            label: 'Desnivel',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                _buildMediaHeader(
+                  context,
+                  activity: activity,
+                  typeUi: typeUi,
+                  dateLabel: dateLabel,
+                  photoPaths: photoPaths,
+                  pageCount: pageCount,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        activity.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimaryOnPanel,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _HeroStat(
+                              icon: Icons.straighten,
+                              value:
+                                  formatDistanceKm(activity.distanceMeters),
+                              unit: 'km',
+                              label: 'Distancia',
+                            ),
+                          ),
+                          const _StatDivider(),
+                          Expanded(
+                            child: _HeroStat(
+                              icon: Icons.timer_outlined,
+                              value: formatDuration(
+                                Duration(seconds: activity.durationSeconds),
+                              ),
+                              unit: '',
+                              label: 'Duración',
+                            ),
+                          ),
+                          const _StatDivider(),
+                          Expanded(
+                            child: _HeroStat(
+                              icon: Icons.terrain,
+                              value: activity.elevationGainMeters
+                                  .toStringAsFixed(0),
+                              unit: 'm',
+                              label: 'Desnivel',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -272,6 +342,16 @@ class _ActivityCardState extends ConsumerState<_ActivityCard> {
             top: 12,
             child: _TypeChip(typeUi: typeUi),
           ),
+
+          // Badge de récord personal -- se apila debajo del chip de
+          // tipo para no competir con él, y solo aparece cuando esta
+          // actividad es la de mayor distancia para su tipo.
+          if (widget.isPersonalRecord)
+            const Positioned(
+              left: 12,
+              top: 44,
+              child: ActivityRecordBadge(),
+            ),
 
           Positioned(
             right: 8,

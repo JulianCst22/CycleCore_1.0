@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/database/app_database.dart';
+import '../domain/activity_json_helpers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../shared_widgets/stat_tile.dart';
@@ -12,10 +14,28 @@ import 'activities_providers.dart';
 
 enum ActivityKind { race, training }
 
+/// Pantalla de guardar/editar actividad.
+///
+/// Se usa en dos modos, según qué se pase al constructor:
+/// - `summary` (grabación recién terminada) -> modo "crear": guarda una
+///   actividad nueva a partir de los datos en vivo del recorrido.
+/// - `existingActivity` -> modo "editar": precarga los datos ya
+///   guardados y permite modificarlos (o eliminar la actividad).
 class SaveActivityScreen extends ConsumerStatefulWidget {
-  final ActivitySummary summary;
+  final ActivitySummary? summary;
+  final Activity? existingActivity;
 
-  const SaveActivityScreen({super.key, required this.summary});
+  const SaveActivityScreen({
+    super.key,
+    this.summary,
+    this.existingActivity,
+  }) : assert(
+          summary != null || existingActivity != null,
+          'SaveActivityScreen necesita summary (nueva grabación) o '
+          'existingActivity (editar una ya guardada).',
+        );
+
+  bool get isEditing => existingActivity != null;
 
   @override
   ConsumerState<SaveActivityScreen> createState() =>
@@ -23,13 +43,34 @@ class SaveActivityScreen extends ConsumerStatefulWidget {
 }
 
 class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
-  final _titleCtrl = TextEditingController(text: 'Actividad sin título');
-  final _bikeCtrl = TextEditingController(text: 'Mi bicicleta');
+  final _titleCtrl = TextEditingController();
+  final _bikeCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
   ActivityKind _kind = ActivityKind.training;
-  final List<XFile> _photos = [];
+
+  // Fotos ya guardadas (solo existen en modo edición, con ruta
+  // permanente) y fotos nuevas elegidas en esta sesión (con ruta
+  // temporal del picker) -- se combinan al guardar.
+  final List<String> _existingPhotoPaths = [];
+  final List<XFile> _newPhotos = [];
+
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existingActivity;
+    _titleCtrl.text = existing?.title ?? 'Actividad sin título';
+    _bikeCtrl.text = existing?.bikeName ?? 'Mi bicicleta';
+    _notesCtrl.text = existing?.notes ?? '';
+    if (existing != null) {
+      _kind = existing.activityType == 'race'
+          ? ActivityKind.race
+          : ActivityKind.training;
+      _existingPhotoPaths.addAll(existing.photoPaths);
+    }
+  }
 
   @override
   void dispose() {
@@ -43,12 +84,16 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickMultiImage(imageQuality: 80);
     if (picked.isNotEmpty) {
-      setState(() => _photos.addAll(picked));
+      setState(() => _newPhotos.addAll(picked));
     }
   }
 
-  void _removePhoto(int index) {
-    setState(() => _photos.removeAt(index));
+  void _removeExistingPhoto(int index) {
+    setState(() => _existingPhotoPaths.removeAt(index));
+  }
+
+  void _removeNewPhoto(int index) {
+    setState(() => _newPhotos.removeAt(index));
   }
 
   Future<void> _save() async {
@@ -61,37 +106,59 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
 
     setState(() => _saving = true);
 
-    await ref.read(activitiesRepositoryProvider).saveActivity(
-          summary: widget.summary,
-          title: _titleCtrl.text.trim(),
-          activityType: _kind == ActivityKind.race ? 'race' : 'training',
-          bikeName: _bikeCtrl.text.trim().isEmpty
-              ? 'Mi bicicleta'
-              : _bikeCtrl.text.trim(),
-          notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
-          temporaryPhotoPaths: _photos.map((f) => f.path).toList(),
-        );
+    final repo = ref.read(activitiesRepositoryProvider);
+    final title = _titleCtrl.text.trim();
+    final activityType = _kind == ActivityKind.race ? 'race' : 'training';
+    final bikeName =
+        _bikeCtrl.text.trim().isEmpty ? 'Mi bicicleta' : _bikeCtrl.text.trim();
+    final notes = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
 
-    if (!mounted) return;
-
-    // Volvemos hasta la pantalla del mapa (raíz), descartando también
-    // esta pantalla de guardado del stack de navegación.
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (widget.isEditing) {
+      final newTempPaths = _newPhotos.map((f) => f.path).toList();
+      await repo.updateActivity(
+        id: widget.existingActivity!.id,
+        title: title,
+        activityType: activityType,
+        bikeName: bikeName,
+        notes: notes,
+        photoPaths: [..._existingPhotoPaths, ...newTempPaths],
+        newTemporaryPhotoPaths: newTempPaths,
+      );
+      if (!mounted) return;
+      // Devuelve `true` para que el detalle sepa que debe refrescar.
+      Navigator.of(context).pop(true);
+    } else {
+      await repo.saveActivity(
+        summary: widget.summary!,
+        title: title,
+        activityType: activityType,
+        bikeName: bikeName,
+        notes: notes,
+        temporaryPhotoPaths: _newPhotos.map((f) => f.path).toList(),
+      );
+      if (!mounted) return;
+      // Volvemos hasta la pantalla del mapa (raíz), descartando también
+      // esta pantalla de guardado del stack de navegación.
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
-  Future<void> _discard() async {
+  Future<void> _discardOrDelete() async {
+    final isEditing = widget.isEditing;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.panelBackground,
-        title: const Text(
-          '¿Descartar actividad?',
-          style: TextStyle(color: AppColors.textPrimaryOnPanel),
+        title: Text(
+          isEditing ? '¿Eliminar actividad?' : '¿Descartar actividad?',
+          style: const TextStyle(color: AppColors.textPrimaryOnPanel),
         ),
-        content: const Text(
-          'Se perderá todo el registro de este recorrido. Esta acción no '
-          'se puede deshacer.',
-          style: TextStyle(color: AppColors.textSecondaryOnPanel),
+        content: Text(
+          isEditing
+              ? 'Esta acción no se puede deshacer.'
+              : 'Se perderá todo el registro de este recorrido. Esta '
+                  'acción no se puede deshacer.',
+          style: const TextStyle(color: AppColors.textSecondaryOnPanel),
         ),
         actions: [
           TextButton(
@@ -104,7 +171,7 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text(
-              'Descartar',
+              'Eliminar',
               style: TextStyle(color: AppColors.recordButtonActive),
             ),
           ),
@@ -112,23 +179,79 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed != true || !mounted) return;
+
+    if (isEditing) {
+      await ref
+          .read(activitiesRepositoryProvider)
+          .deleteActivity(widget.existingActivity!.id);
+      if (!mounted) return;
+      // Devuelve 'deleted' para que la pantalla de detalle (que sigue
+      // debajo en el stack) sepa que también debe cerrarse.
+      Navigator.of(context).pop('deleted');
+    } else {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final s = widget.summary;
+    final existing = widget.existingActivity;
+    final summary = widget.summary;
+
+    // Los totales pueden venir de una grabación en vivo (`summary`) o
+    // de una actividad ya guardada que se está editando (`existing`).
+    //
+    // OJO: decidimos la FUENTE una sola vez (summary != null) y NO
+    // campo por campo con `??`, porque un campo individual (FC,
+    // potencia, cadencia) puede ser legítimamente null si no había
+    // sensor conectado durante la grabación -- y eso NO significa
+    // "usa la otra fuente". Antes, `summary?.avgPower ?? existing!.avgPower`
+    // caía en el `existing!` cuando `avgPower` era null aunque `summary`
+    // sí existiera, y como `existing` es null en modo grabación, crasheaba.
+    late final Duration duration;
+    late final double distanceMeters;
+    late final double avgSpeedKmh;
+    late final double maxSpeedKmh;
+    late final double elevationGainMeters;
+    late final int? avgHeartRate;
+    late final int? avgPower;
+    late final int? maxPower;
+    late final int? avgCadence;
+    late final int? maxCadence;
+
+    if (summary != null) {
+      duration = summary.duration;
+      distanceMeters = summary.distanceMeters;
+      avgSpeedKmh = summary.avgSpeedKmh;
+      maxSpeedKmh = summary.maxSpeedKmh;
+      elevationGainMeters = summary.elevationGainMeters;
+      avgHeartRate = summary.avgHeartRate;
+      avgPower = summary.avgPower;
+      maxPower = summary.maxPower;
+      avgCadence = summary.avgCadence;
+      maxCadence = summary.maxCadence;
+    } else {
+      duration = Duration(seconds: existing!.durationSeconds);
+      distanceMeters = existing.distanceMeters;
+      avgSpeedKmh = existing.avgSpeedKmh;
+      maxSpeedKmh = existing.maxSpeedKmh;
+      elevationGainMeters = existing.elevationGainMeters;
+      avgHeartRate = existing.avgHeartRate;
+      avgPower = existing.avgPower;
+      maxPower = existing.maxPower;
+      avgCadence = existing.avgCadence;
+      maxCadence = existing.maxCadence;
+    }
 
     return Scaffold(
       backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
         backgroundColor: AppColors.panelBackground,
         elevation: 0,
-        title: const Text(
-          'Guardar actividad',
-          style: TextStyle(color: AppColors.textPrimaryOnPanel),
+        title: Text(
+          widget.isEditing ? 'Editar actividad' : 'Guardar actividad',
+          style: const TextStyle(color: AppColors.textPrimaryOnPanel),
         ),
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
       ),
@@ -206,42 +329,42 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
               StatTile(
                 icon: Icons.timer_outlined,
                 accentColor: AppColors.accentTime,
-                value: formatDuration(s.duration),
+                value: formatDuration(duration),
                 unit: '',
                 label: 'TIEMPO',
               ),
               StatTile(
                 icon: Icons.straighten,
                 accentColor: AppColors.accentDistance,
-                value: formatDistanceKm(s.distanceMeters),
+                value: formatDistanceKm(distanceMeters),
                 unit: 'km',
                 label: 'DISTANCIA',
               ),
               StatTile(
                 icon: Icons.speed,
                 accentColor: AppColors.accentSpeed,
-                value: formatSpeedKmh(s.avgSpeedKmh),
+                value: formatSpeedKmh(avgSpeedKmh),
                 unit: 'km/h',
                 label: 'PROMEDIO',
               ),
               StatTile(
                 icon: Icons.bolt,
                 accentColor: AppColors.accentSpeed,
-                value: formatSpeedKmh(s.maxSpeedKmh),
+                value: formatSpeedKmh(maxSpeedKmh),
                 unit: 'km/h',
                 label: 'VEL. MÁX',
               ),
               StatTile(
                 icon: Icons.terrain,
                 accentColor: AppColors.accentElevation,
-                value: s.elevationGainMeters.toStringAsFixed(0),
+                value: elevationGainMeters.toStringAsFixed(0),
                 unit: 'm',
                 label: 'DESNIVEL',
               ),
               StatTile(
                 icon: Icons.favorite,
                 accentColor: AppColors.accentHeartRate,
-                value: s.avgHeartRate?.toString() ?? '--',
+                value: avgHeartRate?.toString() ?? '--',
                 unit: 'bpm',
                 label: 'FC PROM.',
               ),
@@ -249,28 +372,28 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
               StatTile(
                 icon: Icons.electric_bolt,
                 accentColor: AppColors.accentPower,
-                value: s.avgPower?.toString() ?? '--',
+                value: avgPower?.toString() ?? '--',
                 unit: 'W',
                 label: 'POT. PROM.',
               ),
               StatTile(
                 icon: Icons.bolt,
                 accentColor: AppColors.accentPower,
-                value: s.maxPower?.toString() ?? '--',
+                value: maxPower?.toString() ?? '--',
                 unit: 'W',
                 label: 'POT. MÁX',
               ),
               StatTile(
                 icon: Icons.autorenew,
                 accentColor: AppColors.accentCadence,
-                value: s.avgCadence?.toString() ?? '--',
+                value: avgCadence?.toString() ?? '--',
                 unit: 'rpm',
                 label: 'CAD. PROM.',
               ),
               StatTile(
                 icon: Icons.loop,
                 accentColor: AppColors.accentCadence,
-                value: s.maxCadence?.toString() ?? '--',
+                value: maxCadence?.toString() ?? '--',
                 unit: 'rpm',
                 label: 'CAD. MÁX',
               ),
@@ -294,41 +417,17 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                for (int i = 0; i < _photos.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(_photos[i].path),
-                            width: 90,
-                            height: 90,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: GestureDetector(
-                            onTap: () => _removePhoto(i),
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.black87,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                // Fotos que ya estaban guardadas (solo en modo editar).
+                for (int i = 0; i < _existingPhotoPaths.length; i++)
+                  _PhotoThumb(
+                    imageFile: File(_existingPhotoPaths[i]),
+                    onRemove: () => _removeExistingPhoto(i),
+                  ),
+                // Fotos nuevas elegidas en esta sesión.
+                for (int i = 0; i < _newPhotos.length; i++)
+                  _PhotoThumb(
+                    imageFile: File(_newPhotos[i].path),
+                    onRemove: () => _removeNewPhoto(i),
                   ),
                 GestureDetector(
                   onTap: _pickPhotos,
@@ -368,7 +467,7 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _saving ? null : _discard,
+                  onPressed: _saving ? null : _discardOrDelete,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.recordButtonActive,
                     side: const BorderSide(color: AppColors.recordButtonActive),
@@ -402,13 +501,66 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'Guardar actividad',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                      : Text(
+                          widget.isEditing
+                              ? 'Guardar cambios'
+                              : 'Guardar actividad',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoThumb extends StatelessWidget {
+  final File imageFile;
+  final VoidCallback onRemove;
+
+  const _PhotoThumb({required this.imageFile, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              imageFile,
+              width: 90,
+              height: 90,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 90,
+                height: 90,
+                color: AppColors.panelBackground,
+                child: const Icon(
+                  Icons.broken_image_outlined,
+                  color: AppColors.textSecondaryOnPanel,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Colors.black87,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
           ),
         ],
       ),

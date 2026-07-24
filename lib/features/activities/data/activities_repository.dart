@@ -57,6 +57,48 @@ class ActivitiesRepository {
     return database.insertActivity(companion);
   }
 
+  /// Actualiza los datos editables de una actividad ya guardada (título,
+  /// tipo, bicicleta, notas y fotos). No toca `routePointsJson` ni las
+  /// estadísticas (distancia, duración, etc.) -- esas se calcularon al
+  /// grabar y no cambian al editar.
+  ///
+  /// [photoPaths] es la lista final completa que debe quedar guardada
+  /// (fotos que ya eran permanentes + fotos nuevas). [newTemporaryPhotoPaths]
+  /// es el subconjunto de esa lista que todavía son rutas temporales del
+  /// selector de imágenes -- esas son las que hay que copiar a
+  /// almacenamiento permanente, igual que hace `saveActivity`.
+  Future<void> updateActivity({
+    required int id,
+    required String title,
+    required String activityType,
+    required String bikeName,
+    String? notes,
+    required List<String> photoPaths,
+    List<String> newTemporaryPhotoPaths = const [],
+  }) async {
+    final persistedNewPaths = await _persistPhotos(newTemporaryPhotoPaths);
+
+    // Las rutas que ya eran permanentes (no estaban en la lista de
+    // temporales) se dejan tal cual; las nuevas se reemplazan por su
+    // ruta permanente ya copiada.
+    final finalPhotoPaths = [
+      ...photoPaths.where((path) => !newTemporaryPhotoPaths.contains(path)),
+      ...persistedNewPaths,
+    ];
+
+    await (database.update(database.activities)
+          ..where((tbl) => tbl.id.equals(id)))
+        .write(
+      ActivitiesCompanion(
+        title: Value(title),
+        activityType: Value(activityType),
+        bikeName: Value(bikeName),
+        notes: Value(notes),
+        photoPathsJson: Value(jsonEncode(finalPhotoPaths)),
+      ),
+    );
+  }
+
   /// Copia cada foto elegida a `<documentos_app>/activity_photos/`, para
   /// que la actividad no dependa de que la foto siga existiendo en la
   /// galería del usuario (si la borra ahí, no se pierde en la app).

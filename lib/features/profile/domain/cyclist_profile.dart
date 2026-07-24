@@ -1,6 +1,7 @@
 /// Perfil del ciclista: datos base que alimentan el motor de lógica difusa
 /// para comparar el esfuerzo en vivo (FC, potencia) contra los límites
-/// personales del usuario.
+/// personales del usuario, más los datos "visuales" de identidad
+/// (foto, ciudad, bio) que muestra la pantalla de Perfil.
 class CyclistProfile {
   final String name;
   final double weightKg;
@@ -12,12 +13,26 @@ class CyclistProfile {
   /// preciso para detectar sobreesfuerzo real.
   final int? restingHr;
 
+  /// Ruta local a la foto de perfil (copiada a almacenamiento permanente
+  /// de la app, igual que las fotos de actividades). Null = sin foto.
+  final String? avatarPath;
+
+  /// Ciudad del usuario, mostrada bajo el nombre en el encabezado del
+  /// perfil. Opcional -- no todos los usuarios querrán compartirla.
+  final String? city;
+
+  /// Biografía corta tipo Strava/Garmin Connect. Opcional.
+  final String? bio;
+
   const CyclistProfile({
     required this.name,
     required this.weightKg,
     required this.ftpWatts,
     required this.maxHr,
     this.restingHr,
+    this.avatarPath,
+    this.city,
+    this.bio,
   });
 
   /// Relación potencia/peso (W/kg) — clave para comparar esfuerzo en
@@ -45,8 +60,15 @@ class CyclistProfile {
         'ftpWatts': ftpWatts,
         'maxHr': maxHr,
         'restingHr': restingHr,
+        'avatarPath': avatarPath,
+        'city': city,
+        'bio': bio,
       };
 
+  /// Los campos nuevos (`avatarPath`, `city`, `bio`) simplemente no
+  /// existen en perfiles guardados antes de esta versión -- el cast
+  /// `as String?` sobre una clave ausente devuelve null sin lanzar,
+  /// así que perfiles antiguos siguen cargando sin migración.
   factory CyclistProfile.fromJson(Map<String, dynamic> json) {
     return CyclistProfile(
       name: json['name'] as String,
@@ -54,6 +76,9 @@ class CyclistProfile {
       ftpWatts: json['ftpWatts'] as int,
       maxHr: json['maxHr'] as int,
       restingHr: json['restingHr'] as int?,
+      avatarPath: json['avatarPath'] as String?,
+      city: json['city'] as String?,
+      bio: json['bio'] as String?,
     );
   }
 
@@ -63,6 +88,9 @@ class CyclistProfile {
     int? ftpWatts,
     int? maxHr,
     int? restingHr,
+    String? avatarPath,
+    String? city,
+    String? bio,
   }) {
     return CyclistProfile(
       name: name ?? this.name,
@@ -70,6 +98,9 @@ class CyclistProfile {
       ftpWatts: ftpWatts ?? this.ftpWatts,
       maxHr: maxHr ?? this.maxHr,
       restingHr: restingHr ?? this.restingHr,
+      avatarPath: avatarPath ?? this.avatarPath,
+      city: city ?? this.city,
+      bio: bio ?? this.bio,
     );
   }
 }
