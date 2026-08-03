@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import 'profile_providers.dart';
+import 'settings_screen.dart';
 import 'widgets/activity_calendar.dart';
 import 'widgets/featured_photos_grid.dart';
 import 'widgets/level_roadmap.dart';
@@ -11,10 +12,11 @@ import 'widgets/stat_summary_row.dart';
 import 'widgets/streak_badge.dart';
 import 'widgets/xp_debug_panel.dart';
 
-/// Pantalla principal de Perfil -- estilo Strava/Garmin Connect:
-/// encabezado con foto/nombre/ciudad, nivel y rango de gamificación,
-/// resumen de estadísticas totales, racha de días activos, calendario
-/// de actividad interactivo y fotos destacadas.
+/// Pantalla principal de Perfil -- ahora es puramente "vitrina": foto,
+/// nombre, nivel/rango, estadísticas, racha y fotos destacadas. Todo
+/// lo que antes era "control" (cuenta, editar perfil, zonas) se movió
+/// a [SettingsScreen], accesible por el ícono de engranaje arriba a
+/// la izquierda.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -44,12 +46,24 @@ class ProfileScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               children: [
-                ProfileHeader(profile: profile),
-                const SizedBox(height: 20),
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: XpDebugEntryButton(),
+                // Antes: el ⚙️ estaba en un Stack/Positioned encima
+                // del header, pegado justo al borde de la foto. Se
+                // veía "desacomodado" porque competía visualmente en
+                // la misma franja que el avatar, aunque el header
+                // seguía centrado por debajo. Ahora vive en su propia
+                // fila, separado del header -- así el header queda
+                // limpio y perfectamente centrado, y el ⚙️ y el
+                // debug de XP quedan como una barra superior propia
+                // (izquierda / derecha).
+                Row(
+                  children: const [
+                    _SettingsButton(),
+                    Spacer(),
+                    XpDebugEntryButton(),
+                  ],
                 ),
+                const SizedBox(height: 14),
+                ProfileHeader(profile: profile),
                 const SizedBox(height: 8),
                 const LevelRoadmap(),
                 const SizedBox(height: 18),
@@ -82,6 +96,36 @@ class ProfileScreen extends ConsumerWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// Botón de acceso a Ajustes -- mismo lenguaje visual "chip
+/// translúcido" de antes, ahora en su propia fila arriba a la
+/// izquierda (ya no superpuesto sobre el header).
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white.withValues(alpha: 0.05),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+        ),
+        child: const Icon(
+          Icons.settings_outlined,
+          size: 16,
+          color: AppColors.textSecondaryOnPanel,
         ),
       ),
     );

@@ -67,10 +67,30 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       avatarsDir.path,
       'avatar_${DateTime.now().millisecondsSinceEpoch}$ext',
     );
-    await File(picked.path).copy(newPath);
+    final newFile = await File(picked.path).copy(newPath);
 
     if (!mounted) return;
-    setState(() => _avatarPath = newPath);
+
+    // Antes: la foto se aplicaba directo, y la única "confirmación"
+    // era que la miniatura circular pequeña cambiaba -- fácil de no
+    // notar bien cuál quedó. Ahora se muestra en grande antes de
+    // aplicarla, con opción de usarla o descartarla.
+    final confirmed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _AvatarConfirmScreen(imageFile: newFile),
+      ),
+    );
+
+    if (confirmed == true) {
+      if (!mounted) return;
+      setState(() => _avatarPath = newFile.path);
+    } else {
+      // Si cancela, borramos la copia para no dejar basura en disco.
+      if (await newFile.exists()) {
+        await newFile.delete();
+      }
+    }
   }
 
   /// Se construye el `CyclistProfile` directamente (no con `copyWith`)
@@ -251,6 +271,91 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Pantalla de confirmación: muestra la foto recién elegida en
+/// grande (con zoom) antes de aplicarla como avatar. Resuelve el
+/// problema de "elijo una foto y no puedo ver bien cuál quedó".
+class _AvatarConfirmScreen extends StatelessWidget {
+  final File imageFile;
+  const _AvatarConfirmScreen({required this.imageFile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(false),
+                  ),
+                  const Spacer(),
+                  const Text(
+                    '¿Usar esta foto?',
+                    style: TextStyle(color: Colors.white, fontSize: 15),
+                  ),
+                  const Spacer(),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(child: Image.file(imageFile)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white54),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Elegir otra'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Usar esta foto',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

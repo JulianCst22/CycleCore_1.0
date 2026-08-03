@@ -59,6 +59,9 @@ dependencies:
   # --- Selección de imágenes ---
   image_picker: ^1.2.0
 
+  # --- Animaciones Lottie (pantalla de bienvenida animada) ---
+  lottie: ^3.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -72,7 +75,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    - assets/lottie/
+
   # Descomenta esto cuando agregues audios pre-grabados para el
   # módulo de voz (assets/voice_packs/<persona>/<evento>/0.mp3, etc.)
-  # assets:
-  #   - assets/voice_packs/
+  # - assets/voice_packs/

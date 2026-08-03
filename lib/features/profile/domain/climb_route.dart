@@ -11,6 +11,13 @@ class ClimbPointOfInterest {
   /// Dato curioso o estadística que se muestra al tocar el punto (ej.
   /// altitud, pendiente media, distancia acumulada de la subida).
   final String stat;
+
+  /// Micro-historia o dato curioso más largo (la "postal") que se
+  /// revela solo cuando el punto está desbloqueado -- el contenido
+  /// coleccionable propiamente dicho, separado de [stat] (que es
+  /// siempre visible, incluso bloqueado, como referencia numérica).
+  final String discoveryText;
+
   final RankTierInfo tier;
 
   /// Altitud real (msnm), distancia acumulada (km) y pendiente local
@@ -24,6 +31,7 @@ class ClimbPointOfInterest {
     required this.level,
     required this.name,
     required this.stat,
+    required this.discoveryText,
     required this.tier,
     required this.altitudeM,
     required this.distanceKm,
@@ -54,7 +62,10 @@ class ElevationSample {
 /// datos reales, no inventados.
 ///
 /// Esto es lo que alimenta tanto el mini-perfil de altimetría en
-/// pantalla como la altitud/pendiente que se le asigna a cada nivel.
+/// pantalla como la altitud/pendiente que se le asigna a cada nivel,
+/// y ahora también (Fase 1) el espaciado visual entre niveles en
+/// [ClimbScreen] -- los tramos con más pendiente real ocupan más
+/// espacio en pantalla al subir.
 class ElevationProfile {
   ElevationProfile._();
 
@@ -109,9 +120,9 @@ class ElevationProfile {
 ///
 /// Los nombres y frases de ambiente están tematizados como el Alto de
 /// Patios (La Calera, Bogotá) y son contenido de ejemplo -- reemplázalos
-/// editando [_namesByTier] y [_flavorByTier]. La altitud/distancia/
-/// pendiente de cada punto, en cambio, SÍ es real: sale de
-/// [ElevationProfile], no de números inventados por punto.
+/// editando [_namesByTier], [_flavorByTier] y [_discoveryByTier]. La
+/// altitud/distancia/pendiente de cada punto, en cambio, SÍ es real:
+/// sale de [ElevationProfile], no de números inventados por punto.
 class ClimbRoute {
   ClimbRoute._();
 
@@ -127,6 +138,7 @@ class ClimbRoute {
       final tier = RankTier.forLevel(level);
       final namesForTier = _namesByTier[tier.rank]!;
       final flavorForTier = _flavorByTier[tier.rank]!;
+      final discoveryForTier = _discoveryByTier[tier.rank]!;
       final indexInTier = level - tier.minLevel;
       final safeIndex = indexInTier % namesForTier.length;
 
@@ -140,6 +152,7 @@ class ClimbRoute {
           level: level,
           name: namesForTier[safeIndex],
           stat: '${altitude.round()} msnm · ${flavorForTier[safeIndex]}',
+          discoveryText: discoveryForTier[safeIndex],
           tier: tier,
           altitudeM: altitude,
           distanceKm: distanceKm,
@@ -245,6 +258,83 @@ class ClimbRoute {
       'reservado para los grandes',
       'donde pocos han estado',
       'no hay nada más arriba',
+    ],
+  };
+
+  /// Fase 2 -- coleccionables: la "postal"/micro-historia que se
+  /// revela al tocar cada punto por primera vez, estando desbloqueado.
+  /// Contenido de ejemplo tematizado en La Calera / Alto de Patios --
+  /// reemplázalo por lo que quieras sin tocar el resto de la lógica.
+  static const Map<CyclistRank, List<String>> _discoveryByTier = {
+    CyclistRank.novato: [
+      'La Calera queda a solo unos minutos de Bogotá, pero el cambio '
+          'de aire ya se siente aquí.',
+      'El río Teusacá baja desde el páramo de Cruz Verde -- vas a '
+          'subir junto a su cuenca buena parte del camino.',
+      'Desde este mirador bajo ya se alcanza a ver, más adelante, el '
+          'primer tramo serio de la subida.',
+      'Aquí termina el calentamiento -- pasando este cruce, la '
+          'carretera empieza a subir de verdad.',
+    ],
+    CyclistRank.rodador: [
+      'Los eucaliptos que ves no son nativos: llegaron hace más de '
+          'un siglo y hoy son parte del paisaje de la sabana.',
+      'La Paloma es de los tramos más fotografiados de esta subida '
+          'por ciclistas locales -- y el primero donde de verdad se '
+          'siente el 11%.',
+      'Esta curva de piedra marca, para muchos rodadores, el punto '
+          'donde el cuerpo empieza a acostumbrarse al esfuerzo.',
+      'Un clásico punto de parada para tomar agua antes de seguir -- '
+          'varios grupos de ciclismo de Bogotá se juntan justo aquí.',
+      'Un breve respiro antes de que la pendiente vuelva a apretar.',
+    ],
+    CyclistRank.escalador: [
+      'La rampa del cañón es corta pero deja marca -- aquí es donde '
+          'muchos deciden si van a seguir de pie en los pedales.',
+      'La niebla en este tramo puede aparecer en minutos, incluso en '
+          'días soleados abajo en La Calera.',
+      'A mitad de camino: la altitud ya empieza a notarse en la '
+          'respiración.',
+      'El viento de frente en esta curva es casi constante -- parte '
+          'del carácter de Patios.',
+      'Los primeros frailejones del recorrido empiezan a aparecer '
+          'junto a la vía.',
+    ],
+    CyclistRank.fondista: [
+      'El páramo bajo marca el cambio de vegetación: menos árboles, '
+          'más frailejones y pajonales.',
+      'El bosque que dejas atrás aquí es de los últimos tramos con '
+          'sombra antes de la cima.',
+      'A esta altitud el aire ya pesa distinto -- cada pedalada '
+          'cuesta un poco más que en la base.',
+      'Uno de los tramos más icónicos del Alto de Patios: '
+          'frailejones a ambos lados de la carretera.',
+      'Desde aquí ya se alcanza a intuir la rampa final -- el tramo '
+          'que define la subida.',
+    ],
+    CyclistRank.elite: [
+      'La Cruz es un punto de referencia visible desde buena parte '
+          'de La Calera -- llegar hasta acá ya es una hazaña local.',
+      'En un día despejado, este mirador deja ver buena parte de la '
+          'sabana de Bogotá.',
+      'Los cóndores no son un mito del todo: hay avistamientos '
+          'ocasionales reportados cerca del páramo de Cruz Verde.',
+      'Los últimos 500 metros son, según casi todos los que suben '
+          'Patios, los más largos de toda la ruta.',
+      'La rampa final: el tramo más duro real de todo el segmento, '
+          'justo antes de coronar.',
+    ],
+    CyclistRank.leyenda: [
+      'La cima real del Alto de Patios está a 3 001 msnm -- casi 500 '
+          'metros más arriba que donde arrancaste en Belisario.',
+      'Pocos ciclistas de Bogotá llegan hasta este punto -- estás '
+          'entre ellos.',
+      'Este salón es simbólico: representa a quienes llevan su '
+          'constancia más lejos que la mayoría.',
+      'La cumbre no es un final, es una marca -- la subida real de '
+          'Patios se puede repetir cuantas veces quieras.',
+      'No hay nada más arriba en esta ruta. Lo que sigue depende de '
+          'ti.',
     ],
   };
 }

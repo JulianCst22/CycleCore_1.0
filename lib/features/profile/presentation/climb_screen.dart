@@ -1,12 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/level_info.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../domain/climb_route.dart';
 import '../domain/rank_tier.dart';
+import 'climb_collectibles_provider.dart';
+import 'climb_collection_screen.dart';
 import 'profile_providers.dart';
 import 'widgets/elevation_profile_overlay.dart';
 import 'widgets/level_up_overlay.dart';
@@ -37,15 +40,69 @@ class ClimbScreen extends ConsumerStatefulWidget {
 
 class _ClimbScreenState extends ConsumerState<ClimbScreen>
     with SingleTickerProviderStateMixin {
-  static const double _levelSpacing = 150;
   static const double _horizontalAmplitude = 80;
   static const double _topPadding = 220;
   static const double _bottomPadding = 160;
+
+  /// Pendiente real (%) interpolada en la fracción de subida que le
+  /// corresponde a [level] -- sale del mismo perfil real
+  /// ([ElevationProfile]) que ya alimenta el mini-perfil de
+  /// altimetría, así todo el mapa de niveles queda consistente con
+  /// los mismos datos.
+  static double _gradeAtLevel(num level) {
+    final maxLevel = ClimbRoute.maxLevel.toDouble();
+    final fraction = maxLevel <= 1 ? 0.0 : (level - 1) / (maxLevel - 1);
+    return ElevationProfile.gradeForFraction(fraction);
+  }
+
+  /// Cuánto "sube" visualmente cada nivel, en píxeles, según la
+  /// pendiente real del tramo. Antes cada nivel ocupaba siempre el
+  /// mismo espacio (`_levelSpacing` fijo), sin relación con dónde
+  /// están las rampas reales de Patios -- ahora una rampa del 11-14%
+  /// se siente más larga de subir en pantalla que un tramo del 2-3%.
+  static double _baseSpacingForLevel(int level) {
+    final grade = _gradeAtLevel(level).clamp(0.0, 16.0);
+    return 90 + (grade / 16) * 140;
+  }
+
+  /// Suma acumulada de [_baseSpacingForLevel] desde el nivel 1 --
+  /// se calcula una sola vez (son 30 niveles fijos) y de ahí se
+  /// deriva tanto el alto total del contenido como la posición Y de
+  /// cada nivel.
+  static final List<double> _riseFromBase = _buildRiseFromBase();
+
+  static List<double> _buildRiseFromBase() {
+    final list = <double>[0];
+    for (var level = 2; level <= ClimbRoute.maxLevel; level++) {
+      list.add(list.last + _baseSpacingForLevel(level));
+    }
+    return list;
+  }
+
+  static double get _totalRise => _riseFromBase.last;
 
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<double> _scrollOffset = ValueNotifier(0);
   late final AnimationController _climbController;
   double _displayedLevel = 1;
+
+  /// Último nivel entero que ya disparó su micro-celebración durante la
+  /// animación de subida en curso -- evita festejar el mismo nivel dos
+  /// veces si el tween pasa varias veces cerca del mismo punto.
+  int _lastCelebratedFloorLevel = 1;
+
+  /// Pulsos de "crucé este POI" activos ahora mismo (Fase 4): cada uno
+  /// se dibuja como un anillo que se expande y se desvanece sobre el
+  /// punto de interés correspondiente, y se retira solo cuando termina
+  /// su propia animación.
+  final List<_PulseEvent> _activePulses = [];
+  int _pulseIdCounter = 0;
+
+  /// Último nivel reconocido de [levelInfoProvider] -- para distinguir,
+  /// dentro de `ref.listen`, un cambio real de nivel (ej. el XP subió
+  /// mientras la pantalla ya estaba abierta) de la primera notificación
+  /// que llega apenas se empieza a escuchar el provider.
+  int? _lastKnownProviderLevel;
 
   @override
   void initState() {
@@ -69,14 +126,27 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
     super.dispose();
   }
 
-  double get _contentHeight =>
-      (ClimbRoute.maxLevel - 1) * _levelSpacing + _topPadding + _bottomPadding;
+  double get _contentHeight => _totalRise + _topPadding + _bottomPadding;
 
-  double _xForLevel(num level) =>
-      _horizontalAmplitude * math.sin(level * 0.9);
+  /// Amplitud del serpenteo horizontal: los tramos con más pendiente
+  /// real "ondulan" un poco más, los suaves quedan casi rectos --
+  /// mismo criterio de [_baseSpacingForLevel] pero en el eje X.
+  double _xForLevel(num level) {
+    final grade = _gradeAtLevel(level).clamp(0.0, 16.0);
+    final amplitude = _horizontalAmplitude * (0.55 + (grade / 16) * 0.85);
+    return amplitude * math.sin(level * 0.9);
+  }
 
-  double _yFromTopForLevel(num level) =>
-      (ClimbRoute.maxLevel - level) * _levelSpacing + _topPadding;
+  double _yFromTopForLevel(num level) {
+    final clamped = level.clamp(1, ClimbRoute.maxLevel).toDouble();
+    final lowIndex = clamped.floor();
+    final frac = clamped - lowIndex;
+    final lowRise = _riseFromBase[lowIndex - 1];
+    final highRise =
+        lowIndex < ClimbRoute.maxLevel ? _riseFromBase[lowIndex] : lowRise;
+    final rise = lowRise + (highRise - lowRise) * frac;
+    return _topPadding + (_totalRise - rise);
+  }
 
   /// Progreso 0..1 sobre la subida real (0 = nivel 1, 1 = nivel máximo)
   /// -- es lo que alimenta el mini-perfil de altimetría y el degradado
@@ -86,6 +156,7 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
 
   void _onFirstFrame() {
     final currentLevel = ref.read(levelInfoProvider).valueOrNull?.level ?? 1;
+    _lastKnownProviderLevel = currentLevel;
 
     if (widget.focusRank != null) {
       _displayedLevel = currentLevel.toDouble();
@@ -97,6 +168,13 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
     }
 
     _runClimbAnimation(currentLevel);
+  }
+
+  /// Retira un pulso de "crucé este POI" de la lista una vez que su
+  /// propia animación (ver [_PoiPulse]) ya terminó de dibujarse.
+  void _onPulseDone(int id) {
+    if (!mounted) return;
+    setState(() => _activePulses.removeWhere((p) => p.id == id));
   }
 
   void _scrollToLevel(num level, {bool animate = false}) {
@@ -120,6 +198,7 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
         (acknowledged ?? currentLevel).clamp(1, ClimbRoute.maxLevel).toDouble();
 
     setState(() => _displayedLevel = startLevel);
+    _lastCelebratedFloorLevel = startLevel.floor();
     _scrollToLevel(startLevel);
 
     if (startLevel >= currentLevel) {
@@ -130,10 +209,44 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
     }
 
     final tween = Tween<double>(begin: startLevel, end: currentLevel.toDouble());
+
+    // Antes la subida siempre duraba 1600ms fijos, sin importar si era
+    // un solo nivel o diez de golpe -- se sentía apurada, sobre todo
+    // en un salto de un solo nivel. Ahora la duración depende de
+    // cuántos niveles hay que recorrer: más lenta en general, y más
+    // larga todavía cuanto más grande sea el salto, para que la
+    // "paseada" (out of saddle, tomar agua) tenga tiempo real de
+    // notarse en pantalla.
+    final levelsToClimb = (currentLevel - startLevel).clamp(1, ClimbRoute.maxLevel);
+    _climbController.duration = Duration(
+      milliseconds: (1900 + levelsToClimb * 340).clamp(1900, 5400).round(),
+    );
+
     _climbController
       ..reset()
       ..addListener(() {
-        setState(() => _displayedLevel = tween.evaluate(_climbController));
+        final newDisplayed = tween.evaluate(_climbController);
+        final newFloor = newDisplayed.floor().clamp(1, ClimbRoute.maxLevel).toInt();
+
+        // Fase 4: cada punto de interés real que se cruza durante el
+        // trayecto (no solo al llegar arriba) dispara su propia
+        // micro-celebración -- si el salto de XP es grande y se
+        // cruzan varios niveles en un mismo frame, festejamos cada uno.
+        final crossedLevels = <int>[];
+        if (newFloor > _lastCelebratedFloorLevel) {
+          for (var lvl = _lastCelebratedFloorLevel + 1; lvl <= newFloor; lvl++) {
+            crossedLevels.add(lvl);
+          }
+          _lastCelebratedFloorLevel = newFloor;
+        }
+
+        setState(() {
+          _displayedLevel = newDisplayed;
+          for (final lvl in crossedLevels) {
+            _activePulses.add(_PulseEvent(id: _pulseIdCounter++, level: lvl));
+          }
+        });
+        if (crossedLevels.isNotEmpty) HapticFeedback.lightImpact();
         _scrollToLevel(_displayedLevel);
       });
 
@@ -155,6 +268,23 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
     final levelAsync = ref.watch(levelInfoProvider);
     final accentColor = RankTier.forLevel(_displayedLevel.round()).color;
 
+    // FIX: antes `_runClimbAnimation` solo se llamaba una vez, desde
+    // `_onFirstFrame` en `initState`. Si el XP cambiaba con la pantalla
+    // ya abierta (ej. panel de debug), `info.level` sí se actualizaba
+    // pero `_displayedLevel` -- lo que realmente posiciona al ciclista
+    // y al camino -- se quedaba clavado, y solo se corregía al salir y
+    // volver a entrar (lo que reinicia el estado). Con este listener,
+    // cualquier cambio real de nivel mientras la pantalla está abierta
+    // relanza la animación de subida (o bajada, si el debug resta XP).
+    ref.listen<AsyncValue<LevelInfo>>(levelInfoProvider, (previous, next) {
+      final newLevel = next.valueOrNull?.level;
+      if (newLevel == null) return;
+      if (_lastKnownProviderLevel != null && newLevel != _lastKnownProviderLevel) {
+        _runClimbAnimation(newLevel);
+      }
+      _lastKnownProviderLevel = newLevel;
+    });
+
     return Scaffold(
       backgroundColor: AppColors.panelBackground,
       extendBodyBehindAppBar: true,
@@ -165,8 +295,15 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
           data: (info) => Text('Tu subida · Nivel ${info.level}'),
           orElse: () => const Text('Tu subida'),
         ),
-        actions: const [
-          Padding(
+        actions: [
+          IconButton(
+            tooltip: 'Tu colección',
+            icon: const Icon(Icons.collections_bookmark_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ClimbCollectionScreen()),
+            ),
+          ),
+          const Padding(
             padding: EdgeInsets.only(right: 12),
             child: Center(child: XpDebugEntryButton()),
           ),
@@ -197,6 +334,8 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
               xForLevel: _xForLevel,
               yFromTopForLevel: _yFromTopForLevel,
               isClimbing: _climbController.isAnimating,
+              activePulses: _activePulses,
+              onPulseDone: _onPulseDone,
             ),
             // HUD de altimetría real, siempre visible arriba a la
             // izquierda (no se va con el scroll).
@@ -229,6 +368,8 @@ class _ClimbBody extends StatelessWidget {
   final double Function(num level) xForLevel;
   final double Function(num level) yFromTopForLevel;
   final bool isClimbing;
+  final List<_PulseEvent> activePulses;
+  final void Function(int id) onPulseDone;
 
   const _ClimbBody({
     required this.currentLevel,
@@ -239,6 +380,8 @@ class _ClimbBody extends StatelessWidget {
     required this.xForLevel,
     required this.yFromTopForLevel,
     required this.isClimbing,
+    required this.activePulses,
+    required this.onPulseDone,
   });
 
   @override
@@ -285,13 +428,31 @@ class _ClimbBody extends StatelessWidget {
             // El ciclista, pedaleando de verdad e interpolado
             // suavemente entre niveles. Pedalea más rápido mientras
             // avanza de un nivel a otro (ráfaga), y a ritmo normal
-            // cuando está quieto en su nivel actual.
+            // cuando está quieto en su nivel actual. El tierIndex
+            // define el skin del maillot (Fase 3).
             _CyclistMarker(
               x: width / 2 + xForLevel(displayedLevel),
               y: yFromTopForLevel(displayedLevel),
               color: RankTier.forLevel(displayedLevel.round()).color,
               cadence: isClimbing ? 2.6 : 1.0,
+              tierIndex: RankTier.indexOfRank(
+                RankTier.forLevel(displayedLevel.round()).rank,
+              ),
+              isClimbing: isClimbing,
             ),
+            // Fase 4: un anillo que se expande y se desvanece por cada
+            // POI real que se acaba de cruzar -- feedback constante a
+            // lo largo de todo el trayecto, no solo al final.
+            for (final pulse in activePulses)
+              _PoiPulse(
+                key: ValueKey('poi-pulse-${pulse.id}'),
+                center: Offset(
+                  width / 2 + xForLevel(pulse.level),
+                  yFromTopForLevel(pulse.level),
+                ),
+                color: RankTier.forLevel(pulse.level).color,
+                onDone: () => onPulseDone(pulse.id),
+              ),
           ],
         ),
       ),
@@ -564,14 +725,61 @@ class _RoadPainter extends CustomPainter {
       canvas.drawPath(path, asphalt);
     }
 
-    final centerLine = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawPath(
-      _dashPath(path, dashLength: 14, gapLength: 12),
-      centerLine,
-    );
+    // Fase 3 -- "asfalto más cuidado" por rango: en vez de una sola
+    // línea central pareja de punta a punta, cada tramo se dibuja con
+    // el estilo de su propio rango (RankTier.minLevel/maxLevel). En
+    // rangos bajos la línea es más tenue y los guiones más cortos e
+    // irregulares (asfalto de trocha); en rangos altos los guiones son
+    // más largos, más definidos, y se le suma un filo sutil con el
+    // color del rango pegado al borde de la vía -- la sensación de una
+    // carretera cada vez mejor pavimentada a medida que se sube.
+    for (final tier in RankTier.all) {
+      final segStart = tier.minLevel.toDouble().clamp(1, maxLevel).toDouble();
+      final segEnd = tier.maxLevel.toDouble().clamp(1, maxLevel).toDouble();
+      if (segEnd <= segStart) continue;
+      final tierIndex = RankTier.indexOfRank(tier.rank);
+      final segmentPath = _segmentPath(size, segStart, segEnd);
+
+      if (tierIndex >= 2) {
+        final edgeTint = Paint()
+          ..color = tier.color.withValues(alpha: 0.04 + tierIndex * 0.022)
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 50;
+        canvas.drawPath(segmentPath, edgeTint);
+      }
+
+      final dashLength = 12.0 + tierIndex * 2.2;
+      final gapLength = (13.0 - tierIndex * 1.6).clamp(4.0, 13.0);
+      final centerLine = Paint()
+        ..color = Color.lerp(Colors.white, tier.color, tierIndex * 0.09)!
+            .withValues(alpha: 0.14 + tierIndex * 0.035)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2 + tierIndex * 0.18;
+      canvas.drawPath(
+        _dashPath(segmentPath, dashLength: dashLength, gapLength: gapLength),
+        centerLine,
+      );
+    }
+  }
+
+  /// Sub-tramo de la carretera entre dos niveles (en vez de toda la
+  /// subida) -- usado por el estilo "por rango" de la línea central y
+  /// el filo de asfalto (Fase 3).
+  Path _segmentPath(Size size, double fromLevel, double toLevel) {
+    final segmentPath = Path();
+    const steps = 120;
+    for (var i = 0; i <= steps; i++) {
+      final level = fromLevel + (toLevel - fromLevel) * (i / steps);
+      final x = size.width / 2 + xForLevel(level);
+      final y = yFromTopForLevel(level);
+      if (i == 0) {
+        segmentPath.moveTo(x, y);
+      } else {
+        segmentPath.lineTo(x, y);
+      }
+    }
+    return segmentPath;
   }
 
   Path _dashPath(Path source, {required double dashLength, required double gapLength}) {
@@ -599,7 +807,10 @@ class _RoadPainter extends CustomPainter {
 
 /// Un punto de interés sobre la carretera: bloqueado (gris + candado),
 /// completado (color del rango + check) o el actual (resplandor).
-class _PoiMarker extends StatelessWidget {
+/// Ahora también (Fase 2) marca el POI como "descubierto" la primera
+/// vez que se toca estando desbloqueado, y muestra un punto de aviso
+/// mientras no se haya descubierto todavía.
+class _PoiMarker extends ConsumerWidget {
   final ClimbPointOfInterest poi;
   final double x;
   final double y;
@@ -617,41 +828,75 @@ class _PoiMarker extends StatelessWidget {
   bool get _isLocked => !isCurrent && !isCompleted;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final color = _isLocked ? AppColors.textSecondaryOnPanel : poi.tier.color;
+    final collected = ref.watch(climbCollectiblesProvider).valueOrNull ?? {};
+    final isUndiscovered = !_isLocked && !collected.contains(poi.level);
 
     return Positioned(
       left: x - 22,
       top: y - 22,
       child: GestureDetector(
-        onTap: () => _showPoiSheet(context),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _isLocked
-                ? Colors.black.withValues(alpha: 0.35)
-                : color.withValues(alpha: 0.2),
-            border: Border.all(
-              color: color.withValues(alpha: _isLocked ? 0.4 : 1),
-              width: isCurrent ? 3 : 1.5,
+        onTap: () => _openPoi(context, ref),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _isLocked
+                    ? Colors.black.withValues(alpha: 0.35)
+                    : color.withValues(alpha: 0.2),
+                border: Border.all(
+                  color: color.withValues(alpha: _isLocked ? 0.4 : 1),
+                  width: isCurrent ? 3 : 1.5,
+                ),
+                boxShadow: isCurrent
+                    ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 16)]
+                    : null,
+              ),
+              child: Icon(
+                _isLocked ? Icons.lock_outline : poi.tier.icon,
+                color: color,
+                size: 18,
+              ),
             ),
-            boxShadow: isCurrent
-                ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 16)]
-                : null,
-          ),
-          child: Icon(
-            _isLocked ? Icons.lock_outline : poi.tier.icon,
-            color: color,
-            size: 18,
-          ),
+            // Punto de aviso "nuevo por descubrir" -- un POI ya
+            // alcanzado que todavía no se ha tocado ni una vez.
+            if (isUndiscovered)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.accentSlope,
+                    border: Border.all(color: AppColors.panelBackground, width: 2),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  void _showPoiSheet(BuildContext context) {
+  Future<void> _openPoi(BuildContext context, WidgetRef ref) async {
+    var isNew = false;
+    if (!_isLocked) {
+      isNew = await ref
+          .read(climbCollectiblesProvider.notifier)
+          .markDiscovered(poi.level);
+    }
+    if (!context.mounted) return;
+    _showPoiSheet(context, isNew: isNew);
+  }
+
+  void _showPoiSheet(BuildContext context, {required bool isNew}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.panelBackground,
@@ -681,6 +926,22 @@ class _PoiMarker extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (isNew)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentSlope.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      '¡Nuevo!',
+                      style: TextStyle(
+                        color: AppColors.accentSlope,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 6),
@@ -696,6 +957,35 @@ class _PoiMarker extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
+            if (!_isLocked) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: poi.tier.color.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.auto_stories_outlined,
+                        color: poi.tier.color.withValues(alpha: 0.8), size: 16),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        poi.discoveryText,
+                        style: const TextStyle(
+                          color: AppColors.textSecondaryOnPanel,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -708,30 +998,127 @@ class _CyclistMarker extends StatelessWidget {
   final double y;
   final Color color;
   final double cadence;
+  final int tierIndex;
+  final bool isClimbing;
 
   const _CyclistMarker({
     required this.x,
     required this.y,
     required this.color,
     required this.cadence,
+    required this.tierIndex,
+    required this.isClimbing,
   });
 
   @override
   Widget build(BuildContext context) {
-    const size = 64.0;
+    // Antes: un Container circular con halo de color rodeando al
+    // ciclista, dando sensación de "burbuja" genérica flotando sobre
+    // el camino. Ahora el propio PedalingCyclist dibuja su sombra de
+    // contacto con el piso, así que el ciclista se apoya en la
+    // carretera en vez de flotar sobre una burbuja de color.
+    const size = 70.0;
     return Positioned(
       left: x - size / 2,
-      top: y - size * 0.95,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color.withValues(alpha: 0.18),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 20)],
-        ),
-        child: PedalingCyclist(color: color, size: size, cadence: cadence),
+      top: y - size * 0.92,
+      child: PedalingCyclist(
+        color: color,
+        size: size,
+        cadence: cadence,
+        tierIndex: tierIndex,
+        // Fase de vista trasera: mientras sube de nivel, el ciclista
+        // gira y se ve de espaldas (estilo cámara detrás del
+        // personaje); en reposo vuelve a la vista lateral de siempre.
+        isClimbing: isClimbing,
       ),
+    );
+  }
+}
+
+/// Un evento de "acabo de cruzar este POI" (Fase 4) -- vive en memoria
+/// solo mientras dura su propia animación en [_PoiPulse]; [id] es único
+/// por instancia para poder tener varios pulsos simultáneos (ej. si un
+/// salto grande de XP cruza varios niveles en el mismo frame) sin que
+/// se pisen entre sí.
+class _PulseEvent {
+  final int id;
+  final int level;
+  const _PulseEvent({required this.id, required this.level});
+}
+
+/// Anillo que se expande y se desvanece una sola vez sobre un punto de
+/// interés real recién cruzado -- el "feedback constante" de la Fase 4,
+/// distinto del chip "¡Nuevo!" de la Fase 2 (que solo aparece la
+/// primera vez que se descubre un punto). Se retira solo del árbol al
+/// terminar, vía [onDone].
+class _PoiPulse extends StatefulWidget {
+  final Offset center;
+  final Color color;
+  final VoidCallback onDone;
+
+  const _PoiPulse({
+    required this.center,
+    required this.color,
+    required this.onDone,
+    super.key,
+  });
+
+  @override
+  State<_PoiPulse> createState() => _PoiPulseState();
+}
+
+class _PoiPulseState extends State<_PoiPulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    )..forward().whenComplete(() {
+        if (mounted) widget.onDone();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = Curves.easeOut.transform(_controller.value);
+        final radius = 22 + t * 34;
+        final ringOpacity = (1 - t).clamp(0.0, 1.0);
+        return Positioned(
+          left: widget.center.dx - radius,
+          top: widget.center.dy - radius,
+          child: IgnorePointer(
+            child: Container(
+              width: radius * 2,
+              height: radius * 2,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: widget.color.withValues(alpha: ringOpacity * 0.9),
+                  width: 2.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: ringOpacity * 0.35),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../domain/training_zones.dart';
+import 'widgets/zones_editor.dart';
 
 /// Popup que muestra las zonas de potencia y FC recién calculadas a partir
 /// del perfil, permitiendo al usuario editarlas antes de guardarlas.
@@ -38,48 +39,10 @@ class ZonesDialog extends StatefulWidget {
 }
 
 class _ZonesDialogState extends State<ZonesDialog> {
-  late List<_ZoneRowControllers> _powerRows;
-  late List<_ZoneRowControllers> _hrRows;
-
-  @override
-  void initState() {
-    super.initState();
-    _powerRows = widget.initialZones.powerZones
-        .map((z) => _ZoneRowControllers.fromZone(z))
-        .toList();
-    _hrRows = widget.initialZones.heartRateZones
-        .map((z) => _ZoneRowControllers.fromZone(z))
-        .toList();
-  }
-
-  @override
-  void dispose() {
-    for (final r in [..._powerRows, ..._hrRows]) {
-      r.dispose();
-    }
-    super.dispose();
-  }
-
-  void _resetToComputed() {
-    setState(() {
-      for (final r in [..._powerRows, ..._hrRows]) {
-        r.dispose();
-      }
-      _powerRows = widget.computedZones.powerZones
-          .map((z) => _ZoneRowControllers.fromZone(z))
-          .toList();
-      _hrRows = widget.computedZones.heartRateZones
-          .map((z) => _ZoneRowControllers.fromZone(z))
-          .toList();
-    });
-  }
+  final _editorKey = GlobalKey<ZonesEditorFormState>();
 
   void _confirm() {
-    final result = TrainingZones(
-      powerZones: _powerRows.map((r) => r.toZone()).toList(),
-      heartRateZones: _hrRows.map((r) => r.toZone()).toList(),
-    );
-    Navigator.of(context).pop(result);
+    Navigator.of(context).pop(_editorKey.currentState!.currentZones());
   }
 
   @override
@@ -116,246 +79,70 @@ class _ZonesDialogState extends State<ZonesDialog> {
               const SizedBox(height: 16),
               Flexible(
                 child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ZoneTable(
-                        title: 'POTENCIA (watts)',
-                        accentColor: AppColors.accentSlope,
-                        rows: _powerRows,
-                      ),
-                      const SizedBox(height: 20),
-                      _ZoneTable(
-                        title: 'FRECUENCIA CARDÍACA (lpm)',
-                        accentColor: AppColors.accentHeartRate,
-                        rows: _hrRows,
-                      ),
-                    ],
+                  child: ZonesEditorForm(
+                    key: _editorKey,
+                    initialZones: widget.initialZones,
+                    computedZones: widget.computedZones,
+                    palette: ZonesEditorPalette.dark,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
+              // Fila de acciones secundarias arriba (con Flexible +
+              // ellipsis, nunca se desbordan aunque el texto sea
+              // largo o la pantalla angosta) y el botón principal a
+              // todo el ancho debajo -- esto es lo que elimina el
+              // overflow de píxeles que ocurría cuando las 3 acciones
+              // competían por espacio en una sola fila.
               Row(
                 children: [
-                  TextButton(
-                    onPressed: _resetToComputed,
-                    child: const Text(
-                      'Restablecer calculadas',
-                      style: TextStyle(color: AppColors.textSecondaryOnPanel),
+                  Flexible(
+                    child: TextButton(
+                      onPressed: () =>
+                          _editorKey.currentState?.resetToComputed(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: const Text(
+                        'Restablecer calculadas',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: AppColors.textSecondaryOnPanel),
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(null),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
                     child: const Text(
                       'Cancelar',
                       style: TextStyle(color: AppColors.textSecondaryOnPanel),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  ElevatedButton(
-                    onPressed: _confirm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Guardar'),
-                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Controllers de texto para una fila editable de zona (min / max).
-class _ZoneRowControllers {
-  final String name;
-  final TextEditingController minCtrl;
-  final TextEditingController maxCtrl; // vacío = sin límite superior
-
-  _ZoneRowControllers({
-    required this.name,
-    required this.minCtrl,
-    required this.maxCtrl,
-  });
-
-  factory _ZoneRowControllers.fromZone(TrainingZone z) {
-    return _ZoneRowControllers(
-      name: z.name,
-      minCtrl: TextEditingController(text: z.min.toString()),
-      maxCtrl: TextEditingController(text: z.max?.toString() ?? ''),
-    );
-  }
-
-  TrainingZone toZone() {
-    return TrainingZone(
-      name: name,
-      min: int.tryParse(minCtrl.text) ?? 0,
-      max: maxCtrl.text.trim().isEmpty ? null : int.tryParse(maxCtrl.text),
-    );
-  }
-
-  void dispose() {
-    minCtrl.dispose();
-    maxCtrl.dispose();
-  }
-}
-
-/// Tabla editable de zonas: nombre + campos de min/max.
-class _ZoneTable extends StatelessWidget {
-  final String title;
-  final Color accentColor;
-  final List<_ZoneRowControllers> rows;
-
-  const _ZoneTable({
-    required this.title,
-    required this.accentColor,
-    required this.rows,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: accentColor,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.6,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Encabezado de columnas.
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'ZONA',
-                  style: TextStyle(
-                    color: AppColors.textSecondaryOnPanel,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _confirm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'MÍN',
-                  style: TextStyle(
-                    color: AppColors.textSecondaryOnPanel,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  child: const Text(
+                    'Guardar',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'MÁX',
-                  style: TextStyle(
-                    color: AppColors.textSecondaryOnPanel,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 6),
-        ...rows.map((r) => _ZoneRow(row: r, accentColor: accentColor)),
-      ],
-    );
-  }
-}
-
-class _ZoneRow extends StatelessWidget {
-  final _ZoneRowControllers row;
-  final Color accentColor;
-
-  const _ZoneRow({required this.row, required this.accentColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border(left: BorderSide(color: accentColor, width: 3)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              row.name,
-              style: const TextStyle(
-                color: AppColors.textPrimaryOnPanel,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(flex: 2, child: _ZoneNumberField(controller: row.minCtrl)),
-          const SizedBox(width: 4),
-          Expanded(
-            flex: 2,
-            child: _ZoneNumberField(
-              controller: row.maxCtrl,
-              placeholder: '∞',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ZoneNumberField extends StatelessWidget {
-  final TextEditingController controller;
-  final String? placeholder;
-
-  const _ZoneNumberField({required this.controller, this.placeholder});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: AppColors.textPrimaryOnPanel,
-        fontSize: 13,
-        fontWeight: FontWeight.bold,
-      ),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: placeholder,
-        hintStyle: const TextStyle(color: AppColors.textSecondaryOnPanel),
-        contentPadding: const EdgeInsets.symmetric(vertical: 6),
-        filled: true,
-        fillColor: Colors.black.withValues(alpha: 0.25),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
         ),
       ),
     );

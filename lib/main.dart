@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'core/navigation/app_shell.dart';
+import 'core/navigation/app_gate.dart';
 import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -33,10 +33,9 @@ class CycleCoreApp extends StatelessWidget {
       // Todo el theming vive en core/theme -- cambiar colores de marca
       // se hace en app_colors.dart, no aquí.
       theme: AppTheme.light,
-      // AppShell reemplaza a MapScreen como raíz: es el IndexedStack
-      // con las 4 secciones (Mapa, Sensores, Actividad, Perfil) + la
-      // nav bar global. Ver core/navigation/app_shell.dart.
-      home: const AppShell(),
+      // AppGate decide entre Onboarding y AppShell según exista perfil
+      // local. Ver core/navigation/app_gate.dart.
+      home: const AppGate(),
     );
   }
 }
