@@ -7,7 +7,7 @@ import '../core/theme/cyclecore_palette.dart';
 ///
 /// Vive en `shared_widgets` (no en ninguna feature puntual) porque la
 /// consume `AppShell`, que la renderiza una sola vez por encima de las
-/// 4 secciones principales (Mapa, Sensores, Actividad, Perfil).
+/// 4 secciones principales (Mapa, Segmentos, Actividad, Perfil).
 ///
 /// A diferencia de la versión anterior (`CockpitBottomNavBar`, que
 /// vivía dentro de la feature de mapa y navegaba con `Navigator.push`
@@ -21,6 +21,13 @@ import '../core/theme/cyclecore_palette.dart';
 /// ítem de esta barra -- no es una sección de la app, es una acción
 /// contextual del mapa (ver botón flotante "recentrar" en
 /// `MapScreen`), igual que en Google Maps/Waze.
+///
+/// CAMBIO: el segundo ítem pasó de "Sensores" a "Segmentos"
+/// (`SegmentsListScreen`) -- ahora es una sección de primer nivel,
+/// igual que Mapa/Actividad/Perfil. Conectar sensores BLE dejó de ser
+/// una sección propia de la navegación principal y se movió a Ajustes
+/// (ver `SettingsScreen`), ya que es una acción de configuración
+/// puntual, no algo que se visite seguido como sí pasa con segmentos.
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -33,7 +40,7 @@ class AppBottomNavBar extends StatelessWidget {
 
   static const _items = [
     (icon: Icons.map_outlined, activeIcon: Icons.map, label: 'Mapa'),
-    (icon: Icons.sensors, activeIcon: Icons.sensors, label: 'Sensores'),
+    (icon: Icons.flag_outlined, activeIcon: Icons.flag, label: 'Segmentos'),
     (icon: Icons.list_alt, activeIcon: Icons.list_alt, label: 'Actividad'),
     (icon: Icons.person_outline, activeIcon: Icons.person, label: 'Perfil'),
   ];

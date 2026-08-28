@@ -37,3 +37,33 @@ String formatSlopePercent(double slope) {
   final sign = slope > 0 ? '+' : '';
   return '$sign${slope.toStringAsFixed(1)}';
 }
+
+/// "m:ss" para tramos de menos de una hora, "h:mm:ss" si pasa de una
+/// hora -- SIN cero a la izquierda en la unidad más significativa
+/// ("4:32", "1:05:12"). Pensado para tiempos de esfuerzo/segmento,
+/// donde `formatDuration` (que siempre rellena a "MM:SS") se ve raro.
+///
+/// Antes esto estaba reimplementado como `_formatDuration` dentro de
+/// `segment_detail_screen.dart` -- ahora vive acá y se comparte.
+String formatElapsedShort(Duration duration) {
+  final totalSeconds = duration.inSeconds.abs();
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+  final ss = seconds.toString().padLeft(2, '0');
+  if (hours > 0) {
+    final mm = minutes.toString().padLeft(2, '0');
+    return '$hours:$mm:$ss';
+  }
+  return '$minutes:$ss';
+}
+
+/// Diferencia de tiempo con signo explícito, para comparar contra un
+/// fantasma / mejor marca: "+0:12" (vas más lento), "-0:05" (vas más
+/// rápido), "0:00" (empate exacto). Usa [formatElapsedShort] para el
+/// valor absoluto.
+String formatSignedDuration(Duration delta) {
+  if (delta.inSeconds == 0) return '0:00';
+  final sign = delta.isNegative ? '-' : '+';
+  return '$sign${formatElapsedShort(delta)}';
+}

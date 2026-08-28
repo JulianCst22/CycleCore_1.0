@@ -9,6 +9,7 @@ import '../domain/activity_json_helpers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../shared_widgets/stat_tile.dart';
+import '../../segments/presentation/segment_detection_providers.dart';
 import '../domain/activity_summary.dart';
 import 'activities_providers.dart';
 
@@ -128,7 +129,7 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
       // Devuelve `true` para que el detalle sepa que debe refrescar.
       Navigator.of(context).pop(true);
     } else {
-      await repo.saveActivity(
+      final activityId = await repo.saveActivity(
         summary: widget.summary!,
         title: title,
         activityType: activityType,
@@ -136,6 +137,12 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
         notes: notes,
         temporaryPhotoPaths: _newPhotos.map((f) => f.path).toList(),
       );
+      // Vuelca los esfuerzos de segmento detectados durante la
+      // grabación, ya con el id de la actividad recién creada (ver
+      // SegmentDetectionController).
+      await ref
+          .read(segmentDetectionProvider.notifier)
+          .flushPendingEfforts(activityId);
       if (!mounted) return;
       // Volvemos hasta la pantalla del mapa (raíz), descartando también
       // esta pantalla de guardado del stack de navegación.
@@ -190,6 +197,9 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
       // debajo en el stack) sepa que también debe cerrarse.
       Navigator.of(context).pop('deleted');
     } else {
+      // Se descarta la grabación -> también los esfuerzos de segmento
+      // detectados en ella.
+      ref.read(segmentDetectionProvider.notifier).discardPendingEfforts();
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }

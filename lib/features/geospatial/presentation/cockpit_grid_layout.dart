@@ -4,106 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/cyclecore_palette.dart';
 import '../domain/cockpit_tile_config.dart';
+import '../domain/cockpit_tile_packing.dart';
 import 'cockpit_field_ui.dart';
 import '../domain/cockpit_field.dart';
 import 'gauge_value.dart';
 
-/// Resultado de acomodar un campo dentro de la grilla interna de 2
-/// columnas: en qué celda (fila/columna) cae y cuántas celdas ocupa.
-class _PackedTile {
-  final int tileIndex;
-  final int row;
-  final int col;
-  final int rowSpan;
-  final int colSpan;
-
-  const _PackedTile({
-    required this.tileIndex,
-    required this.row,
-    required this.col,
-    required this.rowSpan,
-    required this.colSpan,
-  });
-}
-
-class _PackedLayout {
-  final List<_PackedTile> tiles;
-  final int totalRows;
-  const _PackedLayout(this.tiles, this.totalRows);
-}
-
-/// Acomoda [tiles] en una grilla de [columns] columnas (2, pensado para
-/// teléfono en vertical), sin dejar huecos: recorre los campos EN
-/// ORDEN y cada uno cae en la primera celda libre que alcance para su
-/// tamaño (mismo principio que el auto-acomodo de CSS Grid). El número
-/// de filas resultante es exactamente el que se necesita -- ni una
-/// fila de más -- así el widget que consume esto puede repartir la
-/// altura disponible entre esas filas exactas, sin dejar espacio vacío
-/// abajo (el problema que había con la grilla uniforme de tamaño fijo
-/// anterior).
-///
-/// Reordenar la lista [tiles] (arrastrar en modo edición) cambia el
-/// acomodo resultante porque el algoritmo respeta el orden de entrada.
-_PackedLayout packCockpitTiles(
-  List<CockpitTileConfig> tiles, {
-  int columns = 2,
-}) {
-  final occupancy = <List<bool>>[];
-
-  bool isFree(int row, int col, int rowSpan, int colSpan) {
-    for (var r = row; r < row + rowSpan; r++) {
-      if (r >= occupancy.length) continue; // fila aún no creada = libre
-      for (var c = col; c < col + colSpan; c++) {
-        if (occupancy[r][c]) return false;
-      }
-    }
-    return true;
-  }
-
-  void occupy(int row, int col, int rowSpan, int colSpan) {
-    for (var r = row; r < row + rowSpan; r++) {
-      while (occupancy.length <= r) {
-        occupancy.add(List.filled(columns, false));
-      }
-      for (var c = col; c < col + colSpan; c++) {
-        occupancy[r][c] = true;
-      }
-    }
-  }
-
-  final result = <_PackedTile>[];
-
-  for (var i = 0; i < tiles.length; i++) {
-    final size = tiles[i].size;
-    final colSpan = size.colSpan.clamp(1, columns);
-    final rowSpan = size.rowSpan;
-
-    var row = 0;
-    while (true) {
-      var placedInThisRow = false;
-      for (var col = 0; col <= columns - colSpan; col++) {
-        if (isFree(row, col, rowSpan, colSpan)) {
-          occupy(row, col, rowSpan, colSpan);
-          result.add(_PackedTile(
-            tileIndex: i,
-            row: row,
-            col: col,
-            rowSpan: rowSpan,
-            colSpan: colSpan,
-          ));
-          placedInThisRow = true;
-          break;
-        }
-      }
-      if (placedInThisRow) break;
-      row++;
-    }
-  }
-
-  return _PackedLayout(result, occupancy.length);
-}
-
-/// Grilla del cockpit -- renderiza [tiles] usando [packCockpitTiles], y
+/// Grilla del cockpit -- renderiza [tiles] usando `packCockpitTiles`
+/// (ver `cockpit_tile_packing.dart`), y
 /// opcionalmente permite editarla: arrastrar un campo (long-press) lo
 /// reordena con el que soltó encima; tocar el chip de tamaño lo cambia
 /// entre Chico/Ancho/Grande.
@@ -138,7 +45,10 @@ class CockpitGridLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     if (tiles.isEmpty) return const SizedBox.shrink();
 
-    final packed = packCockpitTiles(tiles, columns: _columns);
+    final packed = packCockpitTiles(
+      tiles.map((t) => t.size).toList(),
+      columns: _columns,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {

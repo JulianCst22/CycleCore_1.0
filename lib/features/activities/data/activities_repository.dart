@@ -6,7 +6,37 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../elevation/data/elevation_resolver.dart';
+import '../../geospatial/domain/route_point.dart';
+import '../domain/activity_altitude_flattener.dart';
+import '../domain/activity_json_helpers.dart';
 import '../domain/activity_summary.dart';
+
+/// Resumen de una re-corrida del aplanado de altimetría -- para
+/// mostrarle al usuario en "Ajustar altimetría" qué tan buena quedó la
+/// cobertura de fuentes.
+class AltitudeReadjustResult {
+  final double gainMeters;
+  final double lossMeters;
+  final int gpxPoints;
+  final int hgtPoints;
+  final int approxPoints;
+  final int totalPoints;
+
+  const AltitudeReadjustResult({
+    required this.gainMeters,
+    required this.lossMeters,
+    required this.gpxPoints,
+    required this.hgtPoints,
+    required this.approxPoints,
+    required this.totalPoints,
+  });
+
+  /// Fracción de puntos con una fuente confiable (GPX o HGT).
+  double get reliableFraction => totalPoints == 0
+      ? 0
+      : (gpxPoints + hgtPoints) / totalPoints;
+}
 
 class ActivitiesRepository {
   final AppDatabase database;
@@ -96,6 +126,83 @@ class ActivitiesRepository {
         notes: Value(notes),
         photoPathsJson: Value(jsonEncode(finalPhotoPaths)),
       ),
+    );
+  }
+
+  /// Vuelve a correr el aplanado de altimetría sobre una actividad ya
+  /// guardada, usando la cadena de prioridades actual (GPX > HGT >
+  /// fusión). Útil cuando en la primera pasada faltaban teselas HGT o
+  /// no habías importado el GPX del recorrido -- descargás/importás y
+  /// tocás "Ajustar altimetría" hasta que quede bien.
+  ///
+  /// Trabaja sobre `rawAltitude` (la altitud fusionada en vivo, antes
+  /// de aplanar) para no re-procesar un dato ya procesado. Actividades
+  /// viejas sin `rawAltitude` caen a `altitude` -- menos ideal, pero
+  /// igual mejora si ahora hay más cobertura de fuentes.
+  Future<AltitudeReadjustResult> readjustAltitude({
+    required int activityId,
+    required ElevationResolver resolver,
+  }) async {
+    final activity = await database.getActivityById(activityId);
+    if (activity == null) {
+      throw StateError('La actividad ya no existe.');
+    }
+    final points = activity.routePoints;
+    if (points.length < 2) {
+      throw StateError('La actividad no tiene trazado para ajustar.');
+    }
+
+    await resolver.preload();
+
+    final routePoints = <RoutePoint>[
+      for (final pt in points)
+        RoutePoint(
+          latitude: pt.latitude,
+          longitude: pt.longitude,
+          altitude: pt.rawAltitude ?? pt.altitude,
+          speedMetersPerSecond: 0,
+          bearingDegrees: 0,
+          accuracyMeters: 0,
+          timestamp: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+    ];
+    final cumulative = [
+      for (final pt in points) pt.distanceFromStartMeters,
+    ];
+
+    final flattener = ActivityAltitudeFlattener(resolver);
+    final result = flattener.flatten(
+      points: routePoints,
+      cumulativeDistanceMeters: cumulative,
+    );
+
+    final newPoints = <RoutePointSnapshot>[
+      for (int i = 0; i < points.length; i++)
+        points[i].copyWith(
+          altitude: result.altitudes[i],
+          slopePercent: result.slopePercents[i],
+          isElevationApproximate: result.isApproximate[i],
+        ),
+    ];
+
+    await (database.update(database.activities)
+          ..where((a) => a.id.equals(activityId)))
+        .write(
+      ActivitiesCompanion(
+        routePointsJson: Value(
+          jsonEncode(newPoints.map((pt) => pt.toJson()).toList()),
+        ),
+        elevationGainMeters: Value(result.elevationGainMeters),
+      ),
+    );
+
+    return AltitudeReadjustResult(
+      gainMeters: result.elevationGainMeters,
+      lossMeters: result.elevationLossMeters,
+      gpxPoints: result.countFrom(ElevationSource.gpx),
+      hgtPoints: result.countFrom(ElevationSource.hgt),
+      approxPoints: result.approximatePointCount,
+      totalPoints: points.length,
     );
   }
 

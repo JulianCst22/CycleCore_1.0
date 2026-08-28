@@ -3,7 +3,7 @@ import '../core/fuzzy_membership.dart';
 import '../core/fuzzy_rule.dart';
 
 /// CAPA 2 del modelo geoespacial: decide cuánto pesar una nueva lectura
-/// de pendiente cruda (ya calculada por SlopeWindowCalculator sobre una
+/// de pendiente cruda (ya calculada por LiveSlopeCalculator sobre una
 /// ventana corta) frente a la que se está mostrando, usando un motor
 /// difuso Sugeno de orden cero. Reemplaza tanto la ventana ancha fija
 /// como el suavizado exponencial de coeficiente fijo que se habían
@@ -15,12 +15,36 @@ import '../core/fuzzy_rule.dart';
 /// tamaño de ventana que sirva bien para ambos casos a la vez. Este
 /// filtro, en cambio, desconfía de un salto que aparece en pocos
 /// metros (jitter de semáforo, ruido de grilla), y confía en el MISMO
-/// salto si se sostiene por suficiente distancia y es consistente
-/// consigo mismo (evidencia de que es real).
+/// salto si se sostiene por suficiente distancia/tiempo y es
+/// consistente consigo mismo (evidencia de que es real).
+///
+/// --- Persistencia híbrida (distancia + tiempo) ---
+///
+/// Hasta la versión anterior, "¿cuánto se ha sostenido esta
+/// discrepancia?" se medía SOLO en distancia (`_persistenceDistance`,
+/// 20-35m para considerarse sostenida). Eso funciona bien a velocidad
+/// de crucero, pero en una subida lenta (8-10 km/h) esos mismos 20-35m
+/// tardan 8-15 segundos en recorrerse -- casi el triple que a
+/// velocidad de bajada. Confirmado en campo el 2026-08-22 (ruta "San
+/// Jorge"): la pendiente mostrada se sentía "lentísima" para
+/// actualizar específicamente en el puerto.
+///
+/// Ahora se acumulan DOS rachas en paralelo -- `_persistenceDistance`
+/// (como antes) y `_persistenceSeconds` (nueva) -- y se considera
+/// "sostenida" apenas UNA de las dos cruce su umbral (OR difuso, ver
+/// `_engine`). Así, en una subida lenta, el umbral de tiempo hace de
+/// respaldo y evita esperar por una distancia que a esa velocidad
+/// tarda demasiado; en una bajada rápida, el umbral de distancia
+/// sigue protegiendo contra confiar en un salto que apenas duró un
+/// instante. Mismo principio que Garmin describe haber implementado
+/// en su algoritmo de pendiente "de respuesta rápida" del Edge 1050
+/// (2024): balancear ruido vs. latencia de forma que no dependa
+/// únicamente de la distancia recorrida.
 class SlopePlausibilityFilter {
   double? _displayedSlope;
   final List<double> _recentRawSlopes = [];
   double _persistenceDistance = 0;
+  double _persistenceSeconds = 0;
   double _lastDeltaSign = 0;
 
   static const int _spreadWindowSize = 5;
@@ -51,9 +75,10 @@ class SlopePlausibilityFilter {
             FuzzyRule.and([d['deltaLarge']!, d['stepClose']!]),
         outputValue: 0.05,
       ),
-      // Salto grande, sostenido por suficiente distancia, con lecturas
-      // crudas recientes consistentes entre sí -> es una rampa o
-      // puente real, no ruido puntual.
+      // Salto grande, sostenido por suficiente distancia O tiempo
+      // (ver nota de la clase), con lecturas crudas recientes
+      // consistentes entre sí -> es una rampa o puente real, no ruido
+      // puntual.
       FuzzyRule(
         name: 'cambio_real_sostenido',
         firingStrength: (d) => FuzzyRule.and([
@@ -108,14 +133,18 @@ class SlopePlausibilityFilter {
     ],
   );
 
-  /// [rawSlope] es la salida cruda de SlopeWindowCalculator.
+  /// [rawSlope] es la salida cruda de LiveSlopeCalculator.
   /// [stepDistanceMeters] es la distancia GPS desde el punto anterior
   /// (la misma que ya se calcula en RouteRecordingController).
+  /// [stepDurationSeconds] es el tiempo real transcurrido desde el
+  /// punto anterior -- nuevo, es lo que permite que la persistencia
+  /// no dependa solo de la velocidad (ver nota de la clase).
   /// Devuelve la pendiente "de confianza" a usar -- tanto para mostrar
   /// en vivo como para guardar en RoutePointSnapshot.
   double filter({
     required double rawSlope,
     required double stepDistanceMeters,
+    double stepDurationSeconds = 0,
   }) {
     if (_displayedSlope == null) {
       // --- Calentamiento -- agregado tras confirmar en campo (Alto del
@@ -143,9 +172,13 @@ class SlopePlausibilityFilter {
     final delta = (rawSlope - _displayedSlope!).abs();
 
     final deltaSign = (rawSlope - _displayedSlope!).sign;
-    _persistenceDistance = (deltaSign == _lastDeltaSign && deltaSign != 0)
+    final sustainedSameSign = deltaSign == _lastDeltaSign && deltaSign != 0;
+    _persistenceDistance = sustainedSameSign
         ? _persistenceDistance + stepDistanceMeters
         : stepDistanceMeters;
+    _persistenceSeconds = sustainedSameSign
+        ? _persistenceSeconds + stepDurationSeconds
+        : stepDurationSeconds;
     _lastDeltaSign = deltaSign;
 
     _recentRawSlopes.add(rawSlope);
@@ -154,11 +187,20 @@ class SlopePlausibilityFilter {
     }
     final spread = _spread(_recentRawSlopes);
 
+    // "Sostenida" apenas UNA de las dos rachas (distancia o tiempo)
+    // cruce su propio umbral -- ver la nota de la clase sobre por qué
+    // esto soluciona la lentitud en subida sin debilitar la
+    // protección en bajada.
+    final persistenceSustained = FuzzyRule.or([
+      rampUp(_persistenceDistance, 20, 35),
+      rampUp(_persistenceSeconds, 6, 10),
+    ]);
+
     final degrees = <String, double>{
       'deltaSmall': rampDown(delta, 1, 3),
       'deltaLarge': rampUp(delta, 2, 5),
       'stepClose': rampDown(stepDistanceMeters, 3, 8),
-      'persistenceSustained': rampUp(_persistenceDistance, 20, 35),
+      'persistenceSustained': persistenceSustained,
       'spreadLow': rampDown(spread, 1, 3),
       'spreadHigh': rampUp(spread, 2, 5),
     };
@@ -184,6 +226,7 @@ class SlopePlausibilityFilter {
     _displayedSlope = null;
     _recentRawSlopes.clear();
     _persistenceDistance = 0;
+    _persistenceSeconds = 0;
     _lastDeltaSign = 0;
     _warmupBuffer.clear();
   }

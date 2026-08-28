@@ -5,9 +5,26 @@ import '../../../core/database/database_providers.dart';
 import '../../../core/elevation/srtm_tile_naming.dart';
 import '../../geospatial/presentation/map_providers.dart';
 import '../data/elevation_repository.dart';
+import '../data/elevation_resolver.dart';
+import '../data/gpx_track_repository.dart';
 
 final elevationRepositoryProvider = Provider<ElevationRepository>((ref) {
   return ElevationRepository(ref.watch(appDatabaseProvider));
+});
+
+/// Fuente de elevación de prioridad 1 (perfiles de GPX importados / del
+/// catálogo). Ver `GpxTrackRepository`.
+final gpxTrackRepositoryProvider = Provider<GpxTrackRepository>((ref) {
+  return GpxTrackRepository(ref.watch(appDatabaseProvider));
+});
+
+/// Cadena de prioridades de elevación: GPX > HGT > fusión en vivo.
+/// Lo usan el aplanado post-actividad y la fusión en vivo.
+final elevationResolverProvider = Provider<ElevationResolver>((ref) {
+  return ElevationResolver(
+    ref.watch(gpxTrackRepositoryProvider),
+    ref.watch(elevationRepositoryProvider),
+  );
 });
 
 final downloadedElevationTilesProvider =

@@ -201,6 +201,10 @@ class VoiceEngine {
     return false;
   }
 
+  /// Nombre de carpeta de audio para cada evento -- los 4 originales
+  /// (actividad) más los 8 nuevos (navegación). Si agregás otro
+  /// VoiceEventType en el futuro, el compilador te va a obligar a
+  /// agregarlo también acá (switch exhaustivo, sin `default`).
   String _eventFolder(VoiceEventType event) {
     switch (event) {
       case VoiceEventType.activityStarted:
@@ -211,6 +215,32 @@ class VoiceEngine {
         return 'resumed';
       case VoiceEventType.activityFinished:
         return 'finished';
+      case VoiceEventType.navigationStarted:
+        return 'nav_started';
+      case VoiceEventType.navigationTurnLeft:
+        return 'turn_left';
+      case VoiceEventType.navigationTurnRight:
+        return 'turn_right';
+      case VoiceEventType.navigationTurnSlightLeft:
+        return 'turn_slight_left';
+      case VoiceEventType.navigationTurnSlightRight:
+        return 'turn_slight_right';
+      case VoiceEventType.navigationTurnSharpLeft:
+        return 'turn_sharp_left';
+      case VoiceEventType.navigationTurnSharpRight:
+        return 'turn_sharp_right';
+      case VoiceEventType.navigationUTurn:
+        return 'u_turn';
+      case VoiceEventType.navigationArrived:
+        return 'arrived';
+      case VoiceEventType.segmentEntered:
+        return 'segment_entered';
+      case VoiceEventType.segmentCompleted:
+        return 'segment_completed';
+      case VoiceEventType.segmentPr:
+        return 'segment_pr';
+      case VoiceEventType.segmentAbandoned:
+        return 'segment_abandoned';
     }
   }
 

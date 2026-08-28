@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Datos locales de preprocesamiento (OSM .pbf, grafos .roadgraph, teselas)
+# -- son insumos/salidas de tools/, no código; algunos pasan los 100 MB.
+data/
+
+# Volcado local del árbol de directorios (generado, no es código)
+arbol.txt

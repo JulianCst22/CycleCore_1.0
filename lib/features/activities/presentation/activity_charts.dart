@@ -30,7 +30,18 @@ class _ActivityChartsCardState extends State<ActivityChartsCard> {
   // una muestra uniforme que sigue cubriendo todo el recorrido.
   static const int _maxSamples = 220;
 
+  // Ancho del promedio móvil que suaviza la pendiente antes de
+  // dibujarla (tanto el coloreado del área como el overlay "Pendiente").
+  // La pendiente instantánea punto a punto es ruidosa -- un tramo
+  // llano real puede registrar +3%/-2%/+1% de un punto GPS al
+  // siguiente -- y eso se veía como una sucesión de picos que no
+  // reflejaban el terreno real. Suavizado, el color/la línea cambian
+  // gradualmente, como en Strava/Garmin, sin que el usuario note el
+  // ruido punto a punto original.
+  static const int _slopeSmoothingWindow = 9;
+
   late final List<RoutePointSnapshot> _sampled;
+  late final List<double> _smoothedSlopes;
   final Set<ChartOverlay> _overlays = {};
   int? _scrubIndex;
 
@@ -38,6 +49,7 @@ class _ActivityChartsCardState extends State<ActivityChartsCard> {
   void initState() {
     super.initState();
     _sampled = _downsample(widget.points, _maxSamples);
+    _smoothedSlopes = _smoothSlopes(_sampled, _slopeSmoothingWindow);
   }
 
   List<RoutePointSnapshot> _downsample(
@@ -50,6 +62,23 @@ class _ActivityChartsCardState extends State<ActivityChartsCard> {
       maxCount,
       (i) => points[(i * step).floor().clamp(0, points.length - 1)],
     );
+  }
+
+  /// Promedio móvil simple sobre `slopePercent` -- los extremos usan
+  /// una ventana más angosta (no hay vecinos de sobra a los lados) en
+  /// vez de dejarse sin suavizar, para que el inicio/fin del gráfico no
+  /// contraste feo contra el resto ya suave.
+  List<double> _smoothSlopes(List<RoutePointSnapshot> points, int windowSize) {
+    final half = windowSize ~/ 2;
+    return List<double>.generate(points.length, (i) {
+      final start = math.max(0, i - half);
+      final end = math.min(points.length - 1, i + half);
+      double sum = 0;
+      for (int j = start; j <= end; j++) {
+        sum += points[j].slopePercent;
+      }
+      return sum / (end - start + 1);
+    });
   }
 
   @override
@@ -127,6 +156,7 @@ class _ActivityChartsCardState extends State<ActivityChartsCard> {
         const SizedBox(height: 10),
         _InteractiveChart(
           points: _sampled,
+          smoothedSlopes: _smoothedSlopes,
           overlays: _overlays,
           scrubIndex: _scrubIndex,
           onScrub: (index) => setState(() => _scrubIndex = index),
@@ -206,6 +236,11 @@ class _OverlayChip extends StatelessWidget {
 /// final del recorrido por defecto. Se vuelve desplazable horizontalmente
 /// porque con potencia y cadencia ya son 7 estadísticas -- en pantallas
 /// angostas no caben todas cómodas en una sola fila fija.
+///
+/// A propósito sigue mostrando `point.slopePercent` SIN suavizar -- acá
+/// es un dato puntual ("¿cuánto tengo justo en este metro?"), no una
+/// curva que se recorre con la vista, así que no aplica el mismo
+/// criterio que en el gráfico.
 class _Readout extends StatelessWidget {
   final RoutePointSnapshot point;
   final bool isScrubbing;
@@ -319,12 +354,14 @@ class _ReadoutStat extends StatelessWidget {
 /// posición horizontal al índice de punto más cercano.
 class _InteractiveChart extends StatelessWidget {
   final List<RoutePointSnapshot> points;
+  final List<double> smoothedSlopes;
   final Set<ChartOverlay> overlays;
   final int? scrubIndex;
   final ValueChanged<int?> onScrub;
 
   const _InteractiveChart({
     required this.points,
+    required this.smoothedSlopes,
     required this.overlays,
     required this.scrubIndex,
     required this.onScrub,
@@ -350,6 +387,7 @@ class _InteractiveChart extends StatelessWidget {
             child: CustomPaint(
               painter: _ChartPainter(
                 points: points,
+                smoothedSlopes: smoothedSlopes,
                 overlays: overlays,
                 scrubIndex: scrubIndex,
               ),
@@ -363,11 +401,13 @@ class _InteractiveChart extends StatelessWidget {
 
 class _ChartPainter extends CustomPainter {
   final List<RoutePointSnapshot> points;
+  final List<double> smoothedSlopes;
   final Set<ChartOverlay> overlays;
   final int? scrubIndex;
 
   _ChartPainter({
     required this.points,
+    required this.smoothedSlopes,
     required this.overlays,
     required this.scrubIndex,
   });
@@ -392,7 +432,10 @@ class _ChartPainter extends CustomPainter {
         chartHeight -
         ((points[i].altitude - minAlt) / altRange) * chartHeight;
 
-    // --- Área de altitud, coloreada tramo a tramo según su pendiente ---
+    // --- Área de altitud, coloreada tramo a tramo según su pendiente
+    // YA SUAVIZADA (`smoothedSlopes`, no `points[i].slopePercent`) --
+    // así el color cambia de forma gradual en vez de saltar de un
+    // punto GPS al siguiente.
     for (int i = 0; i < n - 1; i++) {
       final x1 = xAt(i);
       final x2 = xAt(i + 1);
@@ -407,7 +450,7 @@ class _ChartPainter extends CustomPainter {
         ..lineTo(x2, baseline)
         ..close();
 
-      final avgSlope = (points[i].slopePercent + points[i + 1].slopePercent) / 2;
+      final avgSlope = (smoothedSlopes[i] + smoothedSlopes[i + 1]) / 2;
       canvas.drawPath(
         segmentPath,
         Paint()..color = slopeToColor(avgSlope).withValues(alpha: 0.55),
@@ -453,9 +496,13 @@ class _ChartPainter extends CustomPainter {
       );
     }
     if (overlays.contains(ChartOverlay.slope)) {
+      // El overlay "Pendiente" también usa la versión suavizada -- si
+      // usara `p.slopePercent` cruda se vería una sierra de picos
+      // encima de un área de altitud ya suave, lo cual se ve
+      // inconsistente y menos profesional.
       _drawNormalizedLine(
         canvas,
-        values: points.map((p) => p.slopePercent).toList(),
+        values: smoothedSlopes,
         color: AppColors.accentSlope,
         chartHeight: chartHeight,
         stepX: stepX,
@@ -528,6 +575,7 @@ class _ChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ChartPainter oldDelegate) {
     return oldDelegate.points != points ||
+        oldDelegate.smoothedSlopes != smoothedSlopes ||
         oldDelegate.overlays != overlays ||
         oldDelegate.scrubIndex != scrubIndex;
   }
