@@ -11,6 +11,12 @@ class ActivitySummary {
   final double distanceMeters;
   final double avgSpeedKmh;
   final double maxSpeedKmh;
+
+  /// Desnivel positivo total -- desde la Fase 1 (aplanado contra HGT),
+  /// este valor ya NO se acumula punto a punto en vivo: se recalcula
+  /// una sola vez al terminar, sobre la altitud ya aplanada (ver
+  /// `ActivityAltitudeFlattener`), para no heredar el ruido de GPS y
+  /// barómetro.
   final double elevationGainMeters;
 
   /// Null si no hubo sensor de FC conectado durante la grabación.
@@ -57,13 +63,31 @@ class ActivitySummary {
 class RoutePointSnapshot {
   final double latitude;
   final double longitude;
+
+  /// Altitud final de este punto. Desde la Fase 1, para actividades
+  /// nuevas esto ya no es la altitud fusionada en vivo (GPS+barómetro),
+  /// sino la altitud APLANADA contra HGT (ver
+  /// `ActivityAltitudeFlattener`) -- más confiable y consistente con
+  /// el perfil que después alimenta la creación de segmentos.
   final double altitude;
 
   /// Distancia acumulada (metros) desde el inicio de la actividad hasta
   /// este punto. Es el eje X de los gráficos.
   final double distanceFromStartMeters;
 
+  /// Pendiente en este punto. Igual que `altitude`, desde la Fase 1
+  /// esto sale del aplanado contra HGT, no de
+  /// `SlopePlausibilityFilter` en vivo.
   final double slopePercent;
+
+  /// Altitud fusionada en vivo (GPS+barómetro), ANTES de aplanar --
+  /// se guarda para que "Ajustar altimetría" pueda volver a correr el
+  /// aplanado sobre el dato original (con teselas HGT o GPX que hayas
+  /// descargado después), no sobre uno ya procesado. `null` en
+  /// actividades grabadas antes de que existiera este campo -- en ese
+  /// caso "Ajustar altimetría" cae a `altitude`.
+  final double? rawAltitude;
+
   final double speedKmh;
 
   /// Segundos transcurridos desde el inicio (tiempo activo, sin pausas).
@@ -86,10 +110,19 @@ class RoutePointSnapshot {
   /// sensor físico vino.
   final double? cadenceRpm;
 
+  /// true si en este punto no había tesela DEM descargada y la
+  /// altitud/pendiente tuvieron que caer de vuelta a la fusión en
+  /// vivo -- ver `ActivityAltitudeFlattener`. La UI puede usar esto
+  /// para marcar ese tramo del gráfico como "aproximado", igual que ya
+  /// se hace en vivo con `isApproximateElevation`. `false` por
+  /// defecto para actividades grabadas antes de la Fase 1.
+  final bool isElevationApproximate;
+
   const RoutePointSnapshot({
     required this.latitude,
     required this.longitude,
     this.altitude = 0,
+    this.rawAltitude,
     this.distanceFromStartMeters = 0,
     this.slopePercent = 0,
     this.speedKmh = 0,
@@ -97,12 +130,14 @@ class RoutePointSnapshot {
     this.heartRateBpm,
     this.powerWatts,
     this.cadenceRpm,
+    this.isElevationApproximate = false,
   });
 
   Map<String, dynamic> toJson() => {
         'lat': latitude,
         'lng': longitude,
         'alt': altitude,
+        'ralt': rawAltitude,
         'dist': distanceFromStartMeters,
         'slope': slopePercent,
         'speed': speedKmh,
@@ -110,6 +145,7 @@ class RoutePointSnapshot {
         'hr': heartRateBpm,
         'pw': powerWatts,
         'cad': cadenceRpm,
+        'approx': isElevationApproximate,
       };
 
   factory RoutePointSnapshot.fromJson(Map<String, dynamic> json) {
@@ -121,6 +157,7 @@ class RoutePointSnapshot {
       // (esas solo tenían lat/lng, o luego lat/lng/.../hr) sin que la
       // app truene al abrirlas.
       altitude: (json['alt'] as num?)?.toDouble() ?? 0,
+      rawAltitude: (json['ralt'] as num?)?.toDouble(),
       distanceFromStartMeters: (json['dist'] as num?)?.toDouble() ?? 0,
       slopePercent: (json['slope'] as num?)?.toDouble() ?? 0,
       speedKmh: (json['speed'] as num?)?.toDouble() ?? 0,
@@ -128,6 +165,33 @@ class RoutePointSnapshot {
       heartRateBpm: (json['hr'] as num?)?.toInt(),
       powerWatts: (json['pw'] as num?)?.toInt(),
       cadenceRpm: (json['cad'] as num?)?.toDouble(),
+      // Actividades grabadas antes de la Fase 1 no tienen este campo
+      // -- se asumen "no aproximadas" (comportamiento previo, sin
+      // marcar nada especial en el gráfico).
+      isElevationApproximate: (json['approx'] as bool?) ?? false,
+    );
+  }
+
+  RoutePointSnapshot copyWith({
+    double? altitude,
+    double? rawAltitude,
+    double? slopePercent,
+    bool? isElevationApproximate,
+  }) {
+    return RoutePointSnapshot(
+      latitude: latitude,
+      longitude: longitude,
+      altitude: altitude ?? this.altitude,
+      rawAltitude: rawAltitude ?? this.rawAltitude,
+      distanceFromStartMeters: distanceFromStartMeters,
+      slopePercent: slopePercent ?? this.slopePercent,
+      speedKmh: speedKmh,
+      secondsFromStart: secondsFromStart,
+      heartRateBpm: heartRateBpm,
+      powerWatts: powerWatts,
+      cadenceRpm: cadenceRpm,
+      isElevationApproximate:
+          isElevationApproximate ?? this.isElevationApproximate,
     );
   }
 }

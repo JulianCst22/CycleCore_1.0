@@ -41,4 +41,32 @@ class AppColors {
 
 // Training
   static const Color accentTraining = Color(0xFF00BFFF);
+
+  // ---------------------------------------------------------------
+  // Segmentos. Antes el verde de "A" estaba hardcodeado como
+  // Color(0xFF2ECC71) en segment_creation_screen.dart y
+  // segment_detail_screen.dart -- ahora vive acá.
+  // ---------------------------------------------------------------
+
+  /// Marcador/hito de INICIO de un segmento (punto A).
+  static const Color segmentStart = Color(0xFF2ECC71); // Verde
+
+  /// Marcador/hito de FIN de un segmento (punto B) -- reusa el rojo de
+  /// "grabando", con nombre propio para que quede claro en el sitio de
+  /// uso que representa "meta del segmento", no "grabación activa".
+  static const Color segmentEnd = recordButtonActive;
+
+  /// Polilínea del segmento que se está recorriendo AHORA, dibujada
+  /// sobre el mapa ("vas aquí").
+  static const Color segmentActiveTrack = Color(0xFF00E0C6); // Turquesa
+
+  /// Polilínea de los demás segmentos cercanos (vigilados pero no
+  /// activos) -- atenuada para no competir con el trazado grabado.
+  static const Color segmentIdleTrack = Color(0xFF5C6B7A);
+
+  /// Vas MÁS RÁPIDO que tu mejor marca / el fantasma.
+  static const Color ghostAhead = Color(0xFF2ECC71);
+
+  /// Vas MÁS LENTO que tu mejor marca / el fantasma.
+  static const Color ghostBehind = Color(0xFFE0663D);
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/geospatial/presentation/map_screen.dart';
 import '../../features/activities/presentation/activities_list_screen.dart';
-import '../../features/sensors/presentation/sensors_screen.dart';
+import '../../features/segments/presentation/segments_list_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../shared_widgets/app_bottom_nav_bar.dart';
 import '../theme/app_colors.dart';
@@ -17,14 +17,14 @@ import '../theme/app_colors.dart';
 /// Perfil no se resetea, etc. `IndexedStack` construye las 4 una sola
 /// vez y solo cambia cuál es visible.
 ///
-/// Cada sección (`MapScreen`, `SensorsScreen`, etc.) conserva su
+/// Cada sección (`MapScreen`, `SegmentsListScreen`, etc.) conserva su
 /// propio `Scaffold` interno -- eso es intencional y no genera
 /// conflicto: un `Scaffold` anidado dentro del `body` de otro
 /// `Scaffold` es un patrón normal en Flutter: cada uno pinta su fondo
 /// y su propio `AppBar` dentro del área que le da este shell.
 ///
 /// El orden de `_screens` debe coincidir exactamente con el orden de
-/// ítems de `AppBottomNavBar` (Mapa, Sensores, Actividad, Perfil).
+/// ítems de `AppBottomNavBar` (Mapa, Segmentos, Actividad, Perfil).
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -37,7 +37,7 @@ class _AppShellState extends State<AppShell> {
 
   static const _screens = [
     MapScreen(),
-    SensorsScreen(),
+    SegmentsListScreen(),
     ActivitiesListScreen(),
     ProfileScreen(),
   ];

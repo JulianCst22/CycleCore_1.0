@@ -7,6 +7,11 @@ import '../../auth/presentation/account_setup_wizard.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../auth/presentation/welcome_screen.dart';
+import '../../elevation/presentation/elevation_settings_screen.dart';
+import '../../navigation/presentation/navigation_settings_screen.dart';
+import '../../segments/presentation/segment_data_settings_screen.dart';
+import '../../sensors/presentation/sensors_screen.dart';
+import '../../voice/presentation/voice_selection_screen.dart';
 import 'profile_edit_screen.dart';
 import 'training_zones_screen.dart';
 
@@ -19,6 +24,17 @@ import 'training_zones_screen.dart';
 /// tus datos, tus zonas) -- la misma separación que ya tienen apps
 /// como Strava o Garmin Connect, y la razón por la que el correo +
 /// botón "Salir" se sentían fuera de lugar antes.
+///
+/// Sección "MAPA": Elevación y Navegación se administran acá en vez
+/// de aparecer como diálogos sorpresa en medio de una grabación -- el
+/// usuario prepara sus descargas offline con calma, desde un solo
+/// lugar.
+///
+/// Sección "SENSORES" (nueva): conectar sensores BLE
+/// (FC/potencia/velocidad-cadencia) dejó de ser una pestaña de la
+/// barra de navegación inferior (ese lugar ahora lo ocupa
+/// "Segmentos") y pasó a vivir acá, como una acción de configuración
+/// puntual en vez de una sección que se visita todo el tiempo.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -60,6 +76,67 @@ class SettingsScreen extends StatelessWidget {
               subtitle: 'Potencia y frecuencia cardíaca',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TrainingZonesScreen()),
+              ),
+            ),
+            const SizedBox(height: 28),
+            const _SectionLabel('MAPA'),
+            const SizedBox(height: 8),
+            _SettingsTile(
+              icon: Icons.terrain_outlined,
+              label: 'Elevación',
+              subtitle: 'Mapas de altimetría descargados (.hgt)',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ElevationSettingsScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _SettingsTile(
+              icon: Icons.alt_route,
+              label: 'Navegación',
+              subtitle: 'Rutas y direcciones por voz, sin conexión',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const NavigationSettingsScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+            const _SectionLabel('SEGMENTOS'),
+            const SizedBox(height: 8),
+            _SettingsTile(
+              icon: Icons.dashboard_customize_outlined,
+              label: 'Datos del segmento',
+              subtitle: 'Qué se ve mientras recorrés un segmento',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SegmentDataSettingsScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+            const _SectionLabel('VOZ'),
+            const SizedBox(height: 8),
+            _SettingsTile(
+              icon: Icons.record_voice_over_outlined,
+              label: 'Voz de guía',
+              subtitle: 'Activarla y elegir la personalidad',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const VoiceSelectionScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+            const _SectionLabel('SENSORES'),
+            const SizedBox(height: 8),
+            _SettingsTile(
+              icon: Icons.sensors,
+              label: 'Sensores BLE',
+              subtitle: 'Frecuencia cardíaca, potencia, velocidad-cadencia',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SensorsScreen()),
               ),
             ),
           ],
@@ -147,10 +224,9 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-// --- De aquí para abajo: exactamente lo que ya tenías en
-// profile_screen.dart (cierre de sesión, hoja de vinculación, tiles
-// de cuenta), solo que ahora vive en Ajustes en vez de en medio del
-// contenido del perfil. La lógica no cambió, solo la ubicación. ---
+// --- De aquí para abajo: exactamente lo que ya tenías (cierre de
+// sesión, hoja de vinculación, tiles de cuenta) -- no se tocó nada de
+// esta parte. ---
 
 Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
   await ref.read(authProvider.notifier).logout();

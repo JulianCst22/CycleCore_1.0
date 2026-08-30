@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 /// Pose momentánea del ciclista, encima del pedaleo base -- corre todo
 /// el tiempo (vista lateral en reposo o vista trasera subiendo), no
 /// solo mientras sube de nivel.
+/// 
 enum _CyclistPose { seated, standing, drinking }
 
 /// Dibuja un trazo con contorno oscuro por debajo y el color relleno

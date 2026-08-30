@@ -10,14 +10,15 @@ import '../../../core/fuzzy_engine/slope_plausibility/slope_plausibility_filter.
 import '../../../core/sensors/altitude_debug_logger.dart';
 import '../../../core/sensors/altitude_fusion_service.dart';
 import '../../../core/sensors/barometer_service.dart';
+import '../../activities/domain/activity_altitude_flattener.dart';
 import '../../activities/domain/activity_summary.dart';
-import '../../elevation/data/elevation_repository.dart';
+import '../../elevation/data/elevation_resolver.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import '../../sensors/presentation/speed_providers.dart';
 import '../data/location_service.dart';
+import '../domain/live_slope_calculator.dart';
 import '../domain/route_point.dart';
 import '../domain/slope_presentation_formatter.dart';
-import '../domain/slope_window_calculator.dart';
 
 /// Instancia única del servicio de ubicación, compartida por toda la app.
 final locationServiceProvider = Provider<LocationService>((ref) {
@@ -149,10 +150,17 @@ class RouteRecordingState {
 class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   final LocationService _locationService;
   final BarometerService _barometerService;
-  final ElevationRepository _elevationRepository;
+
+  /// Cadena de prioridades de elevación: GPX > HGT > fusión en vivo.
+  final ElevationResolver _elevation;
   final Ref _ref;
   final AltitudeFusionService _altitudeFusion = AltitudeFusionService();
-  final SlopeWindowCalculator _slopeCalculator = SlopeWindowCalculator();
+
+  // Ventana de TIEMPO (no de distancia) -- ver LiveSlopeCalculator
+  // para el porqué. Reemplaza a SlopeWindowCalculator SOLO acá, en el
+  // cockpit en vivo; el aplanado post-actividad (Fase 1) sigue usando
+  // SlopeWindowCalculator sin cambios.
+  final LiveSlopeCalculator _slopeCalculator = LiveSlopeCalculator();
 
   // --- Capas del modelo geoespacial nuevo ---
   final AltitudeFusionFilter _altitudeFusionFilter = AltitudeFusionFilter();
@@ -184,14 +192,15 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   /// esto en vez de recalcular todo desde cero con Geolocator, para que
   /// el resumen final sea fiel a lo que se vio en vivo -- crítico para
   /// actividades indoor, donde el GPS no se mueve pero el sensor sí
-  /// reporta datos reales.
+  /// reporta datos reales. También es la entrada de distancia que usa
+  /// `ActivityAltitudeFlattener` para recalcular la pendiente aplanada.
   final List<double> _liveDistanceHistory = [];
   final List<double> _liveSpeedHistory = [];
 
   RouteRecordingController(
     this._locationService,
     this._barometerService,
-    this._elevationRepository,
+    this._elevation,
     this._ref,
   ) : super(const RouteRecordingState());
 
@@ -204,7 +213,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
     await _locationService.ensureLocationReady();
     await _locationService.ensureBackgroundLocationReady();
-    await _elevationRepository.preloadCatalog();
+    await _elevation.preload();
 
     _altitudeFusion.reset();
     _slopeCalculator.reset();
@@ -288,10 +297,14 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   }
 
   void _onNewPosition(Position position) {
-    // --- Distancia desde el punto anterior (cruda, antes del filtro
-    // de ruido -- la necesitamos cruda para las Capas 1 y 2 de altitud,
-    // y para decidir si la pendiente se alimenta). ---
+    // --- Distancia y tiempo desde el punto anterior (crudos, antes
+    // del filtro de ruido -- se necesitan crudos para las Capas 1 y 2
+    // de altitud, y para decidir si la pendiente se alimenta).
+    // `stepDurationSeconds` es lo nuevo: LiveSlopeCalculator y
+    // SlopePlausibilityFilter lo usan para que su tiempo de respuesta
+    // no dependa de la velocidad (ver LiveSlopeCalculator). ---
     double rawStepDistance = 0;
+    double stepDurationSeconds = 0;
     if (state.points.isNotEmpty) {
       final previous = state.points.last;
       rawStepDistance = Geolocator.distanceBetween(
@@ -300,17 +313,22 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
         position.latitude,
         position.longitude,
       );
+      stepDurationSeconds =
+          DateTime.now().difference(previous.timestamp).inMilliseconds /
+              1000.0;
     }
 
     final noiseFloor = _distanceNoiseFloor(position.accuracy);
     final addedDistance = rawStepDistance > noiseFloor ? rawStepDistance : 0.0;
 
-    // --- CAPA 1: fusión difusa multi-fuente de altitud (sin cambios,
-    // sigue dependiendo exclusivamente de GPS/barómetro/DEM) ---
-    final demAltitude = _elevationRepository.elevationAtSync(
-      position.latitude,
-      position.longitude,
-    );
+    // --- CAPA 1: fusión difusa multi-fuente de altitud. La referencia
+    // "confiable" ahora sale de la cadena de prioridades (GPX > HGT);
+    // si ninguna tiene dato en esta coordenada, se cae al GPS/barómetro
+    // fusionado y el punto queda marcado como aproximado. El aplanado
+    // post-actividad (ActivityAltitudeFlattener) usa la MISMA cadena. ---
+    final refAltitude = _elevation
+        .resolve(position.latitude, position.longitude)
+        .altitudeMeters;
 
     final realtimeAltitude = _altitudeFusion.fuse(
       gpsAltitude: position.altitude,
@@ -319,18 +337,18 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
     final fusionResult = _altitudeFusionFilter.fuse(
       AltitudeSourceReading(
-        demAltitude: demAltitude,
+        demAltitude: refAltitude,
         realtimeAltitude: realtimeAltitude,
         gpsAccuracyMeters: position.accuracy,
         stepDistanceMeters: rawStepDistance,
       ),
     );
 
-    // Recalibración del barómetro contra el DEM -- solo cuando la
-    // Capa 1 ha visto suficiente distancia SIN sospecha de estructura
-    // elevada. Solo tiene sentido cuando efectivamente hay tesela.
-    if (demAltitude != null && _altitudeFusionFilter.shouldRecalibrate()) {
-      _altitudeFusion.recalibrateOffset(demAltitude);
+    // Recalibración del barómetro contra la referencia confiable
+    // (GPX/HGT) -- solo cuando la Capa 1 ha visto suficiente distancia
+    // SIN sospecha de estructura elevada, y solo si hay referencia.
+    if (refAltitude != null && _altitudeFusionFilter.shouldRecalibrate()) {
+      _altitudeFusion.recalibrateOffset(refAltitude);
     }
 
     final newPoint = RoutePoint(
@@ -390,11 +408,13 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       final rawSlope = _slopeCalculator.addSample(
         cumulativeDistanceMeters: newCumulativeDistance,
         altitude: newPoint.altitude,
+        timestamp: newPoint.timestamp,
       );
 
       trustedSlope = _slopePlausibility.filter(
         rawSlope: rawSlope,
         stepDistanceMeters: rawStepDistance,
+        stepDurationSeconds: stepDurationSeconds,
       );
       displaySlope = _slopePresentation.format(trustedSlope);
     }
@@ -430,7 +450,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
               : state.maxSpeedKmh,
       currentBearingDegrees: newPoint.bearingDegrees,
       isApproximateElevation:
-          demAltitude == null || fusionResult.bridgeSuspected,
+          refAltitude == null || fusionResult.bridgeSuspected,
     );
   }
 
@@ -454,19 +474,17 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     state = const RouteRecordingState();
   }
 
-  /// Termina la actividad: detiene los sensores, reconstruye cada punto
-  /// enriquecido para alimentar los gráficos del detalle, arma el
-  /// `ActivitySummary` final, y resetea el estado.
+  /// Termina la actividad: detiene los sensores, APLANA la altimetría
+  /// completa contra HGT (Fase 1 -- ver `ActivityAltitudeFlattener`),
+  /// reconstruye cada punto enriquecido con esa altitud/pendiente ya
+  /// aplanada, arma el `ActivitySummary` final, y resetea el estado.
   ///
-  /// La pendiente/altitud se reconstruyen igual que antes (instancias
-  /// nuevas de los filtros, misma fidelidad punto por punto). La
-  /// distancia y velocidad de cada punto YA NO se recalculan con
-  /// Geolocator desde cero -- se reutiliza `_liveDistanceHistory`/
-  /// `_liveSpeedHistory`, que ya tienen priorizado sensor-vs-GPS
-  /// correctamente para cada instante. El incremento entre punto y
-  /// punto de esa distancia ya priorizada es lo que decide si se
-  /// alimenta la regresión de pendiente (reemplaza el antiguo cálculo
-  /// de `stepDistance` vía Geolocator + piso de ruido).
+  /// La distancia y velocidad de cada punto siguen sin recalcularse
+  /// con Geolocator desde cero -- se reutiliza
+  /// `_liveDistanceHistory`/`_liveSpeedHistory`, que ya tienen
+  /// priorizado sensor-vs-GPS correctamente para cada instante (y es
+  /// la misma distancia que usa el flattener para su regresión de
+  /// pendiente).
   ///
   /// `powerSamples`/`cadenceSamples` siguen el mismo patrón de "carry
   /// forward" que `heartRateSamples`: cada punto GPS se casa con la
@@ -484,9 +502,16 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     final elapsed = elapsedDuration();
     final startedAt = state.startedAt ?? DateTime.now();
 
-    final slopeCalc = SlopeWindowCalculator();
-    final slopePlausibility = SlopePlausibilityFilter();
-    double lastTrustedSlope = 0;
+    // --- Aplanado de altimetría contra la cadena de prioridades
+    // (GPX > HGT > fusión en vivo) -- reemplaza la altitud y pendiente
+    // vistas en vivo. `_liveDistanceHistory` ya está alineado índice a
+    // índice con `state.points`.
+    final flattener = ActivityAltitudeFlattener(_elevation);
+    final flattened = flattener.flatten(
+      points: state.points,
+      cumulativeDistanceMeters: _liveDistanceHistory,
+    );
+
     int hrIndex = 0;
     int? carriedHr;
     int powerIndex = 0;
@@ -499,24 +524,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       final point = state.points[i];
       final runningDistance = _liveDistanceHistory[i];
       final pointSpeedKmh = _liveSpeedHistory[i];
-
-      final stepDistance =
-          i == 0 ? 0.0 : runningDistance - _liveDistanceHistory[i - 1];
-
-      // Mismo criterio que en vivo: si no hubo movimiento real, no se
-      // alimenta la regresión de pendiente ni la Capa 2 -- se conserva
-      // la última pendiente calculada.
-      if (stepDistance > 0) {
-        final rawSlope = slopeCalc.addSample(
-          cumulativeDistanceMeters: runningDistance,
-          altitude: point.altitude,
-        );
-        lastTrustedSlope = slopePlausibility.filter(
-          rawSlope: rawSlope,
-          stepDistanceMeters: stepDistance,
-        );
-      }
-      final trustedSlope = lastTrustedSlope;
 
       while (hrIndex < heartRateSamples.length &&
           !heartRateSamples[hrIndex].timestamp.isAfter(point.timestamp)) {
@@ -540,14 +547,19 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
         RoutePointSnapshot(
           latitude: point.latitude,
           longitude: point.longitude,
-          altitude: point.altitude,
+          altitude: flattened.altitudes[i],
+          // Altitud fusionada en vivo, ANTES de aplanar -- se guarda
+          // para poder volver a aplanar más tarde ("Ajustar altimetría")
+          // sobre el dato original y no sobre uno ya procesado.
+          rawAltitude: point.altitude,
           distanceFromStartMeters: runningDistance,
-          slopePercent: trustedSlope,
+          slopePercent: flattened.slopePercents[i],
           speedKmh: pointSpeedKmh,
           secondsFromStart: point.timestamp.difference(startedAt).inSeconds,
           heartRateBpm: carriedHr,
           powerWatts: carriedPower,
           cadenceRpm: carriedCadence,
+          isElevationApproximate: flattened.isApproximate[i],
         ),
       );
     }
@@ -589,7 +601,8 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       distanceMeters: finalDistance,
       avgSpeedKmh: state.averageSpeedKmhOver(elapsed),
       maxSpeedKmh: state.maxSpeedKmh,
-      elevationGainMeters: state.elevationGainMeters,
+      // Desnivel recalculado desde la serie aplanada -- ver Fase 1.
+      elevationGainMeters: flattened.elevationGainMeters,
       avgHeartRate: avgHeartRate,
       maxHeartRate: maxHeartRate,
       avgPower: avgPower,
@@ -623,11 +636,11 @@ final routeRecordingProvider =
     ) {
       final locationService = ref.read(locationServiceProvider);
       final barometerService = ref.read(barometerServiceProvider);
-      final elevationRepository = ref.read(elevationRepositoryProvider);
+      final elevationResolver = ref.read(elevationResolverProvider);
       return RouteRecordingController(
         locationService,
         barometerService,
-        elevationRepository,
+        elevationResolver,
         ref,
       );
     });
