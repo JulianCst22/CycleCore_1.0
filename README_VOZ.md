@@ -9,8 +9,8 @@ ya tienes ahí). Estructura:
 ```
 lib/features/voice/
   domain/
-    voice_event.dart        -> los 4 eventos (start/pause/resume/finish)
-    voice_persona.dart       -> las 8 personalidades + su configuración
+    voice_event.dart        -> los eventos (actividad, navegación, segmentos)
+    voice_persona.dart       -> las 5 voces + su configuración y desbloqueo
     voice_line_bank.dart     -> las frases (varias por evento y persona)
   data/
     voice_settings_repository.dart  -> guarda la voz elegida (shared_preferences)
@@ -172,10 +172,9 @@ assets/voice_packs/<id_de_la_persona>/resumed/0.mp3
 assets/voice_packs/<id_de_la_persona>/finished/0.mp3
 ```
 
-(usa los ids: `coach`, `chill`, `sergeant`, `pro`, `sarcastic`, `zen`,
-`hype`, `grandma`) y cambia el `source` de esa persona en
-`voice_persona.dart` de `VoiceSourceType.systemTts` a
-`VoiceSourceType.audioPack`.
+(usa los ids: `pro`, `chill`, `coach`, `hype`, `zen`) y cambia el
+`source` de esa persona en `voice_persona.dart` de
+`VoiceSourceType.systemTts` a `VoiceSourceType.audioPack`.
 
 ## 7. Siguiente paso
 

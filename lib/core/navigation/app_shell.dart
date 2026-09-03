@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/geospatial/presentation/map_screen.dart';
 import '../../features/activities/presentation/activities_list_screen.dart';
 import '../../features/segments/presentation/segments_list_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../shared_widgets/app_bottom_nav_bar.dart';
-import '../theme/app_colors.dart';
+import 'navigation_providers.dart';
 
 /// Shell de navegación raíz de la app -- reemplaza la navegación
 /// anterior basada en `Navigator.push` desde adentro de `MapScreen`.
@@ -25,15 +26,12 @@ import '../theme/app_colors.dart';
 ///
 /// El orden de `_screens` debe coincidir exactamente con el orden de
 /// ítems de `AppBottomNavBar` (Mapa, Segmentos, Actividad, Perfil).
-class AppShell extends StatefulWidget {
+///
+/// La pestaña activa vive en [appTabIndexProvider] (no en `setState`)
+/// para que otras pantallas puedan cambiarla -- ver el botón "grabar"
+/// de `ActivitiesListScreen`.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key});
-
-  @override
-  State<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends State<AppShell> {
-  int _currentIndex = 0;
 
   static const _screens = [
     MapScreen(),
@@ -43,16 +41,14 @@ class _AppShellState extends State<AppShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = ref.watch(appTabIndexProvider);
+
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: currentIndex, children: _screens),
       bottomNavigationBar: AppBottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        currentIndex: currentIndex,
+        onTap: (index) => ref.read(appTabIndexProvider.notifier).state = index,
       ),
     );
   }

@@ -105,9 +105,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
     final currentStyle = styles[_page.clamp(0, styles.length - 1)];
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(

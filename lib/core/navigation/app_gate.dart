@@ -43,13 +43,11 @@ class _AppGateState extends ConsumerState<AppGate> {
 
     return profileAsync.when(
       loading: () => const Scaffold(
-        backgroundColor: AppColors.panelBackground,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       ),
       error: (error, _) => Scaffold(
-        backgroundColor: AppColors.panelBackground,
         body: Center(
           child: Text(
             'No se pudo cargar tu perfil:\n$error',

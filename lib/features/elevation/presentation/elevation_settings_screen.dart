@@ -21,9 +21,7 @@ class ElevationSettingsScreen extends ConsumerWidget {
     final positionAsync = ref.watch(currentPositionProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         title: const Text(
           'Elevación',

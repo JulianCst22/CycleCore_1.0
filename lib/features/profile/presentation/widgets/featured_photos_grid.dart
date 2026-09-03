@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cc_colors.dart';
 import '../../../activities/presentation/activity_detail_screen.dart';
 import '../profile_providers.dart';
 
@@ -55,11 +56,11 @@ class FeaturedPhotosGrid extends ConsumerWidget {
                     Image.file(
                       File(photo.photoPath),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: AppColors.panelBackground,
+                      errorBuilder: (_, _, _) => Container(
+                        color: CcColors.surface,
                         child: const Icon(
                           Icons.broken_image_outlined,
-                          color: AppColors.textSecondaryOnPanel,
+                          color: CcColors.inkDim,
                         ),
                       ),
                     ),

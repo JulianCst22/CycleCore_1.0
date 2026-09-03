@@ -94,6 +94,7 @@ class ZonesEditorFormState extends State<ZonesEditorForm> {
           accentColor: AppColors.accentSlope,
           rows: _powerRows,
           colors: palette,
+          emptyHint: 'Añade tu FTP en Editar perfil para calcular estas zonas.',
         ),
         const SizedBox(height: 20),
         _ZoneTable(
@@ -101,6 +102,8 @@ class ZonesEditorFormState extends State<ZonesEditorForm> {
           accentColor: AppColors.accentHeartRate,
           rows: _hrRows,
           colors: palette,
+          emptyHint:
+              'Añade tu FC máxima en Editar perfil para calcular estas zonas.',
         ),
       ],
     );
@@ -182,28 +185,50 @@ class _ZoneTable extends StatelessWidget {
   final Color accentColor;
   final List<_ZoneRowControllers> rows;
   final _EditorColors colors;
+  final String emptyHint;
 
   const _ZoneTable({
     required this.title,
     required this.accentColor,
     required this.rows,
     required this.colors,
+    required this.emptyHint,
   });
 
   @override
   Widget build(BuildContext context) {
+    final header = Text(
+      title,
+      style: TextStyle(
+        color: accentColor,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.6,
+      ),
+    );
+
+    if (rows.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          const SizedBox(height: 6),
+          Text(
+            emptyHint,
+            style: TextStyle(
+              color: colors.secondaryText,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: accentColor,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.6,
-          ),
-        ),
+        header,
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),

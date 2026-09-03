@@ -18,9 +18,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
     final regionAsync = ref.watch(currentRoadRegionProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         title: const Text(
           'Navegación',

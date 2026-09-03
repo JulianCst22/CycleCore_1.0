@@ -1,3 +1,7 @@
+import '../../profile/domain/cyclist_kit.dart'
+    show KitUnlockCondition, KitUnlockKind;
+import '../../profile/domain/level_info.dart' show CyclistRank;
+
 /// De dónde saca el motor las frases habladas para esta persona.
 ///
 /// - [systemTts]: usa la voz nativa del teléfono (flutter_tts), con
@@ -9,12 +13,30 @@
 ///   evento, así que puedes migrar personas de a poco.
 enum VoiceSourceType { systemTts, audioPack }
 
+/// En qué "estante" del Vestidor aparece una voz.
+enum VoiceTier {
+  /// Disponible desde el primer día.
+  gratis,
+
+  /// Se gana cumpliendo un logro de ciclismo ([VoicePersona.unlock]).
+  desbloqueable,
+}
+
 class VoicePersona {
   final String id;
   final String name;
   final String description;
   final String emoji;
   final VoiceSourceType source;
+
+  /// En qué estante del Vestidor va.
+  final VoiceTier tier;
+
+  /// Cómo se gana, si [tier] es [VoiceTier.desbloqueable]. `null` en las
+  /// gratis. Reusa la misma condición que las piezas del vestidor, así
+  /// que el texto ("Corona el rango Rodador") y la evaluación salen
+  /// gratis de `kit_unlocks.dart`.
+  final KitUnlockCondition? unlock;
 
   /// Tono de la voz TTS. 1.0 es el tono normal del dispositivo.
   final double pitch;
@@ -39,6 +61,8 @@ class VoicePersona {
     required this.description,
     required this.emoji,
     this.source = VoiceSourceType.systemTts,
+    this.tier = VoiceTier.gratis,
+    this.unlock,
     this.pitch = 1.0,
     this.rate = 0.5,
     this.preferredLocale = 'es-ES',
@@ -46,73 +70,99 @@ class VoicePersona {
   });
 }
 
-/// Las 8 personalidades de voz disponibles, al estilo de las voces
-/// de Waze. Todas parten en modo [VoiceSourceType.systemTts]; cuando
-/// consigas audios pre-grabados para alguna, solo cambia su `source`
-/// a [VoiceSourceType.audioPack] (ver README_VOZ.md).
+/// Las 5 voces de guía. Todas parten en modo [VoiceSourceType.systemTts]
+/// (voz del sistema, con tono/ritmo propios); cuando consigas audios
+/// pre-grabados para alguna, solo cambia su `source` a
+/// [VoiceSourceType.audioPack] (ver README_VOZ.md). Los `id` son
+/// estables: se guardan en `SharedPreferences` y son el nombre de la
+/// carpeta de audios.
 const List<VoicePersona> kVoicePersonas = [
   VoicePersona(
-    id: 'coach',
-    name: 'Entrenador Motivador',
-    description: 'Te empuja a dar el máximo en cada pedalada.',
-    emoji: '💪',
-    pitch: 1.05,
-    rate: 0.52,
-  ),
-  VoicePersona(
-    id: 'chill',
-    name: 'Compa Relajado',
-    description: 'Tranquilo, como pedalear con un amigo sin prisa.',
-    emoji: '😎',
-    pitch: 0.95,
-    rate: 0.48,
-  ),
-  VoicePersona(
-    id: 'sergeant',
-    name: 'Sargento',
-    description: 'Disciplina y órdenes directas, sin excusas.',
-    emoji: '🎖️',
-    pitch: 0.85,
-    rate: 0.58,
-  ),
-  VoicePersona(
     id: 'pro',
-    name: 'Profesional',
-    description: 'Reportes claros y neutrales, como un copiloto técnico.',
-    emoji: '📊',
+    name: 'Estándar',
+    description: 'Indicaciones claras y neutrales, como un copiloto técnico.',
+    emoji: '🧭',
     pitch: 1.0,
     rate: 0.5,
   ),
   VoicePersona(
-    id: 'sarcastic',
-    name: 'Copiloto Sarcástico',
-    description: 'Humor filoso y comentarios pícaros en cada aviso.',
-    emoji: '😏',
-    pitch: 1.1,
-    rate: 0.5,
+    id: 'chill',
+    name: 'Compañero',
+    description: 'Cercano y tranquilo, como salir a rodar con un amigo.',
+    emoji: '🚴',
+    pitch: 0.97,
+    rate: 0.48,
   ),
   VoicePersona(
-    id: 'zen',
-    name: 'Modo Zen',
-    description: 'Voz calmada, ideal para pedalear con plena consciencia.',
-    emoji: '🧘',
-    pitch: 0.9,
-    rate: 0.42,
+    id: 'coach',
+    name: 'Entrenador',
+    description: 'Te motiva y te marca el esfuerzo, como un preparador.',
+    emoji: '💪',
+    tier: VoiceTier.desbloqueable,
+    unlock: KitUnlockCondition(
+      KitUnlockKind.rankCompleted,
+      rank: CyclistRank.rodador,
+    ),
+    pitch: 1.03,
+    rate: 0.52,
   ),
   VoicePersona(
     id: 'hype',
-    name: 'Fan a Tope',
-    description: 'Como un comentarista deportivo, siempre a mil.',
-    emoji: '📣',
-    pitch: 1.2,
-    rate: 0.6,
+    name: 'Director deportivo',
+    description: 'Estilo radio de carrera y coche de equipo, con energía.',
+    emoji: '📻',
+    tier: VoiceTier.desbloqueable,
+    unlock: KitUnlockCondition(KitUnlockKind.rideSpeedKmh, value: 30),
+    pitch: 1.08,
+    rate: 0.55,
   ),
   VoicePersona(
-    id: 'grandma',
-    name: 'Abuela Cariñosa',
-    description: 'Cariñosa y protectora, preocupada por tu bienestar.',
-    emoji: '🧶',
-    pitch: 1.15,
-    rate: 0.46,
+    id: 'zen',
+    name: 'Ritmo suave',
+    description: 'Voz calmada para rodar en fondo o en recuperación.',
+    emoji: '🧘',
+    tier: VoiceTier.desbloqueable,
+    unlock: KitUnlockCondition(KitUnlockKind.totalElevation, value: 3000),
+    pitch: 0.93,
+    rate: 0.44,
+  ),
+];
+
+/// Voz "premium" todavía no disponible: sólo pinta el estante en el
+/// Vestidor para dejar claro que ahí irán voces de pago / de artista.
+/// Cuando se implemente (Fase D: audio grabado en estudio o packs de
+/// artista) pasará a ser una [VoicePersona] normal con `source`
+/// [VoiceSourceType.audioPack].
+class UpcomingVoice {
+  final String name;
+  final String tagline;
+  final String emoji;
+
+  const UpcomingVoice({
+    required this.name,
+    required this.tagline,
+    required this.emoji,
+  });
+}
+
+/// Busca una voz por su id. `null` si no existe (p.ej. un id guardado de
+/// una versión anterior).
+VoicePersona? voicePersonaById(String id) {
+  for (final persona in kVoicePersonas) {
+    if (persona.id == id) return persona;
+  }
+  return null;
+}
+
+const List<UpcomingVoice> kUpcomingVoices = [
+  UpcomingVoice(
+    name: 'Voces de artista',
+    tagline: 'Grabadas por voces reales. Próximamente.',
+    emoji: '🎤',
+  ),
+  UpcomingVoice(
+    name: 'Pack narrador pro',
+    tagline: 'Relato de carrera de estudio. Próximamente.',
+    emoji: '🏆',
   ),
 ];

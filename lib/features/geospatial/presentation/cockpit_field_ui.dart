@@ -39,6 +39,8 @@ extension CockpitFieldX on CockpitField {
         return 'VEL. PROM.';
       case CockpitField.velocidadMax:
         return 'VEL. MÁX';
+      case CockpitField.altitud:
+        return 'ALTITUD';
       case CockpitField.desnivel:
         return 'DESNIVEL';
       case CockpitField.pendiente:
@@ -68,6 +70,8 @@ extension CockpitFieldX on CockpitField {
         return Icons.bar_chart;
       case CockpitField.velocidadMax:
         return Icons.bolt;
+      case CockpitField.altitud:
+        return Icons.landscape;
       case CockpitField.desnivel:
         return Icons.terrain;
       case CockpitField.pendiente:
@@ -95,6 +99,7 @@ extension CockpitFieldX on CockpitField {
       case CockpitField.velocidadProm:
       case CockpitField.velocidadMax:
         return AppColors.accentSpeed;
+      case CockpitField.altitud:
       case CockpitField.desnivel:
         return AppColors.accentElevation;
       case CockpitField.pendiente:
@@ -154,6 +159,14 @@ extension CockpitFieldX on CockpitField {
           color: color,
           value: formatSpeedKmh(data.maxSpeedKmh),
           unit: 'km/h',
+        );
+      case CockpitField.altitud:
+        return CockpitFieldDisplay(
+          label: label,
+          icon: icon,
+          color: color,
+          value: data.altitudeMeters?.toStringAsFixed(0) ?? '--',
+          unit: 'm',
         );
       case CockpitField.desnivel:
         return CockpitFieldDisplay(

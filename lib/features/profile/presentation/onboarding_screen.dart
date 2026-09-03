@@ -65,9 +65,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     if (existing != null) {
       _nameCtrl.text = existing.name;
-      _weightCtrl.text = existing.weightKg.toString();
-      _ftpCtrl.text = existing.ftpWatts.toString();
-      _maxHrCtrl.text = existing.maxHr.toString();
+      _weightCtrl.text = existing.weightKg?.toString() ?? '';
+      _ftpCtrl.text = existing.ftpWatts?.toString() ?? '';
+      _maxHrCtrl.text = existing.maxHr?.toString() ?? '';
       _restingHrCtrl.text = existing.restingHr?.toString() ?? '';
     }
 
@@ -84,6 +84,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
+  /// Validador para un campo numérico opcional: vacío es válido; si trae
+  /// algo, debe ser un número dentro del rango.
+  static String? _optionalRange(String? v, num lo, num hi, String msg) {
+    if (v == null || v.trim().isEmpty) return null;
+    final n = num.tryParse(v.trim());
+    if (n == null || n < lo || n > hi) return msg;
+    return null;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -94,14 +103,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // desde aquí) -- este formulario nunca debe vaciar esos campos.
     final existing = ref.read(profileProvider).valueOrNull;
 
+    int? pInt(String s) => int.tryParse(s.trim());
     final profile = CyclistProfile(
       name: _nameCtrl.text.trim(),
-      weightKg: double.parse(_weightCtrl.text),
-      ftpWatts: int.parse(_ftpCtrl.text),
-      maxHr: int.parse(_maxHrCtrl.text),
-      restingHr: _restingHrCtrl.text.trim().isEmpty
-          ? null
-          : int.parse(_restingHrCtrl.text),
+      weightKg: double.tryParse(_weightCtrl.text.trim()),
+      ftpWatts: pInt(_ftpCtrl.text),
+      maxHr: pInt(_maxHrCtrl.text),
+      restingHr: pInt(_restingHrCtrl.text),
+      birthDate: existing?.birthDate,
       avatarPath: existing?.avatarPath,
       city: existing?.city,
       bio: existing?.bio,
@@ -142,7 +151,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     if (_loadingProfile) {
       return const Scaffold(
-        backgroundColor: AppColors.panelBackground,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
@@ -150,7 +158,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -185,8 +192,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(height: 12),
               ],
               Text(
-                widget.isEditing ? 'Edita tu perfil deportivo' : 'Arma tu perfil',
-                textAlign: widget.isEditing ? TextAlign.start : TextAlign.center,
+                widget.isEditing
+                    ? 'Edita tu perfil deportivo'
+                    : 'Arma tu perfil',
+                textAlign: widget.isEditing
+                    ? TextAlign.start
+                    : TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textPrimaryOnPanel,
                   fontSize: 26,
@@ -197,7 +208,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               Text(
                 'Con esto calibramos tus zonas de esfuerzo y las '
                 'recomendaciones en vivo.',
-                textAlign: widget.isEditing ? TextAlign.start : TextAlign.center,
+                textAlign: widget.isEditing
+                    ? TextAlign.start
+                    : TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textSecondaryOnPanel,
                   fontSize: 14,
@@ -219,69 +232,62 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 12),
               ProfileField(
                 controller: _weightCtrl,
-                label: 'Peso',
+                label: 'Peso (opcional)',
                 suffix: 'kg',
                 icon: Icons.monitor_weight_outlined,
                 accentColor: AppColors.accentDistance,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) {
-                  final n = double.tryParse(v ?? '');
-                  if (n == null || n <= 0 || n > 250) return 'Peso inválido';
-                  return null;
-                },
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (v) => _optionalRange(v, 20, 250, 'Peso inválido'),
               ),
 
               const SizedBox(height: 24),
               const SectionLabel('ZONAS DE ESFUERZO'),
+              const SizedBox(height: 4),
+              const Text(
+                'Todo opcional. Sin FTP no hay zonas de potencia; sin FC máx '
+                'no hay zonas de FC. Lo completas cuando quieras.',
+                style: TextStyle(
+                  color: AppColors.textSecondaryOnPanel,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
               const SizedBox(height: 10),
               ProfileField(
                 controller: _ftpCtrl,
-                label: 'FTP',
+                label: 'FTP (opcional)',
                 suffix: 'watts',
                 icon: Icons.bolt_outlined,
                 accentColor: AppColors.accentSlope,
-                helperText: 'Si no lo sabes con exactitud, deja un estimado '
-                    '(ej. 150 para un ciclista recreativo).',
+                helperText: 'Tu potencia sostenible una hora, en vatios.',
                 keyboardType: TextInputType.number,
-                validator: (v) {
-                  final n = int.tryParse(v ?? '');
-                  if (n == null || n <= 0 || n > 600) return 'FTP inválido';
-                  return null;
-                },
+                validator: (v) => _optionalRange(v, 1, 600, 'FTP inválido'),
               ),
               const SizedBox(height: 12),
               ProfileField(
                 controller: _maxHrCtrl,
-                label: 'FC máxima',
+                label: 'FC máxima (opcional)',
                 suffix: 'lpm',
                 icon: Icons.favorite_border,
                 accentColor: AppColors.accentHeartRate,
                 helperText:
                     'Si no la conoces, una estimación es 208 − (0.7 × edad).',
                 keyboardType: TextInputType.number,
-                validator: (v) {
-                  final n = int.tryParse(v ?? '');
-                  if (n == null || n < 100 || n > 230) return 'FC inválida';
-                  return null;
-                },
+                validator: (v) => _optionalRange(v, 100, 230, 'FC inválida'),
               ),
               const SizedBox(height: 12),
               ProfileField(
                 controller: _restingHrCtrl,
-                label: 'FC en reposo',
+                label: 'FC en reposo (opcional)',
                 suffix: 'lpm',
                 icon: Icons.bedtime_outlined,
                 accentColor: AppColors.accentElevation,
-                helperText: 'Opcional, pero mejora la precisión del '
-                    'cálculo de esfuerzo en vivo.',
+                helperText:
+                    'Mejora la precisión del cálculo de esfuerzo en vivo.',
                 keyboardType: TextInputType.number,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
-                  final n = int.tryParse(v);
-                  if (n == null || n < 30 || n > 120) return 'FC inválida';
-                  return null;
-                },
+                validator: (v) => _optionalRange(v, 30, 120, 'FC inválida'),
               ),
 
               const SizedBox(height: 32),
@@ -296,8 +302,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    disabledBackgroundColor:
-                        AppColors.primary.withValues(alpha: 0.5),
+                    disabledBackgroundColor: AppColors.primary.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                   child: _saving
                       ? const SizedBox(

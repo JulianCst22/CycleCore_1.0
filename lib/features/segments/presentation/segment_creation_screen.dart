@@ -211,9 +211,7 @@ class _SegmentCreationScreenState
   Widget build(BuildContext context) {
     if (_points.length < 3) {
       return Scaffold(
-        backgroundColor: AppColors.panelBackground,
         appBar: AppBar(
-          backgroundColor: AppColors.panelBackground,
           iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
           title: const Text(
             'Crear segmento',
@@ -245,9 +243,7 @@ class _SegmentCreationScreenState
     );
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(
           'Crear segmento',

@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/accent_gradients.dart';
+import '../../../../core/theme/cc_colors.dart';
+import '../../../../core/theme/cc_type.dart';
 
-/// Campo de texto compartido entre Login, Register y el asistente de
-/// cuenta -- estilo "glass" (fondo translúcido + borde que se ilumina
-/// en foco) para que se sienta a la altura del WelcomeScreen, no como
-/// un formulario genérico pegado después de una pantalla bonita.
+/// Campo de texto compartido entre Login, Registro y el asistente de
+/// cuenta.
 ///
-/// [suffixText] y [helperText] existen para poder reutilizar este
-/// mismo campo en el Paso 2 del asistente (peso, FTP, FC) sin
-/// necesitar un widget aparte -- mismo lenguaje visual de principio a
-/// fin del alta.
+/// Rediseño: se abandona el estilo "glass" (fondo translúcido + borde
+/// que se ilumina en foco) por uno alineado al resto de la app --
+/// etiqueta en versalitas arriba, caja sobre [CcColors.surfaceInset]
+/// con borde de 1,5px que pasa a azul al enfocar. La transición del
+/// borde se mantiene animada (180 ms).
+///
+/// - [hint]: texto de ejemplo dentro del campo ("Ej. 72", "tu@correo.com").
+/// - [suffixText]: unidad a la derecha ("kg", "watts", "lpm").
+/// - [helperText]: guía debajo del campo.
+/// - [onChanged]: para medidores en vivo (p. ej. fuerza de contraseña).
 class AuthTextField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
@@ -18,8 +23,10 @@ class AuthTextField extends StatefulWidget {
   final bool obscureText;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
+  final String? hint;
   final String? suffixText;
   final String? helperText;
+  final ValueChanged<String>? onChanged;
 
   const AuthTextField({
     super.key,
@@ -29,8 +36,10 @@ class AuthTextField extends StatefulWidget {
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
     this.validator,
+    this.hint,
     this.suffixText,
     this.helperText,
+    this.onChanged,
   });
 
   @override
@@ -59,62 +68,100 @@ class _AuthTextFieldState extends State<AuthTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.white.withValues(alpha: _focused ? 0.10 : 0.06),
-        border: Border.all(
-          color: _focused
-              ? AccentGradients.emberGlow.withValues(alpha: 0.9)
-              : Colors.white.withValues(alpha: 0.12),
-          width: _focused ? 1.4 : 1,
+    final accent = _focused ? CcColors.blue : CcColors.inkFaint;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 6),
+          child: Text(
+            widget.label.toUpperCase(),
+            style: CcType.label(size: 10, color: CcColors.inkFaint),
+          ),
         ),
-      ),
-      child: TextFormField(
-        controller: widget.controller,
-        focusNode: _focusNode,
-        obscureText: widget.obscureText && _obscured,
-        keyboardType: widget.keyboardType,
-        validator: widget.validator,
-        style: const TextStyle(color: Colors.white, fontSize: 15),
-        cursorColor: AccentGradients.emberGlow,
-        decoration: InputDecoration(
-          labelText: widget.label,
-          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-          suffixText: widget.obscureText ? null : widget.suffixText,
-          suffixStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-          helperText: widget.helperText,
-          helperMaxLines: 2,
-          helperStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.45),
-            fontSize: 11,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            color: _focused ? const Color(0xFF131B23) : CcColors.surfaceInset,
+            border: Border.all(
+              color: _focused ? CcColors.blue : CcColors.line,
+              width: 1.5,
+            ),
           ),
-          prefixIcon: Icon(
-            widget.icon,
-            color: _focused
-                ? AccentGradients.emberGlow
-                : Colors.white.withValues(alpha: 0.55),
-          ),
-          suffixIcon: widget.obscureText
-              ? IconButton(
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 14, right: 10),
+                child: Icon(widget.icon, size: 18, color: accent),
+              ),
+              Expanded(
+                child: TextFormField(
+                  controller: widget.controller,
+                  focusNode: _focusNode,
+                  obscureText: widget.obscureText && _obscured,
+                  keyboardType: widget.keyboardType,
+                  validator: widget.validator,
+                  onChanged: widget.onChanged,
+                  style: const TextStyle(color: CcColors.ink, fontSize: 15),
+                  cursorColor: CcColors.blue,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                    hintText: widget.hint,
+                    hintStyle: const TextStyle(
+                      color: CcColors.inkFaint,
+                      fontSize: 15,
+                    ),
+                    suffixText: widget.obscureText ? null : widget.suffixText,
+                    suffixStyle: const TextStyle(
+                      color: CcColors.inkDim,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    errorStyle: const TextStyle(
+                      color: Color(0xFFF5A6A4),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.obscureText)
+                IconButton(
                   onPressed: () => setState(() => _obscured = !_obscured),
                   icon: Icon(
                     _obscured
                         ? Icons.visibility_outlined
                         : Icons.visibility_off_outlined,
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: CcColors.inkFaint,
                     size: 20,
                   ),
                 )
-              : null,
-          filled: false,
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          errorStyle: const TextStyle(color: Color(0xFFFF8A8A)),
+              else
+                const SizedBox(width: 8),
+            ],
+          ),
         ),
-      ),
+        if (widget.helperText != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 2, top: 6),
+            child: Text(
+              widget.helperText!,
+              style: const TextStyle(
+                color: CcColors.inkFaint,
+                fontSize: 11,
+                height: 1.35,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

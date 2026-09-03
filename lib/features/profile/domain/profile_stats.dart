@@ -34,6 +34,12 @@ class ProfileStats {
   final int totalPhotoCount;
   final Map<String, ActivityTypeTotals> byType;
 
+  /// Récords del conjunto (para la sección "Récords del periodo"): la
+  /// salida más larga, la de más desnivel y la de mayor velocidad media.
+  final double longestRideMeters;
+  final double mostClimbingMeters;
+  final double fastestRideKmh;
+
   const ProfileStats({
     required this.totalDistanceMeters,
     required this.totalDurationSeconds,
@@ -41,7 +47,17 @@ class ProfileStats {
     required this.activityCount,
     required this.totalPhotoCount,
     required this.byType,
+    this.longestRideMeters = 0,
+    this.mostClimbingMeters = 0,
+    this.fastestRideKmh = 0,
   });
+
+  /// Velocidad media del conjunto -- distancia total sobre tiempo total,
+  /// no el promedio de los promedios (que sesgaría hacia las salidas
+  /// cortas).
+  double get avgSpeedKmh => totalDurationSeconds == 0
+      ? 0
+      : (totalDistanceMeters / 1000) / (totalDurationSeconds / 3600);
 
   static const empty = ProfileStats(
     totalDistanceMeters: 0,
@@ -59,6 +75,9 @@ class ProfileStats {
     int duration = 0;
     double elevation = 0;
     int photos = 0;
+    double longestRide = 0;
+    double mostClimbing = 0;
+    double fastestRide = 0;
     final byType = <String, _MutableTypeTotals>{};
 
     for (final a in activities) {
@@ -66,6 +85,12 @@ class ProfileStats {
       duration += a.durationSeconds;
       elevation += a.elevationGainMeters;
       photos += a.photoPaths.length;
+
+      if (a.distanceMeters > longestRide) longestRide = a.distanceMeters;
+      if (a.elevationGainMeters > mostClimbing) {
+        mostClimbing = a.elevationGainMeters;
+      }
+      if (a.avgSpeedKmh > fastestRide) fastestRide = a.avgSpeedKmh;
 
       final bucket = byType.putIfAbsent(
         a.activityType,
@@ -83,6 +108,9 @@ class ProfileStats {
       totalElevationGainMeters: elevation,
       activityCount: activities.length,
       totalPhotoCount: photos,
+      longestRideMeters: longestRide,
+      mostClimbingMeters: mostClimbing,
+      fastestRideKmh: fastestRide,
       byType: byType.map(
         (type, totals) => MapEntry(
           type,
@@ -123,8 +151,9 @@ class ProfileStats {
         cutoff = DateTime(1970);
     }
 
-    final filtered =
-        activities.where((a) => !a.startedAt.isBefore(cutoff)).toList();
+    final filtered = activities
+        .where((a) => !a.startedAt.isBefore(cutoff))
+        .toList();
     return ProfileStats.fromActivities(filtered);
   }
 }

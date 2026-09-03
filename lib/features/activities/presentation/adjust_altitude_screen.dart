@@ -84,9 +84,7 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(

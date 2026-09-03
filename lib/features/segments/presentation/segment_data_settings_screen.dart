@@ -29,9 +29,7 @@ class SegmentDataSettingsScreen extends ConsumerWidget {
     final notifier = ref.read(segmentCockpitLayoutProvider.notifier);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(

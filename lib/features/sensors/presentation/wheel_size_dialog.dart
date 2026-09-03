@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cc_colors.dart';
+import '../../../core/theme/cc_type.dart';
 import '../domain/wheel_size.dart';
 import 'speed_providers.dart';
 
-/// Popup que se muestra cuando el sensor de velocidad ya está conectado
-/// y reportando datos de rueda, pero todavía no hay una circunferencia
-/// configurada -- sin esto no hay forma de calcular km/h (el protocolo
-/// BLE nunca manda velocidad ya calculada, solo revoluciones).
+/// Popup para configurar la circunferencia de rueda. Aparece solo cuando
+/// el sensor de velocidad ya está conectado y reporta datos de rueda
+/// pero no hay circunferencia guardada -- sin esto no hay forma de
+/// calcular km/h (el protocolo BLE nunca manda velocidad ya calculada,
+/// solo revoluciones). También se abre a mano desde la tarjeta del
+/// sensor de velocidad conectado.
 Future<void> showWheelSizeDialog(BuildContext context) async {
   await showDialog<void>(
     context: context,
@@ -46,11 +49,8 @@ class _WheelSizeDialogContentState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: AppColors.panelBackground,
-      title: const Text(
-        'Talla de tu llanta',
-        style: TextStyle(color: AppColors.textPrimaryOnPanel),
-      ),
+      backgroundColor: CcColors.surfaceHi,
+      title: Text('Talla de tu llanta', style: CcType.displayStyle(size: 18)),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -58,11 +58,12 @@ class _WheelSizeDialogContentState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Necesitamos esto para calcular tu velocidad a partir de '
-              'las revoluciones que reporta el sensor.',
+              'La necesitamos para calcular la velocidad a partir de las '
+              'revoluciones que reporta el sensor.',
               style: TextStyle(
-                color: AppColors.textSecondaryOnPanel,
+                color: CcColors.inkDim,
                 fontSize: 12.5,
+                height: 1.4,
               ),
             ),
             const SizedBox(height: 12),
@@ -75,52 +76,43 @@ class _WheelSizeDialogContentState
                   final size = WheelSize.commonSizes[index];
                   return ListTile(
                     dense: true,
+                    contentPadding: EdgeInsets.zero,
                     title: Text(
                       size.label,
-                      style: const TextStyle(
-                        color: AppColors.textPrimaryOnPanel,
-                        fontSize: 13,
-                      ),
+                      style: CcType.label(size: 13, color: CcColors.ink),
                     ),
                     trailing: Text(
                       '${size.circumferenceMm.toStringAsFixed(0)} mm',
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryOnPanel,
-                        fontSize: 12,
-                      ),
+                      style: CcType.label(size: 12, color: CcColors.inkDim),
                     ),
                     onTap: () => _confirm(size.circumferenceMm),
                   );
                 },
               ),
             ),
-            const Divider(color: AppColors.textSecondaryOnPanel),
+            const Divider(color: CcColors.lineSoft),
             CheckboxListTile(
               dense: true,
+              contentPadding: EdgeInsets.zero,
               value: _useCustom,
               onChanged: (v) => setState(() => _useCustom = v ?? false),
-              title: const Text(
+              title: Text(
                 'Ingresar circunferencia manual (mm)',
-                style: TextStyle(
-                  color: AppColors.textPrimaryOnPanel,
-                  fontSize: 13,
-                ),
+                style: CcType.label(size: 13, color: CcColors.ink),
               ),
               controlAffinity: ListTileControlAffinity.leading,
-              activeColor: AppColors.primary,
+              activeColor: CcColors.orange,
             ),
             if (_useCustom)
               Padding(
-                padding: const EdgeInsets.only(left: 8, right: 8, top: 4),
+                padding: const EdgeInsets.only(top: 4),
                 child: TextField(
                   controller: _customMmCtrl,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: AppColors.textPrimaryOnPanel),
+                  style: const TextStyle(color: CcColors.ink),
                   decoration: const InputDecoration(
                     hintText: 'Ej. 2105',
-                    hintStyle: TextStyle(
-                      color: AppColors.textSecondaryOnPanel,
-                    ),
+                    hintStyle: TextStyle(color: CcColors.inkFaint),
                   ),
                 ),
               ),
@@ -129,15 +121,11 @@ class _WheelSizeDialogContentState
       ),
       actions: [
         if (_useCustom)
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               final mm = double.tryParse(_customMmCtrl.text);
               if (mm != null && mm > 0) _confirm(mm);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
             child: const Text('Guardar'),
           ),
       ],

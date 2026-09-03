@@ -19,9 +19,7 @@ class SegmentCatalogScreen extends ConsumerWidget {
     final downloadedIds = ref.watch(downloadedRemoteIdsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(
           'Segmentos para descargar',

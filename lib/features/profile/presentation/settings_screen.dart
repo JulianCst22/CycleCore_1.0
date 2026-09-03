@@ -2,142 +2,121 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/navigation/soft_fade_route.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cc_colors.dart';
+import '../../../core/theme/cc_type.dart';
 import '../../auth/presentation/account_setup_wizard.dart';
 import '../../auth/presentation/auth_providers.dart';
+import '../../auth/presentation/change_password_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../auth/presentation/welcome_screen.dart';
 import '../../elevation/presentation/elevation_settings_screen.dart';
 import '../../navigation/presentation/navigation_settings_screen.dart';
+import '../../navigation/presentation/saved_places_screen.dart';
 import '../../segments/presentation/segment_data_settings_screen.dart';
 import '../../sensors/presentation/sensors_screen.dart';
 import '../../voice/presentation/voice_selection_screen.dart';
 import 'profile_edit_screen.dart';
 import 'training_zones_screen.dart';
 
-/// Pantalla de Ajustes -- todo lo que antes vivía suelto dentro de
-/// `ProfileScreen` (sección Cuenta) más lo nuevo (editar perfil y
-/// zonas, antes sin un lugar propio) vive acá.
+/// Pantalla de Ajustes -- el "panel de control" del usuario, separado de
+/// `ProfileScreen` (que es pura "vitrina": nivel, racha, fotos).
 ///
-/// `ProfileScreen` queda como "vitrina" (mirar tus logros: nivel,
-/// racha, fotos). Esta pantalla es "control" (tocar cosas: tu cuenta,
-/// tus datos, tus zonas) -- la misma separación que ya tienen apps
-/// como Strava o Garmin Connect, y la razón por la que el correo +
-/// botón "Salir" se sentían fuera de lugar antes.
-///
-/// Sección "MAPA": Elevación y Navegación se administran acá en vez
-/// de aparecer como diálogos sorpresa en medio de una grabación -- el
-/// usuario prepara sus descargas offline con calma, desde un solo
-/// lugar.
-///
-/// Sección "SENSORES" (nueva): conectar sensores BLE
-/// (FC/potencia/velocidad-cadencia) dejó de ser una pestaña de la
-/// barra de navegación inferior (ese lugar ahora lo ocupa
-/// "Segmentos") y pasó a vivir acá, como una acción de configuración
-/// puntual en vez de una sección que se visita todo el tiempo.
+/// Cinco secciones, cada una con un tema claro:
+///  - **Cuenta**: sesión / vincular / cerrar sesión.
+///  - **Perfil**: editar tus datos y tus zonas de entrenamiento.
+///  - **Navegación**: rutas, lugares guardados y mapas de altimetría.
+///  - **En la salida**: lo que ves y oyes mientras ruedas (voz, datos
+///    del segmento).
+///  - **Sensores**: conectar sensores BLE.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    void push(Widget screen) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
-      appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
-        elevation: 0,
-        title: const Text(
-          'Ajustes',
-          style: TextStyle(color: AppColors.textPrimaryOnPanel),
-        ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
-      ),
+      backgroundColor: CcColors.bg,
+      appBar: AppBar(title: const Text('Ajustes')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 36),
           children: [
-            const _SectionLabel('CUENTA'),
-            const SizedBox(height: 8),
+            const _Section('CUENTA'),
             const _AccountSection(),
-            const SizedBox(height: 28),
-            const _SectionLabel('PERFIL'),
-            const SizedBox(height: 8),
-            _SettingsTile(
-              icon: Icons.person_outline,
-              label: 'Editar perfil',
-              subtitle: 'Nombre, foto, ciudad y biografía',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _SettingsTile(
-              icon: Icons.speed_outlined,
-              label: 'Zonas de entrenamiento',
-              subtitle: 'Potencia y frecuencia cardíaca',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TrainingZonesScreen()),
-              ),
-            ),
-            const SizedBox(height: 28),
-            const _SectionLabel('MAPA'),
-            const SizedBox(height: 8),
-            _SettingsTile(
-              icon: Icons.terrain_outlined,
-              label: 'Elevación',
-              subtitle: 'Mapas de altimetría descargados (.hgt)',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ElevationSettingsScreen(),
+
+            const _Section('PERFIL'),
+            _SettingsGroup(
+              children: [
+                _SettingsTile(
+                  icon: Icons.badge_outlined,
+                  label: 'Editar perfil',
+                  subtitle: 'Nombre, foto, ciudad y tus medidas',
+                  onTap: () => push(const ProfileEditScreen()),
                 ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _SettingsTile(
-              icon: Icons.alt_route,
-              label: 'Navegación',
-              subtitle: 'Rutas y direcciones por voz, sin conexión',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const NavigationSettingsScreen(),
+                _SettingsTile(
+                  icon: Icons.donut_large_outlined,
+                  label: 'Zonas de entrenamiento',
+                  subtitle: 'Potencia y frecuencia cardíaca',
+                  onTap: () => push(const TrainingZonesScreen()),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 28),
-            const _SectionLabel('SEGMENTOS'),
-            const SizedBox(height: 8),
-            _SettingsTile(
-              icon: Icons.dashboard_customize_outlined,
-              label: 'Datos del segmento',
-              subtitle: 'Qué se ve mientras recorrés un segmento',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const SegmentDataSettingsScreen(),
+
+            const _Section('NAVEGACIÓN'),
+            _SettingsGroup(
+              children: [
+                _SettingsTile(
+                  icon: Icons.alt_route,
+                  label: 'Navegación',
+                  subtitle: 'Rutas y direcciones por voz, sin conexión',
+                  onTap: () => push(const NavigationSettingsScreen()),
                 ),
-              ),
-            ),
-            const SizedBox(height: 28),
-            const _SectionLabel('VOZ'),
-            const SizedBox(height: 8),
-            _SettingsTile(
-              icon: Icons.record_voice_over_outlined,
-              label: 'Voz de guía',
-              subtitle: 'Activarla y elegir la personalidad',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const VoiceSelectionScreen(),
+                _SettingsTile(
+                  icon: Icons.star_outline,
+                  label: 'Ubicaciones',
+                  subtitle: 'Tus lugares guardados para navegar rápido',
+                  onTap: () => push(const SavedPlacesScreen()),
                 ),
-              ),
+                _SettingsTile(
+                  icon: Icons.terrain_outlined,
+                  label: 'Elevación',
+                  subtitle: 'Mapas de altimetría descargados (.hgt)',
+                  onTap: () => push(const ElevationSettingsScreen()),
+                ),
+              ],
             ),
-            const SizedBox(height: 28),
-            const _SectionLabel('SENSORES'),
-            const SizedBox(height: 8),
-            _SettingsTile(
-              icon: Icons.sensors,
-              label: 'Sensores BLE',
-              subtitle: 'Frecuencia cardíaca, potencia, velocidad-cadencia',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SensorsScreen()),
-              ),
+
+            const _Section('EN LA SALIDA'),
+            _SettingsGroup(
+              children: [
+                _SettingsTile(
+                  icon: Icons.record_voice_over_outlined,
+                  label: 'Voz de guía',
+                  subtitle: 'Activarla y elegir la voz',
+                  onTap: () => push(const VoiceSelectionScreen()),
+                ),
+                _SettingsTile(
+                  icon: Icons.dashboard_customize_outlined,
+                  label: 'Datos del segmento',
+                  subtitle: 'Qué se ve mientras recorres un segmento',
+                  onTap: () => push(const SegmentDataSettingsScreen()),
+                ),
+              ],
+            ),
+
+            const _Section('SENSORES'),
+            _SettingsGroup(
+              children: [
+                _SettingsTile(
+                  icon: Icons.sensors,
+                  label: 'Sensores BLE',
+                  subtitle:
+                      'Frecuencia cardíaca, potencia, velocidad y cadencia',
+                  onTap: () => push(const SensorsScreen()),
+                ),
+              ],
             ),
           ],
         ),
@@ -146,19 +125,51 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
+class _Section extends StatelessWidget {
   final String text;
-  const _SectionLabel(this.text);
+  const _Section(this.text);
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: AppColors.textSecondaryOnPanel,
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.8,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 26, 4, 9),
+      child: Text(
+        text,
+        style: CcType.label(
+          size: 11,
+          color: CcColors.inkFaint,
+        ).copyWith(letterSpacing: 1.2),
+      ),
+    );
+  }
+}
+
+/// Tarjeta que agrupa varias filas con divisores entre ellas.
+class _SettingsGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _SettingsGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: CcColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: CcColors.line),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                height: 1,
+                thickness: 1,
+                indent: 52,
+                color: CcColors.lineSoft,
+              ),
+            children[i],
+          ],
+        ],
       ),
     );
   }
@@ -179,54 +190,37 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.05),
+    return InkWell(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 22),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.textPrimaryOnPanel,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryOnPanel,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+        child: Row(
+          children: [
+            Icon(icon, color: CcColors.orange, size: 21),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: CcType.displayStyle(size: 14.5)),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: CcType.label(size: 11, color: CcColors.inkDim),
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right,
-                  color: AppColors.textSecondaryOnPanel),
-            ],
-          ),
+            ),
+            const Icon(Icons.chevron_right, color: CcColors.inkFaint, size: 20),
+          ],
         ),
       ),
     );
   }
 }
 
-// --- De aquí para abajo: exactamente lo que ya tenías (cierre de
-// sesión, hoja de vinculación, tiles de cuenta) -- no se tocó nada de
-// esta parte. ---
+// --- Cuenta ------------------------------------------------------
 
 Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
   await ref.read(authProvider.notifier).logout();
@@ -247,7 +241,7 @@ Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
 Future<void> _showAuthChoiceSheet(BuildContext context) async {
   final choice = await showModalBottomSheet<String>(
     context: context,
-    backgroundColor: AppColors.panelBackground,
+    backgroundColor: CcColors.surfaceHi,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -257,8 +251,9 @@ Future<void> _showAuthChoiceSheet(BuildContext context) async {
   if (choice == null || !context.mounted) return;
 
   if (choice == 'login') {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
   } else if (choice == 'register') {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -285,27 +280,17 @@ class _AuthChoiceSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textSecondaryOnPanel.withValues(alpha: 0.4),
+                  color: CcColors.inkFaint,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Vincula tu cuenta',
-              style: TextStyle(
-                color: AppColors.textPrimaryOnPanel,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text('Vincula tu cuenta', style: CcType.displayStyle(size: 18)),
             const SizedBox(height: 6),
             const Text(
-              'Tus datos locales no se pierden -- solo se respaldan.',
-              style: TextStyle(
-                color: AppColors.textSecondaryOnPanel,
-                fontSize: 13,
-              ),
+              'Tus datos locales no se pierden — solo se respaldan.',
+              style: TextStyle(color: CcColors.inkDim, fontSize: 13),
             ),
             const SizedBox(height: 20),
             _SheetOption(
@@ -344,7 +329,7 @@ class _SheetOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.05),
+      color: CcColors.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -353,33 +338,22 @@ class _SheetOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.primary, size: 22),
+              Icon(icon, color: CcColors.orange, size: 22),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.textPrimaryOnPanel,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text(label, style: CcType.displayStyle(size: 14)),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryOnPanel,
-                        fontSize: 12,
-                      ),
+                      style: CcType.label(size: 11, color: CcColors.inkDim),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  color: AppColors.textSecondaryOnPanel),
+              const Icon(Icons.chevron_right, color: CcColors.inkFaint),
             ],
           ),
         ),
@@ -388,8 +362,9 @@ class _SheetOption extends StatelessWidget {
   }
 }
 
-/// Sección "Cuenta". Lee `authProvider` y muestra uno de dos estados
-/// -- nunca bloquea el resto de Ajustes mientras carga o falla.
+/// Sección "Cuenta". Lee `authProvider` y muestra uno de dos estados --
+/// nunca bloquea el resto de Ajustes mientras carga o falla. Con sesión
+/// activa añade "Cambiar contraseña".
 class _AccountSection extends ConsumerWidget {
   const _AccountSection();
 
@@ -398,30 +373,64 @@ class _AccountSection extends ConsumerWidget {
     final authAsync = ref.watch(authProvider);
 
     return authAsync.when(
-      loading: () => const SizedBox(
-        height: 56,
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.primary,
+      loading: () => const _AccountCard(
+        child: SizedBox(
+          height: 56,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: CcColors.orange,
+              ),
             ),
           ),
         ),
       ),
-      error: (_, __) =>
-          _NoSessionTile(onTap: () => _showAuthChoiceSheet(context)),
+      error: (_, _) => _AccountCard(
+        child: _NoSessionTile(onTap: () => _showAuthChoiceSheet(context)),
+      ),
       data: (session) {
-        if (session != null) {
-          return _AccountLinkedTile(
-            email: session.email,
-            onLogout: () => _handleLogout(context, ref),
+        if (session == null) {
+          return _AccountCard(
+            child: _NoSessionTile(onTap: () => _showAuthChoiceSheet(context)),
           );
         }
-        return _NoSessionTile(onTap: () => _showAuthChoiceSheet(context));
+        return _SettingsGroup(
+          children: [
+            _AccountLinkedTile(
+              email: session.email,
+              onLogout: () => _handleLogout(context, ref),
+            ),
+            _SettingsTile(
+              icon: Icons.lock_reset_outlined,
+              label: 'Cambiar contraseña',
+              subtitle: 'Pide tu contraseña actual primero',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+              ),
+            ),
+          ],
+        );
       },
+    );
+  }
+}
+
+class _AccountCard extends StatelessWidget {
+  final Widget child;
+  const _AccountCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: CcColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: CcColors.line),
+      ),
+      child: child,
     );
   }
 }
@@ -433,31 +442,27 @@ class _NoSessionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.05),
+    return InkWell(
       borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(Icons.login_rounded, color: AppColors.primary, size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Iniciar sesión — respalda tus datos en la nube',
-                  style: TextStyle(
-                    color: AppColors.textPrimaryOnPanel,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+      onTap: onTap,
+      child: const Padding(
+        padding: EdgeInsets.fromLTRB(14, 15, 12, 15),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off_outlined, color: CcColors.orange, size: 21),
+            SizedBox(width: 13),
+            Expanded(
+              child: Text(
+                'Iniciar sesión — respalda tus datos en la nube',
+                style: TextStyle(
+                  color: CcColors.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              Icon(Icons.chevron_right, color: AppColors.textSecondaryOnPanel),
-            ],
-          ),
+            ),
+            Icon(Icons.chevron_right, color: CcColors.inkFaint, size: 20),
+          ],
         ),
       ),
     );
@@ -472,23 +477,18 @@ class _AccountLinkedTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
       child: Row(
         children: [
-          const Icon(Icons.verified_user, color: AppColors.accentElevation,
-              size: 20),
+          const Icon(Icons.verified_user, color: CcColors.route, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               email,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.textPrimaryOnPanel,
+                color: CcColors.ink,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -496,8 +496,8 @@ class _AccountLinkedTile extends StatelessWidget {
           ),
           TextButton(
             onPressed: onLogout,
-            child: const Text('Salir',
-                style: TextStyle(color: AppColors.textSecondaryOnPanel)),
+            style: TextButton.styleFrom(foregroundColor: CcColors.inkDim),
+            child: const Text('Salir'),
           ),
         ],
       ),

@@ -14,6 +14,11 @@ class CockpitLiveData {
   final double elevationGainMeters;
   final double slopePercent;
 
+  /// Altitud actual (msnm), fusionada (DEM + GPS + barómetro). `null`
+  /// antes de tener el primer punto de la grabación -- el campo muestra
+  /// '--'.
+  final double? altitudeMeters;
+
   /// Null si no hay sensor conectado -- cada campo decide mostrar '--'.
   final int? heartRateBpm;
   final int? powerWatts;
@@ -34,6 +39,7 @@ class CockpitLiveData {
     required this.maxSpeedKmh,
     required this.elevationGainMeters,
     required this.slopePercent,
+    this.altitudeMeters,
     this.heartRateBpm,
     this.powerWatts,
     this.maxPowerWattsSoFar,
@@ -56,6 +62,7 @@ enum CockpitField {
   velocidad,
   velocidadProm,
   velocidadMax,
+  altitud,
   desnivel,
   pendiente,
   frecuenciaCardiaca,

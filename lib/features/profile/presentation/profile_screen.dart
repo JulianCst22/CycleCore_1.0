@@ -26,7 +26,6 @@ class ProfileScreen extends ConsumerWidget {
     final statsAsync = ref.watch(profileStatsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       body: SafeArea(
         child: profileAsync.when(
           loading: () => const Center(

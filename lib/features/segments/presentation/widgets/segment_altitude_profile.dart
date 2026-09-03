@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/cyclecore_palette.dart';
 import '../../domain/segment_profile.dart';
 
 /// Perfil de altimetría de un segmento completo (área + línea), con un
@@ -75,38 +76,46 @@ class _SegmentAltitudeProfilePainter extends CustomPainter {
 
     Offset offsetFor(SegmentProfilePoint p) {
       final x = (p.distanceFromStartMeters / totalDistance) * size.width;
-      final t =
-          altitudeSpan <= 0 ? 0.5 : (p.altitude - minAltitude) / altitudeSpan;
+      final t = altitudeSpan <= 0
+          ? 0.5
+          : (p.altitude - minAltitude) / altitudeSpan;
       final y = size.height - (t * size.height);
       return Offset(x, y);
     }
 
+    // Relleno tramo a tramo, teñido por la pendiente de ese tramo --
+    // mismo lenguaje visual que el gráfico de altimetría de una
+    // actividad (verde llano -> ámbar -> óxido en subida fuerte).
+    for (int i = 0; i < points.length - 1; i++) {
+      final a = offsetFor(points[i]);
+      final b = offsetFor(points[i + 1]);
+      final segmentFill = Path()
+        ..moveTo(a.dx, size.height)
+        ..lineTo(a.dx, a.dy)
+        ..lineTo(b.dx, b.dy)
+        ..lineTo(b.dx, size.height)
+        ..close();
+      final slope = (points[i].slopePercent + points[i + 1].slopePercent) / 2;
+      canvas.drawPath(
+        segmentFill,
+        Paint()
+          ..color = CyclecorePalette.slopeColorFor(
+            slope,
+          ).withValues(alpha: 0.5),
+      );
+    }
+
     final path = Path();
-    final fillPath = Path();
     for (int i = 0; i < points.length; i++) {
       final o = offsetFor(points[i]);
-      if (i == 0) {
-        path.moveTo(o.dx, o.dy);
-        fillPath.moveTo(o.dx, size.height);
-        fillPath.lineTo(o.dx, o.dy);
-      } else {
-        path.lineTo(o.dx, o.dy);
-        fillPath.lineTo(o.dx, o.dy);
-      }
+      i == 0 ? path.moveTo(o.dx, o.dy) : path.lineTo(o.dx, o.dy);
     }
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
-
-    canvas.drawPath(
-      fillPath,
-      Paint()..color = AppColors.primary.withValues(alpha: 0.16),
-    );
     canvas.drawPath(
       path,
       Paint()
-        ..color = AppColors.primary
+        ..color = Colors.white.withValues(alpha: 0.85)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
+        ..strokeWidth = 1.8
         ..strokeCap = StrokeCap.round,
     );
 

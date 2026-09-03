@@ -52,13 +52,16 @@ class ActivityXpBreakdown {
 class XpCalculator {
   XpCalculator._();
 
-  static const _xpPerKm = 12.0;
-  static const _xpPerMinute = 2.0;
-  static const _xpPerTenMetersElevation = 1.0;
-  static const _xpPerWattAvgPower = 0.4;
-  static const _xpPerStreakDay = 3;
-  static const _maxStreakDaysCounted = 30;
-  static const _xpPerRecordDimension = 40;
+  // Tarifas públicas: la pantalla de detalle de actividad las usa para
+  // explicarle al usuario de dónde sale su XP, así el texto nunca se
+  // desincroniza de la fórmula real.
+  static const xpPerKm = 12.0;
+  static const xpPerMinute = 2.0;
+  static const xpPerTenMetersElevation = 1.0;
+  static const xpPerWattAvgPower = 0.4;
+  static const xpPerStreakDay = 3;
+  static const maxStreakDaysCounted = 30;
+  static const xpPerRecordDimension = 40;
 
   static List<ActivityXpBreakdown> computeForActivities(
     List<Activity> activities,
@@ -71,32 +74,38 @@ class XpCalculator {
     );
 
     return activities.map((a) {
-      final day =
-          DateTime(a.startedAt.year, a.startedAt.month, a.startedAt.day);
-      final streakLengthThatDay =
-          (streakLengthByDay[day] ?? 1).clamp(0, _maxStreakDaysCounted);
+      final day = DateTime(
+        a.startedAt.year,
+        a.startedAt.month,
+        a.startedAt.day,
+      );
+      final streakLengthThatDay = (streakLengthByDay[day] ?? 1).clamp(
+        0,
+        maxStreakDaysCounted,
+      );
 
       final dimensions = recordHolders[a.id] ?? const <RecordDimension>{};
 
       return ActivityXpBreakdown(
         activityId: a.id,
-        distanceXp: ((a.distanceMeters / 1000) * _xpPerKm).round(),
-        durationXp: ((a.durationSeconds / 60) * _xpPerMinute).round(),
-        elevationXp:
-            (a.elevationGainMeters * _xpPerTenMetersElevation / 10).round(),
+        distanceXp: ((a.distanceMeters / 1000) * xpPerKm).round(),
+        durationXp: ((a.durationSeconds / 60) * xpPerMinute).round(),
+        elevationXp: (a.elevationGainMeters * xpPerTenMetersElevation / 10)
+            .round(),
         powerXp: a.avgPower != null
-            ? (a.avgPower! * _xpPerWattAvgPower).round()
+            ? (a.avgPower! * xpPerWattAvgPower).round()
             : 0,
-        streakXp: streakLengthThatDay * _xpPerStreakDay,
-        recordXp: dimensions.length * _xpPerRecordDimension,
+        streakXp: streakLengthThatDay * xpPerStreakDay,
+        recordXp: dimensions.length * xpPerRecordDimension,
         recordDimensions: dimensions,
       );
     }).toList();
   }
 
   static int totalXpFor(List<Activity> activities) {
-    return computeForActivities(activities)
-        .fold(0, (sum, b) => sum + b.totalXp);
+    return computeForActivities(
+      activities,
+    ).fold(0, (sum, b) => sum + b.totalXp);
   }
 
   /// Para cada día con actividad, calcula cuántos días consecutivos
@@ -106,8 +115,7 @@ class XpCalculator {
   static Map<DateTime, int> _streakLengthPerDay(List<DateTime> dates) {
     final uniqueDays = <DateTime>{
       for (final d in dates) DateTime(d.year, d.month, d.day),
-    }.toList()
-      ..sort();
+    }.toList()..sort();
 
     final result = <DateTime, int>{};
     var streak = 0;

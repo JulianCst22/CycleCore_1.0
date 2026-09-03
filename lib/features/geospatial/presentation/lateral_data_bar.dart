@@ -92,15 +92,13 @@ class LateralDataBar extends ConsumerWidget {
     final gauge = gaugeValueFor(field, liveData);
     final isSlope = field == CockpitField.pendiente;
 
-    // Opacidad general de la barra: base baja (0.4) para que en reposo
-    // se sienta parte del mapa y no un panel encima -- sube hasta 1.0
-    // según qué tan intenso es el valor (una pendiente fuerte, un
-    // pulso alto). `fraction` ya viene 0..1 desde gaugeValueFor.
-final dynamicOpacity =
-    (2.5 + (gauge.fraction.clamp(0.0, 1.0) * 0.6)).clamp(0.0, 1.0);
+    // La barra se ve sólida mientras se graba -- solo se desvanece del
+    // todo cuando el cockpit está en pantalla completa (ahí ese dato ya
+    // aparece como tile en la grilla). Se probó atenuarla según la
+    // intensidad del valor, pero se prefirió que siempre se lea bien.
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
-      opacity: isCockpitExpanded ? 0.0 : dynamicOpacity,
+      opacity: isCockpitExpanded ? 0.0 : 1.0,
       child: IgnorePointer(
         ignoring: isCockpitExpanded,
         child: Container(

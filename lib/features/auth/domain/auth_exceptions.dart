@@ -12,20 +12,25 @@ sealed class AuthException implements Exception {
 
 class InvalidCredentialsException extends AuthException {
   const InvalidCredentialsException()
-      : super('Correo o contraseña incorrectos.');
+    : super('Correo o contraseña incorrectos.');
 }
 
 class EmailAlreadyRegisteredException extends AuthException {
   const EmailAlreadyRegisteredException()
-      : super('Ya existe una cuenta con este correo en este dispositivo.');
+    : super('Ya existe una cuenta con este correo en este dispositivo.');
 }
 
 class WeakPasswordException extends AuthException {
   const WeakPasswordException()
-      : super('La contraseña debe tener al menos 6 caracteres.');
+    : super('La contraseña debe tener al menos 6 caracteres.');
+}
+
+class WrongCurrentPasswordException extends AuthException {
+  const WrongCurrentPasswordException()
+    : super('La contraseña actual no es correcta.');
 }
 
 class SessionExpiredException extends AuthException {
   const SessionExpiredException()
-      : super('Tu sesión expiró, inicia sesión de nuevo.');
+    : super('Tu sesión expiró, inicia sesión de nuevo.');
 }

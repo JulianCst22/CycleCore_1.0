@@ -1,219 +1,120 @@
-import 'dart:async';
-
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../data/ble_permissions.dart';
+import '../data/ble_sensor_service.dart';
 import '../data/ble_speed_service.dart';
 import '../data/wheel_size_repository.dart';
 import '../domain/cadence_speed_calculator.dart';
-import '../domain/discovered_device.dart';
-import 'sensors_providers.dart' show SensorConnectionStatus;
+import '../domain/cycling_speed_cadence_reading.dart';
+import '../domain/sensor_kind.dart';
+import 'ble_sensor_controller.dart';
+import 'sensor_connection_state.dart';
 
-class SpeedConnectionState {
-  final SensorConnectionStatus status;
-  final List<DiscoveredDevice> discoveredDevices;
-  final String? connectedDeviceName;
-  final int reconnectTimeoutSeconds;
-  final bool showReconnectAlert;
-
-  /// true cuando el sensor ya está conectado y reporta datos de rueda,
-  /// pero todavía no hay una circunferencia configurada -- la UI debe
-  /// mostrar el popup de talla de llanta cuando esto se activa.
-  final bool needsWheelSizeSetup;
-
-  /// El usuario marca esto cuando sabe que su sensor de velocidad es en
-  /// realidad un combo de un solo aparato que también reporta cadencia
-  /// (manivela) -- así no necesita conectar el mismo dispositivo por
-  /// segunda vez en la tarjeta de Cadencia. Si el dispositivo conectado
-  /// no trae datos de manivela, esto simplemente no produce nada (no es
-  /// perjudicial dejarlo marcado por error).
-  final bool alsoProvidesCadence;
-
-  const SpeedConnectionState({
-    this.status = SensorConnectionStatus.disconnected,
-    this.discoveredDevices = const [],
-    this.connectedDeviceName,
-    this.reconnectTimeoutSeconds = 60,
-    this.showReconnectAlert = false,
-    this.needsWheelSizeSetup = false,
-    this.alsoProvidesCadence = false,
-  });
-
-  SpeedConnectionState copyWith({
-    SensorConnectionStatus? status,
-    List<DiscoveredDevice>? discoveredDevices,
-    String? connectedDeviceName,
-    int? reconnectTimeoutSeconds,
-    bool? showReconnectAlert,
-    bool? needsWheelSizeSetup,
-    bool? alsoProvidesCadence,
-  }) {
-    return SpeedConnectionState(
-      status: status ?? this.status,
-      discoveredDevices: discoveredDevices ?? this.discoveredDevices,
-      connectedDeviceName: connectedDeviceName ?? this.connectedDeviceName,
-      reconnectTimeoutSeconds:
-          reconnectTimeoutSeconds ?? this.reconnectTimeoutSeconds,
-      showReconnectAlert: showReconnectAlert ?? this.showReconnectAlert,
-      needsWheelSizeSetup: needsWheelSizeSetup ?? this.needsWheelSizeSetup,
-      alsoProvidesCadence: alsoProvidesCadence ?? this.alsoProvidesCadence,
-    );
-  }
-}
-
-const _prefsLastDeviceIdKey = 'last_speed_device_id';
-
-/// Máximo del contador de revoluciones de rueda (uint32) -- mismo valor
-/// que usa CadenceSpeedCalculator, duplicado aquí a propósito: el
-/// odómetro necesita su PROPIO tracking de "última lectura" separado
-/// del que ya lleva el calculador para la velocidad instantánea, para
-/// no interferir entre sí.
+/// Máximo del contador de revoluciones de rueda (uint32). El odómetro
+/// lleva su PROPIO tracking de "última lectura", separado del que usa
+/// `CadenceSpeedCalculator` para la velocidad instantánea, para que uno
+/// no interfiera con el otro.
 const _wheelCounterMax = 0x100000000;
 
-class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
-  final BleSpeedService _bleService;
-  final WheelSizeRepository _wheelSizeRepository;
-  final Ref _ref;
-  final CadenceSpeedCalculator _calculator = CadenceSpeedCalculator();
-
-  StreamSubscription<List<DiscoveredDevice>>? _scanSubscription;
-  StreamSubscription? _cscSubscription;
-  StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
-  Timer? _reconnectAlertTimer;
-  BluetoothDevice? _connectedDevice;
-  double? _wheelCircumferenceMm;
-
-  // --- Odómetro propio (metros totales desde que se conectó este
-  // sensor) -- lo usa RouteRecordingController como fuente de distancia
-  // con prioridad sobre el GPS. Ver speedDistanceMetersProvider.
-  double _odometerMeters = 0;
-  int? _lastOdometerWheelRevs;
-
+/// Sensor de velocidad (rueda). El más complejo: además de km/h lleva un
+/// odómetro (metros desde que se conectó, fuente de distancia con
+/// prioridad sobre el GPS), pide la talla de rueda la primera vez, y
+/// puede aportar cadencia si el usuario lo marca como combo.
+class SpeedSensorController
+    extends BleSensorController<CyclingSpeedCadenceReading> {
   SpeedSensorController(
-    this._bleService,
+    BleSensorService<CyclingSpeedCadenceReading> service,
     this._wheelSizeRepository,
-    this._ref,
-  ) : super(const SpeedConnectionState()) {
+    Ref ref,
+  ) : super(kind: SensorKind.speed, service: service, ref: ref) {
     _loadWheelCircumference();
   }
+
+  final WheelSizeRepository _wheelSizeRepository;
+  final CadenceSpeedCalculator _calculator = CadenceSpeedCalculator();
+  double? _wheelCircumferenceMm;
+
+  double _odometerMeters = 0;
+  int? _lastOdometerWheelRevs;
 
   Future<void> _loadWheelCircumference() async {
     _wheelCircumferenceMm = await _wheelSizeRepository.loadCircumferenceMm();
   }
 
-  Future<void> startScan() async {
-    final permissionsGranted = await BlePermissions.requestAll();
-    if (!permissionsGranted) {
-      throw StateError(
-        'Se necesitan permisos de Bluetooth y ubicación para buscar '
-        'sensores.',
-      );
-    }
-
-    state = state.copyWith(
-      status: SensorConnectionStatus.scanning,
-      discoveredDevices: [],
-    );
-
-    _scanSubscription = _bleService.scanForSpeedSensors().listen((devices) {
-      state = state.copyWith(discoveredDevices: devices);
-    });
-  }
-
-  Future<void> stopScan() async {
-    await _bleService.stopScan();
-    await _scanSubscription?.cancel();
-    if (state.status == SensorConnectionStatus.scanning) {
-      state = state.copyWith(status: SensorConnectionStatus.disconnected);
-    }
-  }
-
-  Future<void> connectTo(DiscoveredDevice device) async {
-    await stopScan();
-    state = state.copyWith(status: SensorConnectionStatus.connecting);
+  @override
+  void onBeforeConnect() {
     _calculator.reset();
     _odometerMeters = 0;
     _lastOdometerWheelRevs = null;
+  }
 
-    try {
-      final bleDevice = await _bleService.connect(device.id);
-      _connectedDevice = bleDevice;
+  @override
+  void onAfterDisconnect() {
+    _calculator.reset();
+    _odometerMeters = 0;
+    _lastOdometerWheelRevs = null;
+    // alsoProvidesCadence vuelve a false a propósito -- es una propiedad
+    // del dispositivo conectado, no una preferencia general. `disconnect`
+    // ya restauró `SensorConnectionState()` por defecto.
+  }
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_prefsLastDeviceIdKey, device.id);
-
-      _cscSubscription = _bleService.watchSpeed(bleDevice).listen((reading) {
-        // Solo se procesa cadencia si el usuario marcó explícitamente
-        // que este sensor es un combo -- de lo contrario, aunque el
-        // dispositivo traiga datos de manivela, esta tarjeta los ignora
-        // (esa cadencia debe venir de la tarjeta de Cadencia dedicada).
-        if (state.alsoProvidesCadence && reading.hasCrankData) {
-          final rpm = _calculator.updateCadenceRpm(
-            cumulativeCrankRevolutions: reading.cumulativeCrankRevolutions!,
-            lastCrankEventTime: reading.lastCrankEventTime!,
-          );
-          if (rpm != null) {
-            _ref.read(speedSourcedCadenceRpmProvider.notifier).state = rpm;
-          }
-        }
-
-        if (reading.hasWheelData) {
-          if (_wheelCircumferenceMm == null) {
-            // Ya llegan datos de rueda pero no sabemos la circunferencia
-            // -- la UI debe pedirla antes de poder calcular velocidad.
-            if (!state.needsWheelSizeSetup) {
-              state = state.copyWith(needsWheelSizeSetup: true);
-            }
-            return;
-          }
-
-          // --- Odómetro: metros totales desde que se conectó, con su
-          // propio rollover independiente del cálculo de velocidad
-          // instantánea (CadenceSpeedCalculator necesita DOS lecturas
-          // para dar km/h, pero la distancia acumulada solo necesita el
-          // delta de revoluciones -- se calculan por separado para que
-          // uno no dependa del estado interno del otro). ---
-          final currentRevs = reading.cumulativeWheelRevolutions!;
-          if (_lastOdometerWheelRevs != null) {
-            var revDelta = currentRevs - _lastOdometerWheelRevs!;
-            if (revDelta < 0) revDelta += _wheelCounterMax;
-            _odometerMeters += revDelta * (_wheelCircumferenceMm! / 1000);
-            _ref.read(speedDistanceMetersProvider.notifier).state =
-                _odometerMeters;
-          }
-          _lastOdometerWheelRevs = currentRevs;
-
-          final kmh = _calculator.updateSpeedKmh(
-            cumulativeWheelRevolutions: currentRevs,
-            lastWheelEventTime: reading.lastWheelEventTime!,
-            wheelCircumferenceMm: _wheelCircumferenceMm!,
-          );
-          if (kmh != null) {
-            _ref.read(speedKmhProvider.notifier).state = kmh;
-          }
-        }
-      });
-
-      _connectionSubscription = _bleService
-          .watchConnectionState(bleDevice)
-          .listen(_onConnectionStateChanged);
-
-      state = state.copyWith(
-        status: SensorConnectionStatus.connected,
-        connectedDeviceName: device.name,
-        showReconnectAlert: false,
+  @override
+  void handleReading(CyclingSpeedCadenceReading reading) {
+    // Sólo se procesa cadencia si el usuario marcó que este sensor es un
+    // combo -- si no, aunque el dispositivo traiga manivela, esta tarjeta
+    // la ignora (esa cadencia debe venir de la tarjeta de Cadencia).
+    if (state.alsoProvidesCadence && reading.hasCrankData) {
+      final rpm = _calculator.updateCadenceRpm(
+        cumulativeCrankRevolutions: reading.cumulativeCrankRevolutions!,
+        lastCrankEventTime: reading.lastCrankEventTime!,
       );
-    } catch (e) {
-      state = state.copyWith(status: SensorConnectionStatus.disconnected);
-      rethrow;
+      if (rpm != null) {
+        ref.read(speedSourcedCadenceRpmProvider.notifier).state = rpm;
+      }
+    }
+
+    if (!reading.hasWheelData) return;
+
+    if (_wheelCircumferenceMm == null) {
+      // Ya llegan datos de rueda pero no sabemos la circunferencia -- la
+      // UI debe pedirla antes de poder calcular velocidad.
+      if (!state.needsWheelSizeSetup) {
+        state = state.copyWith(needsWheelSizeSetup: true);
+      }
+      return;
+    }
+
+    // Odómetro: metros totales desde la conexión, con su propio rollover
+    // independiente del cálculo de velocidad instantánea (el calculador
+    // necesita DOS lecturas para dar km/h; la distancia acumulada sólo
+    // necesita el delta de revoluciones).
+    final currentRevs = reading.cumulativeWheelRevolutions!;
+    if (_lastOdometerWheelRevs != null) {
+      var revDelta = currentRevs - _lastOdometerWheelRevs!;
+      if (revDelta < 0) revDelta += _wheelCounterMax;
+      _odometerMeters += revDelta * (_wheelCircumferenceMm! / 1000);
+      ref.read(speedDistanceMetersProvider.notifier).state = _odometerMeters;
+    }
+    _lastOdometerWheelRevs = currentRevs;
+
+    final kmh = _calculator.updateSpeedKmh(
+      cumulativeWheelRevolutions: currentRevs,
+      lastWheelEventTime: reading.lastWheelEventTime!,
+      wheelCircumferenceMm: _wheelCircumferenceMm!,
+    );
+    if (kmh != null) {
+      ref.read(speedKmhProvider.notifier).state = kmh;
     }
   }
 
-  /// Llamado desde el popup de configuración cuando el usuario elige o
-  /// ingresa la circunferencia de su rueda. Se persiste para no volver
-  /// a preguntar; desde ese momento las siguientes lecturas de rueda ya
+  @override
+  void clearLiveOutputs() {
+    ref.read(speedKmhProvider.notifier).state = null;
+    ref.read(speedDistanceMetersProvider.notifier).state = null;
+    ref.read(speedSourcedCadenceRpmProvider.notifier).state = null;
+  }
+
+  /// Llamado desde la configuración de talla de rueda. Se persiste para
+  /// no volver a preguntar; desde ese momento las lecturas de rueda ya
   /// calculan velocidad con normalidad.
   Future<void> setWheelCircumferenceMm(double mm) async {
     _wheelCircumferenceMm = mm;
@@ -221,117 +122,41 @@ class SpeedSensorController extends StateNotifier<SpeedConnectionState> {
     state = state.copyWith(needsWheelSizeSetup: false);
   }
 
-  /// Activa/desactiva el modo "sensor combo" (ver comentario del campo
-  /// en `SpeedConnectionState`). Si se desactiva, se limpia cualquier
-  /// cadencia que este sensor hubiera aportado, para no dejar un valor
-  /// "fantasma" en `speedSourcedCadenceRpmProvider`.
+  /// Activa/desactiva el modo "sensor combo". Al desactivarlo se limpia
+  /// cualquier cadencia que este sensor hubiera aportado.
   void setAlsoProvidesCadence(bool value) {
     state = state.copyWith(alsoProvidesCadence: value);
     if (!value) {
-      _ref.read(speedSourcedCadenceRpmProvider.notifier).state = null;
+      ref.read(speedSourcedCadenceRpmProvider.notifier).state = null;
     }
-  }
-
-  void _onConnectionStateChanged(BluetoothConnectionState connectionState) {
-    if (connectionState == BluetoothConnectionState.disconnected) {
-      state = state.copyWith(status: SensorConnectionStatus.reconnecting);
-      _ref.read(speedKmhProvider.notifier).state = null;
-      _ref.read(speedDistanceMetersProvider.notifier).state = null;
-      _ref.read(speedSourcedCadenceRpmProvider.notifier).state = null;
-      _startReconnectAlertTimer();
-      _attemptAutoReconnect();
-    } else if (connectionState == BluetoothConnectionState.connected) {
-      _reconnectAlertTimer?.cancel();
-      state = state.copyWith(
-        status: SensorConnectionStatus.connected,
-        showReconnectAlert: false,
-      );
-    }
-  }
-
-  void _startReconnectAlertTimer() {
-    _reconnectAlertTimer?.cancel();
-    _reconnectAlertTimer = Timer(
-      Duration(seconds: state.reconnectTimeoutSeconds),
-      () {
-        if (state.status == SensorConnectionStatus.reconnecting) {
-          state = state.copyWith(showReconnectAlert: true);
-        }
-      },
-    );
-  }
-
-  Future<void> _attemptAutoReconnect() async {
-    if (_connectedDevice == null) return;
-    try {
-      await _connectedDevice!.connect(autoConnect: false);
-    } catch (_) {
-      // Reintento fallido; el usuario puede reintentar manualmente.
-    }
-  }
-
-  void setReconnectTimeoutSeconds(int seconds) {
-    state = state.copyWith(reconnectTimeoutSeconds: seconds);
-  }
-
-  Future<void> disconnect() async {
-    if (_connectedDevice != null) {
-      await _bleService.disconnect(_connectedDevice!);
-    }
-    await _cscSubscription?.cancel();
-    await _connectionSubscription?.cancel();
-    _reconnectAlertTimer?.cancel();
-    _connectedDevice = null;
-    _calculator.reset();
-    _odometerMeters = 0;
-    _lastOdometerWheelRevs = null;
-    _ref.read(speedKmhProvider.notifier).state = null;
-    _ref.read(speedDistanceMetersProvider.notifier).state = null;
-    _ref.read(speedSourcedCadenceRpmProvider.notifier).state = null;
-    // alsoProvidesCadence se reinicia a false a propósito: es una
-    // propiedad de ESTE dispositivo conectado, no una preferencia
-    // general -- si luego conectas un sensor distinto, no debería
-    // heredar el flag del anterior.
-    state = const SpeedConnectionState();
-  }
-
-  @override
-  void dispose() {
-    _scanSubscription?.cancel();
-    _cscSubscription?.cancel();
-    _connectionSubscription?.cancel();
-    _reconnectAlertTimer?.cancel();
-    super.dispose();
   }
 }
 
-/// Velocidad en km/h en tiempo real. El resto de la app la lee sin
-/// saber que existe BLE detrás.
+/// Velocidad en km/h en tiempo real. El resto de la app la lee sin saber
+/// que hay BLE detrás.
 final speedKmhProvider = StateProvider<double?>((ref) => null);
 
 /// Metros totales acumulados por el sensor de velocidad desde que se
-/// conectó (no desde que arrancó la grabación -- eso lo traduce
-/// RouteRecordingController con su propio offset). Null si no hay
-/// sensor conectado.
+/// conectó (no desde que arrancó la grabación). Null si no hay sensor.
 final speedDistanceMetersProvider = StateProvider<double?>((ref) => null);
 
-/// Cadencia derivada del sensor de VELOCIDAD cuando el usuario marcó que
-/// es un combo (`alsoProvidesCadence`). NO es pública -- ver
-/// `cadenceRpmProvider` en cadence_providers.dart para la fusión real
-/// (potencia > cadencia dedicada > este combo).
+/// Cadencia derivada del sensor de VELOCIDAD cuando el usuario lo marcó
+/// como combo. NO pública -- ver `cadenceRpmProvider`.
 final speedSourcedCadenceRpmProvider = StateProvider<double?>((ref) => null);
 
-final bleSpeedServiceProvider = Provider<BleSpeedService>((ref) {
-  return BleSpeedService();
-});
+final bleSpeedServiceProvider = Provider<BleSpeedService>(
+  (ref) => BleSpeedService(),
+);
 
-final wheelSizeRepositoryProvider = Provider<WheelSizeRepository>((ref) {
-  return WheelSizeRepository();
-});
+final wheelSizeRepositoryProvider = Provider<WheelSizeRepository>(
+  (ref) => WheelSizeRepository(),
+);
 
 final speedSensorControllerProvider =
-    StateNotifierProvider<SpeedSensorController, SpeedConnectionState>((ref) {
-      final service = ref.read(bleSpeedServiceProvider);
-      final wheelSizeRepository = ref.read(wheelSizeRepositoryProvider);
-      return SpeedSensorController(service, wheelSizeRepository, ref);
-    });
+    StateNotifierProvider<SpeedSensorController, SensorConnectionState>(
+      (ref) => SpeedSensorController(
+        ref.read(bleSpeedServiceProvider),
+        ref.read(wheelSizeRepositoryProvider),
+        ref,
+      ),
+    );

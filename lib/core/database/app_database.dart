@@ -45,10 +45,8 @@ class Activities extends Table {
   IntColumn get maxCadence => integer().nullable()();
 
   TextColumn get notes => text().nullable()();
-  TextColumn get routePointsJson =>
-      text().withDefault(const Constant('[]'))();
-  TextColumn get photoPathsJson =>
-      text().withDefault(const Constant('[]'))();
+  TextColumn get routePointsJson => text().withDefault(const Constant('[]'))();
+  TextColumn get photoPathsJson => text().withDefault(const Constant('[]'))();
 }
 
 /// Catálogo liviano de qué teselas de elevación (`.hgt`) ya se
@@ -182,6 +180,22 @@ class SegmentEfforts extends Table {
   TextColumn get splitsJson => text().withDefault(const Constant('[]'))();
 }
 
+/// Lugares que el usuario guardó para navegar rápido (Casa, un alto que
+/// hace seguido, un punto de encuentro). Aparecen primero en el buscador
+/// de "Navegar" y con estrella sobre el mapa. Ver `SavedPlacesRepository`.
+class SavedPlaces extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  RealColumn get latitude => real()();
+  RealColumn get longitude => real()();
+
+  /// 'home' | 'peak' | 'generic' -- decide el ícono. 'peak' se sugiere
+  /// solo cuando el nombre parece un alto (ver `climb_detection.dart`).
+  TextColumn get kind => text().withDefault(const Constant('generic'))();
+
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 @DriftDatabase(
   tables: [
     Activities,
@@ -189,61 +203,89 @@ class SegmentEfforts extends Table {
     Segments,
     SegmentEfforts,
     DownloadedRoadRegions,
+    SavedPlaces,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-        },
-        onUpgrade: (m, from, to) async {
-          // Quien venía de la versión 1 (antes de las teselas de
-          // elevación) solo necesita la tabla nueva; Activities no cambió.
-          if (from < 2) {
-            await m.createTable(downloadedElevationTiles);
-          }
-          // Quien venía de antes del módulo de potencia/cadencia (v3)
-          // necesita estas 4 columnas nuevas, todas nullable -- las
-          // actividades ya guardadas simplemente quedan con estos campos
-          // en null (equivalente a "sin sensor conectado ese día").
-          if (from < 3) {
-            await m.addColumn(activities, activities.avgPower);
-            await m.addColumn(activities, activities.maxPower);
-            await m.addColumn(activities, activities.avgCadence);
-            await m.addColumn(activities, activities.maxCadence);
-          }
-          // Módulo de segmentos (Fase 1): quien venía de antes de v4
-          // simplemente no tenía estas dos tablas -- se crean vacías,
-          // no hay datos previos que migrar.
-          if (from < 4) {
-            await m.createTable(segments);
-            await m.createTable(segmentEfforts);
-          }
-          // Módulo de navegación (Fase 1): igual que segmentos, tabla
-          // nueva vacía -- nadie tenía regiones descargadas antes de
-          // que existiera el concepto.
-          if (from < 5) {
-            await m.createTable(downloadedRoadRegions);
-          }
-          // Segmentos en vivo (Fases B/C): origen del segmento
-          // (actividad / GPX importado / catálogo remoto), id remoto
-          // para dedup del catálogo, y la curva tiempo-distancia del
-          // esfuerzo para el fantasma. Todas con default, así las filas
-          // ya existentes quedan como `source='activity'`,
-          // `remoteId=null`, `splitsJson='[]'`.
-          if (from < 6) {
-            await m.addColumn(segments, segments.source);
-            await m.addColumn(segments, segments.remoteId);
-            await m.addColumn(segmentEfforts, segmentEfforts.splitsJson);
-          }
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      // Quien venía de la versión 1 (antes de las teselas de
+      // elevación) solo necesita la tabla nueva; Activities no cambió.
+      if (from < 2) {
+        await m.createTable(downloadedElevationTiles);
+      }
+      // Quien venía de antes del módulo de potencia/cadencia (v3)
+      // necesita estas 4 columnas nuevas, todas nullable -- las
+      // actividades ya guardadas simplemente quedan con estos campos
+      // en null (equivalente a "sin sensor conectado ese día").
+      if (from < 3) {
+        await m.addColumn(activities, activities.avgPower);
+        await m.addColumn(activities, activities.maxPower);
+        await m.addColumn(activities, activities.avgCadence);
+        await m.addColumn(activities, activities.maxCadence);
+      }
+      // Módulo de segmentos (Fase 1): quien venía de antes de v4
+      // simplemente no tenía estas dos tablas -- se crean vacías,
+      // no hay datos previos que migrar.
+      if (from < 4) {
+        await m.createTable(segments);
+        await m.createTable(segmentEfforts);
+      }
+      // Módulo de navegación (Fase 1): igual que segmentos, tabla
+      // nueva vacía -- nadie tenía regiones descargadas antes de
+      // que existiera el concepto.
+      if (from < 5) {
+        await m.createTable(downloadedRoadRegions);
+      }
+      // Segmentos en vivo (Fases B/C): origen del segmento
+      // (actividad / GPX importado / catálogo remoto), id remoto
+      // para dedup del catálogo, y la curva tiempo-distancia del
+      // esfuerzo para el fantasma. Todas con default, así las filas
+      // ya existentes quedan como `source='activity'`,
+      // `remoteId=null`, `splitsJson='[]'`.
+      if (from < 6) {
+        await m.addColumn(segments, segments.source);
+        await m.addColumn(segments, segments.remoteId);
+        await m.addColumn(segmentEfforts, segmentEfforts.splitsJson);
+      }
+      // Ubicaciones guardadas para navegar (Casa, altos frecuentes...).
+      // Tabla nueva vacía -- nadie tenía lugares guardados antes.
+      if (from < 7) {
+        await m.createTable(savedPlaces);
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------
+  // Ubicaciones guardadas
+  // ---------------------------------------------------------------
+
+  Stream<List<SavedPlace>> watchSavedPlaces() {
+    return (select(
+      savedPlaces,
+    )..orderBy([(p) => OrderingTerm.asc(p.name)])).watch();
+  }
+
+  Future<int> insertSavedPlace(SavedPlacesCompanion entry) {
+    return into(savedPlaces).insert(entry);
+  }
+
+  Future<void> updateSavedPlace(SavedPlacesCompanion entry) {
+    return update(savedPlaces).replace(entry);
+  }
+
+  Future<void> deleteSavedPlace(int id) {
+    return (delete(savedPlaces)..where((p) => p.id.equals(id))).go();
+  }
 
   // ---------------------------------------------------------------
   // Actividades
@@ -253,14 +295,15 @@ class AppDatabase extends _$AppDatabase {
   /// Home con el historial) se actualiza sola cuando se guarda o borra
   /// una actividad, sin necesidad de refrescar manualmente.
   Stream<List<Activity>> watchAllActivities() {
-    return (select(activities)
-          ..orderBy([(a) => OrderingTerm.desc(a.startedAt)]))
-        .watch();
+    return (select(
+      activities,
+    )..orderBy([(a) => OrderingTerm.desc(a.startedAt)])).watch();
   }
 
   Future<Activity?> getActivityById(int id) {
-    return (select(activities)..where((a) => a.id.equals(id)))
-        .getSingleOrNull();
+    return (select(
+      activities,
+    )..where((a) => a.id.equals(id))).getSingleOrNull();
   }
 
   Future<int> insertActivity(ActivitiesCompanion entry) {
@@ -284,15 +327,13 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<DownloadedElevationTile?> getTile(String tileName) {
-    return (select(downloadedElevationTiles)
-          ..where((t) => t.tileName.equals(tileName)))
-        .getSingleOrNull();
+    return (select(
+      downloadedElevationTiles,
+    )..where((t) => t.tileName.equals(tileName))).getSingleOrNull();
   }
 
   Future<void> upsertTile(DownloadedElevationTilesCompanion entry) {
-    return into(
-      downloadedElevationTiles,
-    ).insertOnConflictUpdate(entry);
+    return into(downloadedElevationTiles).insertOnConflictUpdate(entry);
   }
 
   Future<void> deleteTile(String tileName) {
@@ -317,9 +358,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<DownloadedRoadRegion?> getRoadRegion(String regionId) {
-    return (select(downloadedRoadRegions)
-          ..where((r) => r.regionId.equals(regionId)))
-        .getSingleOrNull();
+    return (select(
+      downloadedRoadRegions,
+    )..where((r) => r.regionId.equals(regionId))).getSingleOrNull();
   }
 
   Future<void> upsertRoadRegion(DownloadedRoadRegionsCompanion entry) {
@@ -327,9 +368,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> deleteRoadRegion(String regionId) {
-    return (delete(downloadedRoadRegions)
-          ..where((r) => r.regionId.equals(regionId)))
-        .go();
+    return (delete(
+      downloadedRoadRegions,
+    )..where((r) => r.regionId.equals(regionId))).go();
   }
 
   // ---------------------------------------------------------------
@@ -345,8 +386,9 @@ class AppDatabase extends _$AppDatabase {
   /// menú de segmentos (Fase 4) para la lista con el toggle de
   /// activo/inactivo.
   Stream<List<Segment>> watchAllSegments() {
-    return (select(segments)..orderBy([(s) => OrderingTerm.asc(s.name)]))
-        .watch();
+    return (select(
+      segments,
+    )..orderBy([(s) => OrderingTerm.asc(s.name)])).watch();
   }
 
   /// Solo los segmentos activos -- es la lista que consulta
@@ -364,22 +406,22 @@ class AppDatabase extends _$AppDatabase {
   /// (`source = 'activity'`) NO cuenta: su altitud ya salió de HGT, no
   /// aportaría nada nuevo como fuente.
   Future<List<Segment>> getGpxOriginSegments() {
-    return (select(segments)
-          ..where((s) => s.source.equals('activity').not()))
-        .get();
+    return (select(
+      segments,
+    )..where((s) => s.source.equals('activity').not())).get();
   }
 
   Future<Segment?> getSegmentById(int id) {
-    return (select(segments)..where((s) => s.id.equals(id)))
-        .getSingleOrNull();
+    return (select(segments)..where((s) => s.id.equals(id))).getSingleOrNull();
   }
 
   /// Segmento descargado del catálogo remoto por su id remoto -- para
   /// que `SegmentCatalogRepository` no re-importe el mismo segmento
   /// oficial si el usuario toca "descargar" dos veces.
   Future<Segment?> getSegmentByRemoteId(String remoteId) {
-    return (select(segments)..where((s) => s.remoteId.equals(remoteId)))
-        .getSingleOrNull();
+    return (select(
+      segments,
+    )..where((s) => s.remoteId.equals(remoteId))).getSingleOrNull();
   }
 
   Future<int> insertSegment(SegmentsCompanion entry) {
@@ -422,9 +464,9 @@ class AppDatabase extends _$AppDatabase {
   /// Borra TODOS los esfuerzos de un segmento -- "empezar de cero" el
   /// historial de ese segmento.
   Future<void> deleteAllEffortsForSegment(int segmentId) {
-    return (delete(segmentEfforts)
-          ..where((e) => e.segmentId.equals(segmentId)))
-        .go();
+    return (delete(
+      segmentEfforts,
+    )..where((e) => e.segmentId.equals(segmentId))).go();
   }
 
   /// Todos los esfuerzos de un segmento, del más rápido al más lento --
@@ -442,6 +484,15 @@ class AppDatabase extends _$AppDatabase {
           ..where((e) => e.segmentId.equals(segmentId))
           ..orderBy([(e) => OrderingTerm.asc(e.durationSeconds)]))
         .watch();
+  }
+
+  /// Todos los esfuerzos de todos los segmentos, del más reciente al
+  /// más antiguo -- alimenta el resumen y el feed de "esfuerzos
+  /// recientes" del menú de segmentos.
+  Stream<List<SegmentEffort>> watchAllEfforts() {
+    return (select(
+      segmentEfforts,
+    )..orderBy([(e) => OrderingTerm.desc(e.completedAt)])).watch();
   }
 
   /// Todos los esfuerzos registrados dentro de UNA actividad puntual --

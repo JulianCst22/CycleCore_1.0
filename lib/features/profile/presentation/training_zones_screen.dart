@@ -43,9 +43,7 @@ class _TrainingZonesScreenState extends ConsumerState<TrainingZonesScreen> {
     final zonesAsync = ref.watch(zonesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         title: const Text(
           'Zonas de entrenamiento',

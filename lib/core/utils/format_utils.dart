@@ -22,6 +22,21 @@ String formatDistanceKm(double meters) {
   return km.toStringAsFixed(2);
 }
 
+/// Agrupa los miles con punto, al estilo español: 3980 -> "3.980",
+/// 214 -> "214". Sin decimales -- para totales grandes (desnivel
+/// acumulado, calorías) donde un separador ayuda a leer la magnitud
+/// de un vistazo. Evita depender de `NumberFormat` (que necesita
+/// datos de locale cargados) para algo tan simple.
+String formatThousands(int value) {
+  final digits = value.abs().toString();
+  final buffer = StringBuffer(value < 0 ? '-' : '');
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+    buffer.write(digits[i]);
+  }
+  return buffer.toString();
+}
+
 /// Formatea velocidad en km/h con 1 decimal, protegiendo contra
 /// valores negativos o ruidosos que a veces reporta el GPS cuando
 /// el dispositivo está casi estático.

@@ -18,9 +18,7 @@ class ClimbCollectionScreen extends ConsumerWidget {
     final collectedAsync = ref.watch(climbCollectiblesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         title: const Text(
           'Tu colección de Patios',

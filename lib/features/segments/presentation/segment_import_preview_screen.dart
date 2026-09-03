@@ -76,9 +76,7 @@ class _SegmentImportPreviewScreenState
     final stats = result.stats;
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(
           'Importar segmento',

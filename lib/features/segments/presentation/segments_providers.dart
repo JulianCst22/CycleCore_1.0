@@ -2,9 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../activities/presentation/activities_providers.dart'
+    show activitiesListProvider;
 import '../data/segment_catalog_repository.dart';
 import '../data/segments_repository.dart';
 import '../domain/segment_catalog_entry.dart';
+import '../domain/segments_overview.dart';
 
 // Re-exportado para que quien importe este archivo (ej.
 // `ActivityDetailScreen`) tenga también `SegmentActivityEntry` y
@@ -17,16 +20,16 @@ final segmentsRepositoryProvider = Provider<SegmentsRepository>((ref) {
   return SegmentsRepository(database);
 });
 
-final segmentCatalogRepositoryProvider =
-    Provider<SegmentCatalogRepository>((ref) {
+final segmentCatalogRepositoryProvider = Provider<SegmentCatalogRepository>((
+  ref,
+) {
   return SegmentCatalogRepository(ref.read(segmentsRepositoryProvider));
 });
 
 /// Lista de segmentos "nativos" disponibles en el catálogo remoto.
 /// `FutureProvider` (snapshot): se re-pide con pull-to-refresh o al
 /// reentrar a la pantalla, no necesita ser un stream.
-final segmentCatalogProvider =
-    FutureProvider<List<SegmentCatalogEntry>>((ref) {
+final segmentCatalogProvider = FutureProvider<List<SegmentCatalogEntry>>((ref) {
   return ref.read(segmentCatalogRepositoryProvider).fetchCatalog();
 });
 
@@ -36,10 +39,8 @@ final segmentCatalogProvider =
 final downloadedRemoteIdsProvider = Provider<Set<String>>((ref) {
   final segmentsAsync = ref.watch(segmentsListProvider);
   return segmentsAsync.maybeWhen(
-    data: (segments) => segments
-        .map((s) => s.remoteId)
-        .whereType<String>()
-        .toSet(),
+    data: (segments) =>
+        segments.map((s) => s.remoteId).whereType<String>().toSet(),
     orElse: () => <String>{},
   );
 });
@@ -90,10 +91,53 @@ final segmentByIdProvider = Provider.family<AsyncValue<Segment?>, int>((
 /// más lento -- el primero de la lista es siempre la mejor marca (ver
 /// `AppDatabase.watchEffortsForSegment`, que ya viene ordenado por
 /// `durationSeconds` ascendente).
-final segmentEffortsProvider =
-    StreamProvider.family<List<SegmentEffort>, int>((ref, segmentId) {
+final segmentEffortsProvider = StreamProvider.family<List<SegmentEffort>, int>((
+  ref,
+  segmentId,
+) {
   return ref.watch(segmentsRepositoryProvider).watchEfforts(segmentId);
 });
+
+/// Todos los esfuerzos de todos los segmentos, del más reciente al más
+/// antiguo -- fuente del resumen y el feed del menú de segmentos.
+final allSegmentEffortsProvider = StreamProvider<List<SegmentEffort>>((ref) {
+  return ref.watch(segmentsRepositoryProvider).watchAllEfforts();
+});
+
+/// Resumen del menú de segmentos: cifras del panel, feed de esfuerzos
+/// recientes y una `SegmentSummary` por segmento (con su mejor marca y
+/// su actividad reciente). Combina tres streams y se recalcula solo
+/// cuando cambia cualquiera de ellos.
+final segmentsOverviewProvider = Provider<AsyncValue<SegmentsOverview>>((ref) {
+  final segments = ref.watch(segmentsListProvider);
+  final efforts = ref.watch(allSegmentEffortsProvider);
+  final activities = ref.watch(activitiesListProvider);
+
+  if (segments.isLoading || efforts.isLoading) {
+    return const AsyncValue.loading();
+  }
+  final error = segments.error ?? efforts.error;
+  if (error != null) {
+    return AsyncValue.error(error, StackTrace.current);
+  }
+
+  return AsyncValue.data(
+    computeSegmentsOverview(
+      segments: segments.requireValue,
+      efforts: efforts.requireValue,
+      activities: activities.valueOrNull ?? const [],
+    ),
+  );
+});
+
+/// Cómo se dibuja la franja "Progreso" del detalle de segmento: puntos
+/// sueltos (dispersión) o línea de tendencia. Vive en memoria -- se
+/// recuerda mientras la app está abierta, se resetea al reiniciar.
+enum SegmentProgressMode { dots, line }
+
+final segmentProgressModeProvider = StateProvider<SegmentProgressMode>(
+  (ref) => SegmentProgressMode.dots,
+);
 
 /// Qué segmentos se completaron dentro de una actividad puntual -- lo
 /// consume la sección "Segmentos en esta ruta" de
@@ -103,11 +147,8 @@ final segmentEffortsProvider =
 /// resolverse y desaparece de la lista la próxima vez que se entre a
 /// la pantalla).
 final segmentsForActivityProvider =
-    FutureProvider.family<List<SegmentActivityEntry>, int>((
-  ref,
-  activityId,
-) {
-  return ref
-      .watch(segmentsRepositoryProvider)
-      .getSegmentsForActivity(activityId);
-});
+    FutureProvider.family<List<SegmentActivityEntry>, int>((ref, activityId) {
+      return ref
+          .watch(segmentsRepositoryProvider)
+          .getSegmentsForActivity(activityId);
+    });

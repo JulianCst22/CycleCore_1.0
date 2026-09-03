@@ -12,12 +12,17 @@ class TrainingZone {
   Map<String, dynamic> toJson() => {'name': name, 'min': min, 'max': max};
 
   factory TrainingZone.fromJson(Map<String, dynamic> json) => TrainingZone(
-        name: json['name'] as String,
-        min: json['min'] as int,
-        max: json['max'] as int?,
-      );
+    name: json['name'] as String,
+    min: json['min'] as int,
+    max: json['max'] as int?,
+  );
 
-  TrainingZone copyWith({String? name, int? min, int? max, bool clearMax = false}) {
+  TrainingZone copyWith({
+    String? name,
+    int? min,
+    int? max,
+    bool clearMax = false,
+  }) {
     return TrainingZone(
       name: name ?? this.name,
       min: min ?? this.min,
@@ -35,27 +40,36 @@ class TrainingZones {
   const TrainingZones({required this.powerZones, required this.heartRateZones});
 
   Map<String, dynamic> toJson() => {
-        'powerZones': powerZones.map((z) => z.toJson()).toList(),
-        'heartRateZones': heartRateZones.map((z) => z.toJson()).toList(),
-      };
+    'powerZones': powerZones.map((z) => z.toJson()).toList(),
+    'heartRateZones': heartRateZones.map((z) => z.toJson()).toList(),
+  };
 
   factory TrainingZones.fromJson(Map<String, dynamic> json) => TrainingZones(
-        powerZones: (json['powerZones'] as List)
-            .map((z) => TrainingZone.fromJson(z as Map<String, dynamic>))
-            .toList(),
-        heartRateZones: (json['heartRateZones'] as List)
-            .map((z) => TrainingZone.fromJson(z as Map<String, dynamic>))
-            .toList(),
-      );
+    powerZones: (json['powerZones'] as List)
+        .map((z) => TrainingZone.fromJson(z as Map<String, dynamic>))
+        .toList(),
+    heartRateZones: (json['heartRateZones'] as List)
+        .map((z) => TrainingZone.fromJson(z as Map<String, dynamic>))
+        .toList(),
+  );
+
+  /// `true` si hay al menos una zona de potencia o de FC.
+  bool get hasAny => powerZones.isNotEmpty || heartRateZones.isNotEmpty;
 
   /// Calcula zonas por defecto a partir del perfil, usando el modelo
   /// estándar de Coggan (7 zonas de potencia sobre % FTP) y un modelo de
   /// 5 zonas de FC sobre % de FC máxima (o reserva de Karvonen si hay
   /// FC en reposo registrada).
+  ///
+  /// Si el perfil no tiene FTP, las zonas de potencia quedan vacías; si
+  /// no tiene FC máxima, las de FC. Cada mitad depende sólo de su dato.
   factory TrainingZones.computeDefaults(CyclistProfile profile) {
+    final ftp = profile.ftpWatts;
     return TrainingZones(
-      powerZones: _computePowerZones(profile.ftpWatts),
-      heartRateZones: _computeHeartRateZones(profile),
+      powerZones: ftp == null ? const [] : _computePowerZones(ftp),
+      heartRateZones: profile.maxHr == null
+          ? const []
+          : _computeHeartRateZones(profile),
     );
   }
 
@@ -63,7 +77,11 @@ class TrainingZones {
     int pct(double p) => (ftp * p).round();
     return [
       TrainingZone(name: 'Z1 · Recuperación', min: 0, max: pct(0.55)),
-      TrainingZone(name: 'Z2 · Resistencia', min: pct(0.55) + 1, max: pct(0.75)),
+      TrainingZone(
+        name: 'Z2 · Resistencia',
+        min: pct(0.55) + 1,
+        max: pct(0.75),
+      ),
       TrainingZone(name: 'Z3 · Tempo', min: pct(0.75) + 1, max: pct(0.90)),
       TrainingZone(name: 'Z4 · Umbral', min: pct(0.90) + 1, max: pct(1.05)),
       TrainingZone(name: 'Z5 · VO2 máx', min: pct(1.05) + 1, max: pct(1.20)),
@@ -72,8 +90,10 @@ class TrainingZones {
     ];
   }
 
+  /// Sólo se llama cuando `profile.maxHr` no es nulo (ver
+  /// [computeDefaults]).
   static List<TrainingZone> _computeHeartRateZones(CyclistProfile profile) {
-    final maxHr = profile.maxHr;
+    final maxHr = profile.maxHr!;
     final resting = profile.restingHr;
 
     // Karvonen si hay FC en reposo; si no, % simple de FC máxima.
@@ -85,10 +105,26 @@ class TrainingZones {
     }
 
     return [
-      TrainingZone(name: 'Z1 · Muy suave', min: atPercent(0.50), max: atPercent(0.60)),
-      TrainingZone(name: 'Z2 · Suave', min: atPercent(0.60) + 1, max: atPercent(0.70)),
-      TrainingZone(name: 'Z3 · Moderado', min: atPercent(0.70) + 1, max: atPercent(0.80)),
-      TrainingZone(name: 'Z4 · Duro', min: atPercent(0.80) + 1, max: atPercent(0.90)),
+      TrainingZone(
+        name: 'Z1 · Muy suave',
+        min: atPercent(0.50),
+        max: atPercent(0.60),
+      ),
+      TrainingZone(
+        name: 'Z2 · Suave',
+        min: atPercent(0.60) + 1,
+        max: atPercent(0.70),
+      ),
+      TrainingZone(
+        name: 'Z3 · Moderado',
+        min: atPercent(0.70) + 1,
+        max: atPercent(0.80),
+      ),
+      TrainingZone(
+        name: 'Z4 · Duro',
+        min: atPercent(0.80) + 1,
+        max: atPercent(0.90),
+      ),
       TrainingZone(name: 'Z5 · Máximo', min: atPercent(0.90) + 1, max: maxHr),
     ];
   }

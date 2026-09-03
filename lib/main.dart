@@ -30,9 +30,12 @@ class CycleCoreApp extends StatelessWidget {
     return MaterialApp(
       title: 'CycleCore',
       debugShowCheckedModeBanner: false,
-      // Todo el theming vive en core/theme -- cambiar colores de marca
-      // se hace en app_colors.dart, no aquí.
-      theme: AppTheme.light,
+      // Todo el theming vive en core/theme -- los tokens de color están
+      // en cc_colors.dart y la tipografía en cc_type.dart. La app es
+      // oscura a propósito (uso al aire libre).
+      theme: AppTheme.dark,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       // AppGate decide entre Onboarding y AppShell según exista perfil
       // local. Ver core/navigation/app_gate.dart.
       home: const AppGate(),

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cc_colors.dart';
 import '../domain/navigation_route.dart';
+import 'end_navigation_confirm.dart';
 import 'navigation_providers.dart';
 
 /// Distancia (metros) por debajo de la cual se considera que ya
@@ -34,8 +35,10 @@ class TurnInstructionBanner extends ConsumerWidget {
     final instruction = route.instructions[instructionIndex];
 
     return positionAsync.when(
-      loading: () => _BannerContent(instruction: instruction, distanceMeters: null),
-      error: (_, __) => _BannerContent(instruction: instruction, distanceMeters: null),
+      loading: () =>
+          _BannerContent(instruction: instruction, distanceMeters: null),
+      error: (_, _) =>
+          _BannerContent(instruction: instruction, distanceMeters: null),
       data: (position) {
         final distance = Geolocator.distanceBetween(
           position.latitude,
@@ -61,7 +64,10 @@ class TurnInstructionBanner extends ConsumerWidget {
           });
         }
 
-        return _BannerContent(instruction: instruction, distanceMeters: distance);
+        return _BannerContent(
+          instruction: instruction,
+          distanceMeters: distance,
+        );
       },
     );
   }
@@ -71,19 +77,25 @@ class _BannerContent extends ConsumerWidget {
   final RouteInstruction instruction;
   final double? distanceMeters;
 
-  const _BannerContent({required this.instruction, required this.distanceMeters});
+  const _BannerContent({
+    required this.instruction,
+    required this.distanceMeters,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Material(
-      color: Colors.black.withValues(alpha: 0.75),
+      color: CcColors.glass,
       borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(_iconFor(instruction.direction),
-                color: AppColors.accentElevation, size: 28),
+            Icon(
+              _iconFor(instruction.direction),
+              color: CcColors.ink,
+              size: 28,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -92,7 +104,7 @@ class _BannerContent extends ConsumerWidget {
                   Text(
                     instruction.text,
                     style: const TextStyle(
-                      color: AppColors.textPrimaryOnPanel,
+                      color: CcColors.ink,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -103,7 +115,7 @@ class _BannerContent extends ConsumerWidget {
                           ? 'en ${(distanceMeters! / 1000).toStringAsFixed(1)} km'
                           : 'en ${distanceMeters!.round()} m',
                       style: const TextStyle(
-                        color: AppColors.textSecondaryOnPanel,
+                        color: CcColors.inkDim,
                         fontSize: 12,
                       ),
                     ),
@@ -111,10 +123,8 @@ class _BannerContent extends ConsumerWidget {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.close,
-                  color: AppColors.textSecondaryOnPanel, size: 20),
-              onPressed: () =>
-                  ref.read(navigationControllerProvider).cancelNavigation(),
+              icon: const Icon(Icons.close, color: CcColors.inkDim, size: 20),
+              onPressed: () => confirmEndNavigation(context, ref),
             ),
           ],
         ),

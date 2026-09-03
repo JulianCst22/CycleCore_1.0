@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/heart_rate_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/cc_colors.dart';
 import '../../../core/theme/cyclecore_palette.dart';
 import '../../../shared_widgets/map_controls_cluster.dart';
 import '../../../shared_widgets/stat_tile.dart';
@@ -15,10 +16,14 @@ import '../../activities/presentation/ride_sensor_log.dart';
 import '../../elevation/presentation/elevation_download_dialog.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import '../../activities/presentation/save_activity_screen.dart';
+import '../../navigation/domain/climb_detection.dart';
+import '../../navigation/domain/navigation_target.dart';
+import '../../navigation/presentation/end_navigation_confirm.dart';
 import '../../navigation/presentation/navigation_polyline_layer.dart';
 import '../../navigation/presentation/navigation_providers.dart';
 import '../../navigation/presentation/navigation_search_sheet.dart';
 import '../../navigation/presentation/navigation_voice_bridge.dart';
+import '../../navigation/presentation/route_confirm_card.dart';
 import '../../navigation/presentation/turn_instruction_banner.dart';
 import '../../segments/presentation/segment_detection_providers.dart';
 import '../../segments/presentation/segment_live_screen.dart';
@@ -178,12 +183,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final start = _animatedPosition ?? target;
     _latAnim = Tween<double>(begin: start.latitude, end: target.latitude)
         .animate(
-      CurvedAnimation(parent: _markerAnimController, curve: Curves.linear),
-    );
+          CurvedAnimation(parent: _markerAnimController, curve: Curves.linear),
+        );
     _lngAnim = Tween<double>(begin: start.longitude, end: target.longitude)
         .animate(
-      CurvedAnimation(parent: _markerAnimController, curve: Curves.linear),
-    );
+          CurvedAnimation(parent: _markerAnimController, curve: Curves.linear),
+        );
     if (duration != null) {
       var clamped = duration;
       if (clamped < _minAnimDuration) clamped = _minAnimDuration;
@@ -210,12 +215,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
   void _animateMapRotationTo(double targetDegrees) {
     final current = _mapController.camera.rotation;
     final delta = _shortestAngleDelta(current, targetDegrees);
-    _compassRotationAnim = Tween<double>(
-      begin: current,
-      end: current + delta,
-    ).animate(
-      CurvedAnimation(parent: _compassAnimController, curve: Curves.easeOut),
-    );
+    _compassRotationAnim = Tween<double>(begin: current, end: current + delta)
+        .animate(
+          CurvedAnimation(
+            parent: _compassAnimController,
+            curve: Curves.easeOut,
+          ),
+        );
     _compassAnimController
       ..reset()
       ..forward();
@@ -262,8 +268,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   MapFollowMode get _followMode => !_followMe
       ? MapFollowMode.free
       : (_headingUp
-          ? MapFollowMode.followHeadingUp
-          : MapFollowMode.followNorthUp);
+            ? MapFollowMode.followHeadingUp
+            : MapFollowMode.followNorthUp);
 
   @override
   Widget build(BuildContext context) {
@@ -281,6 +287,23 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final hasNavigationData =
         ref.watch(hasNavigationDataProvider).valueOrNull ?? false;
     final activeNavigationRoute = ref.watch(activeNavigationRouteProvider);
+    final activeNavigationTarget = ref.watch(activeNavigationTargetProvider);
+    final routePreview = ref.watch(routePreviewProvider);
+    final savedPlaces = ref.watch(savedPlacesProvider).valueOrNull ?? const [];
+
+    // Coordenada del destino a marcar con montañita, si vamos hacia un
+    // alto (en preview o ya navegando).
+    final latlng.LatLng? climbDestination = routePreview != null
+        ? (routePreview.isClimb
+              ? latlng.LatLng(routePreview.target.lat, routePreview.target.lng)
+              : null)
+        : (activeNavigationTarget != null &&
+                  looksLikeClimb(activeNavigationTarget.name)
+              ? latlng.LatLng(
+                  activeNavigationTarget.lat,
+                  activeNavigationTarget.lng,
+                )
+              : null);
 
     // --- Segmento en vivo (Fase D) ---
     final segmentLive = ref.watch(segmentDetectionProvider).active;
@@ -340,6 +363,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
       maxSpeedKmh: recordingState.maxSpeedKmh,
       elevationGainMeters: recordingState.elevationGainMeters,
       slopePercent: recordingState.displaySlopePercent,
+      altitudeMeters: recordingState.points.isEmpty
+          ? null
+          : recordingState.points.last.altitude,
       heartRateBpm: heartRate,
       powerWatts: powerWatts,
       maxPowerWattsSoFar: sensorLog.maxPowerSoFar,
@@ -349,376 +375,429 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     return NavigationVoiceBridge(
       child: Scaffold(
-      backgroundColor: AppColors.panelBackground,
-      body: currentPositionAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'No se pudo obtener tu ubicación:\n$error',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textPrimaryOnPanel),
+        backgroundColor: CcColors.bg,
+        body: currentPositionAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stackTrace) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No se pudo obtener tu ubicación:\n$error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textPrimaryOnPanel),
+              ),
             ),
           ),
-        ),
-        data: (position) {
-          final initialCenter = latlng.LatLng(
-            position.latitude,
-            position.longitude,
-          );
+          data: (position) {
+            final initialCenter = latlng.LatLng(
+              position.latitude,
+              position.longitude,
+            );
 
-          final recordedLatLngs = recordingState.points
-              .map((p) => latlng.LatLng(p.latitude, p.longitude))
-              .toList();
+            final recordedLatLngs = recordingState.points
+                .map((p) => latlng.LatLng(p.latitude, p.longitude))
+                .toList();
 
-          final markerPosition = _animatedPosition ??
-              (recordedLatLngs.isNotEmpty
-                  ? recordedLatLngs.last
-                  : initialCenter);
+            final markerPosition =
+                _animatedPosition ??
+                (recordedLatLngs.isNotEmpty
+                    ? recordedLatLngs.last
+                    : initialCenter);
 
-          return Stack(
-            children: [
-              // --- Mapa. En modo "norte arriba" queda plano y es el
-              // marcador el que rota; en modo "rumbo arriba" es el
-              // MAPA el que rota (ver _toggleHeadingUp / el listener
-              // de arriba) y el marcador, al rotar solidario con el
-              // mapa (no usa `Marker.rotate: true`), termina
-              // mostrándose siempre apuntando hacia arriba en
-              // pantalla sin necesidad de lógica extra. ---
-              FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: initialCenter,
-                  initialZoom: 16,
-                  onPositionChanged: (position, hasGesture) {
-                    if (hasGesture && _followMe) {
-                      setState(() => _followMe = false);
-                    }
-                  },
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.cyclecore_app',
+            return Stack(
+              children: [
+                // --- Mapa. En modo "norte arriba" queda plano y es el
+                // marcador el que rota; en modo "rumbo arriba" es el
+                // MAPA el que rota (ver _toggleHeadingUp / el listener
+                // de arriba) y el marcador, al rotar solidario con el
+                // mapa (no usa `Marker.rotate: true`), termina
+                // mostrándose siempre apuntando hacia arriba en
+                // pantalla sin necesidad de lógica extra. ---
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: initialCenter,
+                    initialZoom: 16,
+                    onPositionChanged: (position, hasGesture) {
+                      if (hasGesture && _followMe) {
+                        setState(() => _followMe = false);
+                      }
+                    },
                   ),
-                  if (recordedLatLngs.length > 1)
-                    PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: recordedLatLngs,
-                          strokeWidth: 5,
-                          color: AppColors.primary,
-                        ),
-                      ],
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.cyclecore_app',
                     ),
-                  // --- Segmento en vivo: su trazado en turquesa
-                  // ("vas aquí") por encima del recorrido grabado. ---
-                  if (segmentLive != null)
-                    PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: segmentLive.profile.points
-                              .map((p) =>
-                                  latlng.LatLng(p.latitude, p.longitude))
-                              .toList(),
-                          strokeWidth: 6,
-                          color: AppColors.segmentActiveTrack,
-                        ),
-                      ],
-                    ),
-                  // --- Ruta sugerida (Waze) -- polilínea punteada +
-                  // marcadores de giro, dibujada por encima del
-                  // trazado grabado. Ver navigation_polyline_layer.dart.
-                  if (activeNavigationRoute != null)
-                    ...buildNavigationRouteLayers(activeNavigationRoute),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: markerPosition,
-                        width: 44,
-                        height: 44,
-                        child: Container(
-                          decoration: BoxDecoration(
+                    if (recordedLatLngs.length > 1)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: recordedLatLngs,
+                            strokeWidth: 5,
                             color: AppColors.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black26,
-                                blurRadius: 6,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
                           ),
-                          child: Transform.rotate(
-                            angle: recordingState.currentBearingDegrees *
-                                (3.14159265 / 180),
-                            child: const Icon(
-                              Icons.navigation,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              // Overlay de "buscando señal GPS".
-              if (recordingState.isAcquiringGps)
-                const Positioned.fill(child: GpsAcquiringOverlay()),
-
-              // Fila superior: píldora de estado + botón de compartir
-              // log. La brújula ya no vive acá -- se unificó con el
-              // control de ubicación (ver MapControlsCluster, abajo a
-              // la derecha).
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          _StatusPill(
-                            isRecording: recordingState.isRecording,
-                            isPaused: recordingState.isPaused,
-                            isApproximate:
-                                recordingState.isApproximateElevation,
-                          ),
-                          const Spacer(),
-                          if (!recordingState.isRecording &&
-                              recordingController.debugLogFile != null)
-                            _ShareLogButton(
-                              onTap: () {
-                                final file =
-                                    recordingController.debugLogFile!;
-                                Share.shareXFiles(
-                                  [XFile(file.path)],
-                                  text: 'Log CycleCore',
-                                );
-                              },
-                            ),
                         ],
                       ),
-                      // --- Banner de próxima instrucción de giro --
-                      // solo aparece mientras hay una navegación
-                      // activa. Se oculta mientras estás dentro de un
-                      // segmento: ahí la navegación no se usa y el
-                      // espacio se aprovecha para la pantalla de
-                      // segmento.
-                      if (activeNavigationRoute != null &&
-                          segmentLive == null) ...[
-                        const SizedBox(height: 10),
-                        const TurnInstructionBanner(),
+                    // --- Segmento en vivo: su trazado en turquesa
+                    // ("vas aquí") por encima del recorrido grabado. ---
+                    if (segmentLive != null)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: segmentLive.profile.points
+                                .map(
+                                  (p) => latlng.LatLng(p.latitude, p.longitude),
+                                )
+                                .toList(),
+                            strokeWidth: 6,
+                            color: AppColors.segmentActiveTrack,
+                          ),
+                        ],
+                      ),
+                    // --- Ruta sugerida (verde) -- polilínea + marcadores
+                    // de giro, por encima del trazado grabado. Si hay una
+                    // ruta en preview (esperando confirmación) se dibuja
+                    // esa, más tenue; si ya se activó, la activa.
+                    if (activeNavigationRoute != null)
+                      ...buildNavigationRouteLayers(activeNavigationRoute)
+                    else if (routePreview != null)
+                      ...buildNavigationRouteLayers(
+                        routePreview.route,
+                        preview: true,
+                      ),
+                    // --- Ubicaciones guardadas (estrella dorada / ícono
+                    // de Casa). Tocar una la pone como destino y arranca
+                    // la confirmación de ruta.
+                    MarkerLayer(
+                      markers: [
+                        for (final place in savedPlaces)
+                          Marker(
+                            point: latlng.LatLng(
+                              place.latitude,
+                              place.longitude,
+                            ),
+                            width: 34,
+                            height: 34,
+                            child: _SavedPlaceMarker(
+                              kind: place.kind,
+                              onTap: () => _startPreviewTo(
+                                NavigationTarget(
+                                  name: place.name,
+                                  lat: place.latitude,
+                                  lng: place.longitude,
+                                ),
+                                markerPosition,
+                              ),
+                            ),
+                          ),
+                        // Montañita en el destino, cuando vamos hacia un alto.
+                        if (climbDestination != null)
+                          Marker(
+                            point: climbDestination,
+                            width: 40,
+                            height: 46,
+                            alignment: Alignment.topCenter,
+                            child: const _PeakMarker(),
+                          ),
                       ],
-                      // --- Banner de segmento en vivo -- se auto-oculta
-                      // si no estás dentro de un segmento vigilado (ver
-                      // SegmentLiveBanner). Solo se ve cuando el panel
-                      // de segmento está colapsado: si está expandido,
-                      // esa pantalla ya muestra todo esto y más. ---
-                      if (segmentLive != null && !_isCockpitExpanded) ...[
-                        const SizedBox(height: 10),
-                        const SegmentLiveBanner(),
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: markerPosition,
+                          width: 44,
+                          height: 44,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Transform.rotate(
+                              angle:
+                                  recordingState.currentBearingDegrees *
+                                  (3.14159265 / 180),
+                              child: const Icon(
+                                Icons.navigation,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
 
-              // --- Panel inferior: cockpit compacto/fullscreen, con
-              // transición de desplazamiento real (arrastrar). Ocupa
-              // TODO el alto disponible del mapa. ---
-              Positioned.fill(
-                child: CockpitSlidingPanel(
-                  key: _slidingPanelKey,
-                  // Se entera cuándo queda completamente expandido o
-                  // completamente compacto -- de ahí se desprende si
-                  // la barra lateral debe desvanecerse (ver más abajo).
-                  onExpandedChanged: (expanded) {
-                    if (expanded != _isCockpitExpanded) {
-                      setState(() => _isCockpitExpanded = expanded);
-                    }
-                  },
-                  compact: _CompactCockpitPanel(
-                    liveData: liveData,
-                    isRecording: recordingState.isRecording,
-                    isPaused: recordingState.isPaused,
-                    onStartPressed: () async {
-                      // La bitácora de sensores se limpia sola cuando
-                      // `routeRecordingProvider` pasa a isRecording:true
-                      // (ver rideSensorLogProvider).
-                      try {
-                        final missingTiles = await ref.read(
-                          missingElevationTilesProvider.future,
-                        );
-                        if (missingTiles.isNotEmpty &&
-                            context.mounted) {
-                          await showElevationDownloadDialog(
-                            context,
-                            missingTiles,
-                          );
-                        }
-                        await recordingController.startRecording();
-                        // Voz: la actividad acaba de arrancar.
-                        ref
-                            .read(voiceSettingsProvider.notifier)
-                            .speak(VoiceEventType.activityStarted);
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
-                          );
-                        }
-                      }
-                    },
-                    onPauseResumePressed: () {
-                      if (recordingState.isPaused) {
-                        recordingController.resumeRecording();
-                        // Voz: se reanudó tras una pausa.
-                        ref
-                            .read(voiceSettingsProvider.notifier)
-                            .speak(VoiceEventType.activityResumed);
-                      } else {
-                        recordingController.pauseRecording();
-                        // Voz: la actividad se puso en pausa.
-                        ref
-                            .read(voiceSettingsProvider.notifier)
-                            .speak(VoiceEventType.activityPaused);
-                      }
-                    },
-                    onFinishPressed: () => _confirmAndFinish(
-                      context,
-                      recordingController,
+                // Overlay de "buscando señal GPS".
+                if (recordingState.isAcquiringGps)
+                  const Positioned.fill(child: GpsAcquiringOverlay()),
+
+                // Fila superior: píldora de estado + botón de compartir
+                // log. La brújula ya no vive acá -- se unificó con el
+                // control de ubicación (ver MapControlsCluster, abajo a
+                // la derecha).
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _StatusPill(
+                              isRecording: recordingState.isRecording,
+                              isPaused: recordingState.isPaused,
+                              isApproximate:
+                                  recordingState.isApproximateElevation,
+                            ),
+                            const Spacer(),
+                            if (!recordingState.isRecording &&
+                                recordingController.debugLogFile != null)
+                              _ShareLogButton(
+                                onTap: () {
+                                  final file =
+                                      recordingController.debugLogFile!;
+                                  Share.shareXFiles([
+                                    XFile(file.path),
+                                  ], text: 'Log CycleCore');
+                                },
+                              ),
+                          ],
+                        ),
+                        // --- Banner de próxima instrucción de giro --
+                        // solo aparece mientras hay una navegación
+                        // activa. Se oculta mientras estás dentro de un
+                        // segmento: ahí la navegación no se usa y el
+                        // espacio se aprovecha para la pantalla de
+                        // segmento.
+                        if (activeNavigationRoute != null &&
+                            segmentLive == null) ...[
+                          const SizedBox(height: 10),
+                          const TurnInstructionBanner(),
+                        ],
+                        // --- Banner de segmento en vivo -- se auto-oculta
+                        // si no estás dentro de un segmento vigilado (ver
+                        // SegmentLiveBanner). Solo se ve cuando el panel
+                        // de segmento está colapsado: si está expandido,
+                        // esa pantalla ya muestra todo esto y más. ---
+                        if (segmentLive != null && !_isCockpitExpanded) ...[
+                          const SizedBox(height: 10),
+                          const SegmentLiveBanner(),
+                        ],
+                      ],
                     ),
                   ),
-                  // Dentro de un segmento, el panel expandido muestra la
-                  // pantalla de segmento (perfil + polilínea + tus
-                  // datos configurables) en vez del cockpit normal.
-                  expanded: segmentLive != null
-                      ? SegmentLiveScreen(
-                          onCollapse: () =>
-                              _slidingPanelKey.currentState?.collapse(),
-                        )
-                      : CockpitFullscreenView(
-                          tiles: cockpitTiles,
-                          liveData: liveData,
-                          onSwipeDown: () =>
-                              _slidingPanelKey.currentState?.collapse(),
-                        ),
                 ),
-              ),
 
-              // Barra lateral tipo Waze/Maps -- independiente del
-              // cockpit compacto/fullscreen en cuanto a SU EXISTENCIA
-              // (vive todo el tiempo que se está grabando), pero se
-              // desvanece mientras el cockpit está en pantalla
-              // completa (isCockpitExpanded) para no duplicar el dato
-              // si ese mismo campo aparece como tile en la grilla.
-              //
-              // Se centra verticalmente en toda la pantalla (top: 0,
-              // bottom: 0 + Center) y luego se sube un poco con
-              // Transform.translate según _lateralBarLiftPixels -- así
-              // queda "un poco arriba del centro" y es fácil de
-              // ajustar tocando esa única constante. El right usa el
-              // mismo margen que el botón de recentrar para que
-              // ambos queden alineados en la misma columna.
-              // Se oculta también mientras estás dentro de un segmento
-              // -- ahí la pantalla de segmento ya muestra velocidad y
-              // demás, y el mapa se ve más limpio.
-              if (recordingState.isRecording && segmentLive == null)
-                Positioned(
-                  right: _sideRightMargin,
-                  top: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: Transform.translate(
-                      offset: const Offset(0, -_lateralBarLiftPixels),
-                      child: SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.3,
-                        child: LateralDataBar(
-                          liveData: liveData,
-                          isApproximate:
-                              recordingState.isApproximateElevation,
-                          isCockpitExpanded: _isCockpitExpanded,
+                // --- Panel inferior: cockpit compacto/fullscreen, con
+                // transición de desplazamiento real (arrastrar). Ocupa
+                // TODO el alto disponible del mapa. ---
+                Positioned.fill(
+                  child: CockpitSlidingPanel(
+                    key: _slidingPanelKey,
+                    // Se entera cuándo queda completamente expandido o
+                    // completamente compacto -- de ahí se desprende si
+                    // la barra lateral debe desvanecerse (ver más abajo).
+                    onExpandedChanged: (expanded) {
+                      if (expanded != _isCockpitExpanded) {
+                        setState(() => _isCockpitExpanded = expanded);
+                      }
+                    },
+                    compact: _CompactCockpitPanel(
+                      liveData: liveData,
+                      isRecording: recordingState.isRecording,
+                      isPaused: recordingState.isPaused,
+                      onStartPressed: () async {
+                        // La bitácora de sensores se limpia sola cuando
+                        // `routeRecordingProvider` pasa a isRecording:true
+                        // (ver rideSensorLogProvider).
+                        try {
+                          final missingTiles = await ref.read(
+                            missingElevationTilesProvider.future,
+                          );
+                          if (missingTiles.isNotEmpty && context.mounted) {
+                            await showElevationDownloadDialog(
+                              context,
+                              missingTiles,
+                            );
+                          }
+                          await recordingController.startRecording();
+                          // Voz: la actividad acaba de arrancar.
+                          ref
+                              .read(voiceSettingsProvider.notifier)
+                              .speak(VoiceEventType.activityStarted);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
+                        }
+                      },
+                      onPauseResumePressed: () {
+                        if (recordingState.isPaused) {
+                          recordingController.resumeRecording();
+                          // Voz: se reanudó tras una pausa.
+                          ref
+                              .read(voiceSettingsProvider.notifier)
+                              .speak(VoiceEventType.activityResumed);
+                        } else {
+                          recordingController.pauseRecording();
+                          // Voz: la actividad se puso en pausa.
+                          ref
+                              .read(voiceSettingsProvider.notifier)
+                              .speak(VoiceEventType.activityPaused);
+                        }
+                      },
+                      onFinishPressed: () =>
+                          _confirmAndFinish(context, recordingController),
+                    ),
+                    // Dentro de un segmento, el panel expandido muestra la
+                    // pantalla de segmento (perfil + polilínea + tus
+                    // datos configurables) en vez del cockpit normal.
+                    expanded: segmentLive != null
+                        ? SegmentLiveScreen(
+                            onCollapse: () =>
+                                _slidingPanelKey.currentState?.collapse(),
+                          )
+                        : CockpitFullscreenView(
+                            tiles: cockpitTiles,
+                            liveData: liveData,
+                            onSwipeDown: () =>
+                                _slidingPanelKey.currentState?.collapse(),
+                          ),
+                  ),
+                ),
+
+                // Barra lateral tipo Waze/Maps -- independiente del
+                // cockpit compacto/fullscreen en cuanto a SU EXISTENCIA
+                // (vive todo el tiempo que se está grabando), pero se
+                // desvanece mientras el cockpit está en pantalla
+                // completa (isCockpitExpanded) para no duplicar el dato
+                // si ese mismo campo aparece como tile en la grilla.
+                //
+                // Se centra verticalmente en toda la pantalla (top: 0,
+                // bottom: 0 + Center) y luego se sube un poco con
+                // Transform.translate según _lateralBarLiftPixels -- así
+                // queda "un poco arriba del centro" y es fácil de
+                // ajustar tocando esa única constante. El right usa el
+                // mismo margen que el botón de recentrar para que
+                // ambos queden alineados en la misma columna.
+                // Se oculta también mientras estás dentro de un segmento
+                // -- ahí la pantalla de segmento ya muestra velocidad y
+                // demás, y el mapa se ve más limpio.
+                if (recordingState.isRecording && segmentLive == null)
+                  Positioned(
+                    right: _sideRightMargin,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Transform.translate(
+                        offset: const Offset(0, -_lateralBarLiftPixels),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.3,
+                          child: LateralDataBar(
+                            liveData: liveData,
+                            isApproximate:
+                                recordingState.isApproximateElevation,
+                            isCockpitExpanded: _isCockpitExpanded,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-              // Botón flotante "Navegar" -- abre el buscador de
-              // destino y traza la ruta más corta (ver
-              // navigation_search_sheet.dart). Solo aparece si ya
-              // tenés el grafo vial de tu zona descargado (ver
-              // Ajustes > Navegación); si no, no tiene sentido
-              // mostrarlo porque no hay con qué calcular la ruta.
-              // Se ubica arriba del botón de recentrar, mismo margen
-              // derecho para quedar alineados.
-              if (hasNavigationData && segmentLive == null)
-                Positioned(
-                  right: _sideRightMargin,
-                  bottom: 230 + MediaQuery.of(context).padding.bottom,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 400),
-                    opacity: _isCockpitExpanded ? 0.0 : 1.0,
-                    child: IgnorePointer(
-                      ignoring: _isCockpitExpanded,
-                      child: activeNavigationRoute == null
-                          ? _NavigateButton(
-                              onTap: () => showNavigationSearchSheet(
-                                context,
-                                ref,
-                                fromLat: markerPosition.latitude,
-                                fromLng: markerPosition.longitude,
+                // Botón flotante "Navegar" -- abre el buscador de
+                // destino y traza la ruta más corta (ver
+                // navigation_search_sheet.dart). Solo aparece si ya
+                // tenés el grafo vial de tu zona descargado (ver
+                // Ajustes > Navegación); si no, no tiene sentido
+                // mostrarlo porque no hay con qué calcular la ruta.
+                // Se ubica arriba del botón de recentrar, mismo margen
+                // derecho para quedar alineados.
+                if (hasNavigationData &&
+                    segmentLive == null &&
+                    routePreview == null)
+                  Positioned(
+                    right: _sideRightMargin,
+                    bottom: 230 + MediaQuery.of(context).padding.bottom,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 400),
+                      opacity: _isCockpitExpanded ? 0.0 : 1.0,
+                      child: IgnorePointer(
+                        ignoring: _isCockpitExpanded,
+                        child: activeNavigationRoute == null
+                            ? _NavigateButton(
+                                onTap: () =>
+                                    _openDestinationSearch(markerPosition),
+                              )
+                            : _CancelNavigationButton(
+                                onTap: () => confirmEndNavigation(context, ref),
                               ),
-                            )
-                          : _CancelNavigationButton(
-                              onTap: () => ref
-                                  .read(navigationControllerProvider)
-                                  .cancelNavigation(),
-                            ),
+                      ),
                     ),
                   ),
-                ),
 
-              // Control unificado de mapa (recentrar + seguir +
-              // brújula), estilo Google Maps/Waze -- un solo botón.
-              // Se desvanece cuando el cockpit/segmento está en
-              // pantalla completa.
-              Positioned(
-                right: _sideRightMargin,
-                bottom: 170 + MediaQuery.of(context).padding.bottom,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 400),
-                  opacity: _isCockpitExpanded ? 0.0 : 1.0,
-                  child: IgnorePointer(
-                    ignoring: _isCockpitExpanded,
-                    child: MapControlsCluster(
-                      mode: _followMode,
-                      mapRotationDegrees: _currentMapRotationDegrees,
-                      onRecenter: () => _recenterAndFollow(markerPosition),
-                      onToggleHeading: _toggleHeadingUp,
-                      onResetNorthFollow: () =>
-                          _resetNorthAndFollow(markerPosition),
+                // --- Tarjeta "Confirmar la ruta" -- aparece cuando hay
+                // una ruta calculada esperando el "Empezar". Cubre el
+                // cockpit compacto mientras decides.
+                if (routePreview != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: RouteConfirmCard(
+                      preview: routePreview,
+                      onChange: () {
+                        ref.read(navigationControllerProvider).clearPreview();
+                        _openDestinationSearch(markerPosition);
+                      },
                     ),
                   ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+
+                // Control unificado de mapa (recentrar + seguir +
+                // brújula), estilo Google Maps/Waze -- un solo botón.
+                // Se desvanece cuando el cockpit/segmento está en
+                // pantalla completa, o mientras confirmas una ruta (la
+                // tarjeta lo tapa).
+                if (routePreview == null)
+                  Positioned(
+                    right: _sideRightMargin,
+                    bottom: 170 + MediaQuery.of(context).padding.bottom,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 400),
+                      opacity: _isCockpitExpanded ? 0.0 : 1.0,
+                      child: IgnorePointer(
+                        ignoring: _isCockpitExpanded,
+                        child: MapControlsCluster(
+                          mode: _followMode,
+                          mapRotationDegrees: _currentMapRotationDegrees,
+                          onRecenter: () => _recenterAndFollow(markerPosition),
+                          onToggleHeading: _toggleHeadingUp,
+                          onResetNorthFollow: () =>
+                              _resetNorthAndFollow(markerPosition),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -769,17 +848,49 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
 
     // Voz: la actividad terminó y ya se generó el resumen.
-    ref.read(voiceSettingsProvider.notifier).speak(
-          VoiceEventType.activityFinished,
-        );
+    ref
+        .read(voiceSettingsProvider.notifier)
+        .speak(VoiceEventType.activityFinished);
 
     if (!context.mounted) return;
 
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SaveActivityScreen(summary: summary),
-      ),
+      MaterialPageRoute(builder: (_) => SaveActivityScreen(summary: summary)),
     );
+  }
+
+  /// Abre el buscador de destino; si el usuario elige uno, calcula la
+  /// ruta y la deja en preview (la tarjeta "Confirmar la ruta").
+  Future<void> _openDestinationSearch(latlng.LatLng from) async {
+    final target = await showNavigationSearchSheet(
+      context,
+      ref,
+      fromLat: from.latitude,
+      fromLng: from.longitude,
+    );
+    if (target == null || !mounted) return;
+    await _startPreviewTo(target, from);
+  }
+
+  Future<void> _startPreviewTo(
+    NavigationTarget target,
+    latlng.LatLng from,
+  ) async {
+    try {
+      await ref
+          .read(navigationControllerProvider)
+          .previewRoute(
+            target: target,
+            fromLat: from.latitude,
+            fromLng: from.longitude,
+          );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 }
 
@@ -792,7 +903,7 @@ class _NavigateButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withValues(alpha: 0.55),
+      color: CcColors.glass,
       shape: const CircleBorder(),
       elevation: 4,
       child: InkWell(
@@ -800,9 +911,80 @@ class _NavigateButton extends StatelessWidget {
         onTap: onTap,
         child: const Padding(
           padding: EdgeInsets.all(14),
-          child: Icon(Icons.directions, color: Colors.white, size: 22),
+          child: Icon(Icons.directions, color: CcColors.blue, size: 22),
         ),
       ),
+    );
+  }
+}
+
+/// Estrella dorada (o ícono de Casa) sobre una ubicación guardada.
+/// Tocarla la pone como destino.
+class _SavedPlaceMarker extends StatelessWidget {
+  final String kind;
+  final VoidCallback onTap;
+
+  const _SavedPlaceMarker({required this.kind, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isHome = kind == 'home';
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: CcColors.glass,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isHome ? CcColors.blue : CcColors.gold,
+            width: 1.5,
+          ),
+        ),
+        child: Icon(
+          isHome ? Icons.home_rounded : Icons.star_rounded,
+          color: isHome ? CcColors.blue : CcColors.gold,
+          size: 16,
+        ),
+      ),
+    );
+  }
+}
+
+/// Montañita ámbar en el destino cuando la ruta va hacia un alto.
+class _PeakMarker extends StatelessWidget {
+  const _PeakMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Transform.rotate(
+          angle: -0.785398, // -45°
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: CcColors.glass,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(11),
+                topRight: Radius.circular(11),
+                bottomLeft: Radius.circular(11),
+                bottomRight: Radius.circular(3),
+              ),
+              border: Border.all(color: CcColors.mSlope, width: 1.5),
+            ),
+            child: Transform.rotate(
+              angle: 0.785398,
+              child: const Icon(
+                Icons.terrain,
+                color: CcColors.mSlope,
+                size: 15,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -847,7 +1029,7 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withValues(alpha: 0.55),
+      color: CcColors.glass,
       borderRadius: BorderRadius.circular(20),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -909,7 +1091,7 @@ class _ShareLogButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withValues(alpha: 0.55),
+      color: CcColors.glass,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -987,8 +1169,7 @@ class _CompactCockpitPanel extends StatelessWidget {
                         final d = f.display(liveData);
                         return Expanded(
                           child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: StatTile(
                               icon: d.icon,
                               accentColor: d.color,

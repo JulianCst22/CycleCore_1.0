@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/auth_repository.dart';
 import '../data/local/local_auth_repository.dart';
+import '../domain/auth_exceptions.dart';
 import '../domain/auth_session.dart';
 
 /// Único punto de decisión de qué implementación usar. Cuando exista el
@@ -26,24 +27,42 @@ class AuthNotifier extends AsyncNotifier<AuthSession?> {
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).register(
-            email: email,
-            password: password,
-            displayName: displayName,
-          ),
+      () => ref
+          .read(authRepositoryProvider)
+          .register(email: email, password: password, displayName: displayName),
     );
   }
 
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
       () => ref
           .read(authRepositoryProvider)
           .login(email: email, password: password),
     );
+  }
+
+  /// `true` si ya hay una cuenta con ese correo -- para validar el paso
+  /// de registro antes de pedir el resto de los datos. No toca `state`.
+  Future<bool> emailTaken(String email) =>
+      ref.read(authRepositoryProvider).emailTaken(email);
+
+  /// Cambia la contraseña de la sesión activa. Propaga
+  /// `WrongCurrentPasswordException` / `WeakPasswordException`. No toca
+  /// `state` (la sesión sigue siendo válida).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = state.valueOrNull;
+    if (session == null) throw const SessionExpiredException();
+    await ref
+        .read(authRepositoryProvider)
+        .changePassword(
+          email: session.email,
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
   }
 
   Future<void> logout() async {

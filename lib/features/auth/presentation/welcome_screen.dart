@@ -1,95 +1,89 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/accent_gradients.dart';
+import '../../../core/theme/cc_colors.dart';
+import '../../../core/theme/cc_type.dart';
 import 'account_setup_wizard.dart';
 import 'login_screen.dart';
+import 'widgets/dawn_hero.dart';
 
 /// Primera pantalla que ve alguien que abre la app sin perfil ni
 /// sesión -- el "momento de vender la app" antes de pedir cualquier
-/// dato. Foto de fondo + overlay + 3 caminos, igual que apps modernas
-/// (Strava, Spotify, etc): "Crear cuenta", "Iniciar sesión",
-/// "Continuar como invitado". Ninguno es obligatorio ni bloquea nada
-/// -- ver `core/navigation/app_gate.dart` para el porqué.
+/// dato. Tres caminos: "Crear cuenta", "Iniciar sesión", "Continuar
+/// como invitado". Ninguno es obligatorio -- ver
+/// `core/navigation/app_gate.dart`.
 ///
-/// [onContinueAsGuest] es flexible a propósito: cuando el gate normal
-/// (perfil inexistente) muestra este widget, ese callback activa el
-/// modo invitado del `AppGate`. Cuando el `ProfileScreen` reabre esta
-/// misma pantalla tras cerrar sesión (perfil YA existente), ese
-/// callback simplemente cierra la pantalla y vuelve al perfil que ya
-/// estaba ahí -- ver `_handleLogout` en `profile_screen.dart`.
-class WelcomeScreen extends StatefulWidget {
+/// Rediseño: se abandona la foto de stock enlazada por internet (rompía
+/// el offline-first). El fondo es ahora una ilustración de amanecer
+/// sobre un puerto de montaña dibujada en código ([DawnHero]) -- con
+/// profundidad y luz, pero sin imágenes externas ni licencias. El brillo
+/// cálido del horizonte es el mismo naranja de marca. Las animaciones de
+/// entrada escalonada se conservan. Si más adelante hay una fotografía
+/// de marca real, entra sobre el `DawnHero`, bajo el `DawnHeroVeil`.
+class WelcomeScreen extends StatelessWidget {
   final VoidCallback onContinueAsGuest;
 
   const WelcomeScreen({super.key, required this.onContinueAsGuest});
 
   @override
-  State<WelcomeScreen> createState() => _WelcomeScreenState();
-}
-
-class _WelcomeScreenState extends State<WelcomeScreen> {
-  // URL de foto de stock (Unsplash Source) como placeholder de fondo.
-  // Cámbiala por un asset local en pubspec.yaml cuando tengas la
-  // fotografía definitiva de marca. Si no hay internet o falla la
-  // carga, el gradiente de marca solo (errorBuilder abajo) se ve
-  // bien igual -- nunca deja la pantalla en blanco.
-  static const _backgroundImageUrl =
-      'https://images.unsplash.com/photo-1517649763962-0c623066013b'
-      '?auto=format&fit=crop&w=1400&q=80';
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AccentGradients.indigoDeep,
+      backgroundColor: CcColors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ---- Foto de fondo ----
-          Image.network(
-            _backgroundImageUrl,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(color: AccentGradients.indigoDeep);
-            },
-            errorBuilder: (context, error, stack) => Container(
-              decoration: const BoxDecoration(
-                gradient: AccentGradients.backgroundGradient,
+          const DawnHero(),
+          // Velo: arriba y en el medio queda despejado para que se
+          // aprecie la ilustración; solo oscurece la franja de abajo,
+          // donde van los botones.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x220E1116),
+                  Color(0x000E1116),
+                  Color(0x3D0E1116),
+                  Color(0xE60E1116),
+                  CcColors.bg,
+                ],
+                stops: [0.0, 0.34, 0.62, 0.82, 1.0],
               ),
             ),
           ),
-          // ---- Overlay de legibilidad ----
-          const DecoratedBox(
-            decoration: BoxDecoration(gradient: AccentGradients.photoOverlay),
-          ),
-          // ---- Contenido ----
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
+              padding: const EdgeInsets.fromLTRB(28, 6, 28, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Spacer(flex: 3),
                   _AnimatedEntry(
                     delay: Duration.zero,
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          width: 42,
+                          height: 42,
                           decoration: BoxDecoration(
-                            gradient: AccentGradients.ctaGradient,
-                            borderRadius: BorderRadius.circular(14),
+                            color: CcColors.surfaceHi.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(13),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
                           ),
-                          child: const Icon(Icons.directions_bike_rounded,
-                              color: Colors.white, size: 26),
+                          child: const Icon(
+                            Icons.directions_bike_rounded,
+                            color: CcColors.orange,
+                            size: 22,
+                          ),
                         ),
-                        const SizedBox(width: 12),
-                        const Text(
+                        const SizedBox(width: 11),
+                        Text(
                           'CycleCore',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
+                          style: CcType.displayStyle(
+                            size: 19,
+                            weight: FontWeight.w600,
+                            letterSpacing: 0.1,
                           ),
                         ),
                       ],
@@ -97,116 +91,96 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   const Spacer(flex: 2),
                   _AnimatedEntry(
-                    delay: const Duration(milliseconds: 120),
-                    child: const Text(
+                    delay: const Duration(milliseconds: 140),
+                    child: Text(
                       'Cada subida\ncuenta una historia.',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 38,
-                        height: 1.12,
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style:
+                          CcType.displayStyle(
+                            size: 26,
+                            weight: FontWeight.w700,
+                            height: 1.16,
+                            letterSpacing: -0.015,
+                          ).copyWith(
+                            shadows: const [
+                              Shadow(color: Color(0xB3000000), blurRadius: 18),
+                            ],
+                          ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   _AnimatedEntry(
-                    delay: const Duration(milliseconds: 220),
+                    delay: const Duration(milliseconds: 240),
                     child: Text(
-                      'Registra tus rutas, mide tu esfuerzo real y '
-                      'funciona sin señal, hasta en el páramo.',
+                      'Registra tus rutas, mide tu esfuerzo real y funciona '
+                      'sin señal — hasta en el páramo.',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontSize: 15,
-                        height: 1.4,
+                        color: CcColors.ink.withValues(alpha: 0.8),
+                        fontSize: 14,
+                        height: 1.45,
+                        shadows: const [
+                          Shadow(color: Color(0x99000000), blurRadius: 14),
+                        ],
                       ),
                     ),
                   ),
                   const Spacer(flex: 3),
                   _AnimatedEntry(
-                    delay: const Duration(milliseconds: 340),
+                    delay: const Duration(milliseconds: 360),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 56,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: AccentGradients.ctaGradient,
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: AccentGradients.ctaGlow(),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const AccountSetupWizard(),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'Crear cuenta',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AccountSetupWizard(),
                           ),
                         ),
+                        child: const Text('Crear cuenta'),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   _AnimatedEntry(
-                    delay: const Duration(milliseconds: 420),
+                    delay: const Duration(milliseconds: 440),
                     child: SizedBox(
                       width: double.infinity,
-                      height: 56,
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const LoginScreen(),
                           ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.55),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
-                        child: const Text(
-                          'Iniciar sesión',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
+                        child: const Text('Iniciar sesión'),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   _AnimatedEntry(
-                    delay: const Duration(milliseconds: 500),
+                    delay: const Duration(milliseconds: 520),
                     child: Center(
                       child: TextButton(
-                        onPressed: widget.onContinueAsGuest,
-                        child: Text(
-                          'Continuar como invitado',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                            decorationColor:
-                                Colors.white.withValues(alpha: 0.4),
+                        onPressed: onContinueAsGuest,
+                        style: TextButton.styleFrom(
+                          foregroundColor: CcColors.inkDim,
+                        ),
+                        child: const Text.rich(
+                          TextSpan(
+                            text: 'o ',
+                            children: [
+                              TextSpan(
+                                text: 'entra como invitado',
+                                style: TextStyle(
+                                  color: CcColors.ink,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: CcColors.inkFaint,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
                 ],
               ),
             ),
