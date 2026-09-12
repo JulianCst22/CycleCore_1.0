@@ -11,7 +11,7 @@ import 'package:cyclecore_core/sensors/altitude_debug_logger.dart';
 import 'package:cyclecore_core/sensors/altitude_fusion_service.dart';
 import 'package:cyclecore_core/sensors/barometer_service.dart';
 import '../../activities/domain/activity_altitude_flattener.dart';
-import '../../activities/domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 import '../../elevation/data/elevation_resolver.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import '../../sensors/presentation/speed_providers.dart';

@@ -12,7 +12,7 @@ import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cyclecore_palette.dart';
 import '../../../shared_widgets/map_controls_cluster.dart';
 import '../../../shared_widgets/stat_tile.dart';
-import '../../activities/presentation/ride_sensor_log.dart';
+import 'ride_sensor_log.dart';
 import '../../elevation/presentation/elevation_download_dialog.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import '../../activities/presentation/save_activity_screen.dart';
@@ -855,7 +855,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (!context.mounted) return;
 
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SaveActivityScreen(summary: summary)),
+      MaterialPageRoute(
+        builder: (_) => SaveActivityScreen(
+          summary: summary,
+          // Los esfuerzos de segmento detectados durante la grabación
+          // se bufferizan sin id de actividad (ver
+          // SegmentDetectionController) -- acá se resuelven ya con el
+          // id, o se tiran si el usuario descarta la grabación.
+          onActivitySaved: (activityId) => ref
+              .read(segmentDetectionProvider.notifier)
+              .flushPendingEfforts(activityId),
+          onRecordingDiscarded: () => ref
+              .read(segmentDetectionProvider.notifier)
+              .discardPendingEfforts(),
+        ),
+      ),
     );
   }
 

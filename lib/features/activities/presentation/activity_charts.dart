@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/utils/format_utils.dart';
 import '../domain/activity_colors.dart';
-import '../domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 
 enum ChartOverlay { heartRate, speed, slope, power, cadence }
 

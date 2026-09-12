@@ -8,8 +8,8 @@ import 'package:latlong2/latlong.dart' as latlng;
 
 import 'package:cyclecore_core/database/app_database.dart';
 import 'package:cyclecore_core/theme/app_colors.dart';
-import '../../activities/domain/activity_json_helpers.dart';
-import '../../activities/domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_json_helpers.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 import '../data/segments_repository.dart';
 import '../domain/segment_profile_builder.dart';
 import '../domain/segment_stats_calculator.dart';

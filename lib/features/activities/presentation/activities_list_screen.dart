@@ -9,7 +9,7 @@ import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
 import 'package:cyclecore_core/utils/format_utils.dart';
 import '../../profile/presentation/profile_providers.dart';
-import '../domain/activity_json_helpers.dart';
+import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import '../domain/activity_records.dart';
 import 'activities_providers.dart';
 import 'activity_detail_screen.dart';

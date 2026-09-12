@@ -12,9 +12,8 @@ import '../../profile/domain/activity_climb_result.dart';
 import '../../profile/domain/xp_calculator.dart';
 import '../../profile/presentation/climb_screen.dart';
 import '../../profile/presentation/xp_debug_provider.dart';
-import '../../segments/presentation/segment_detection_providers.dart';
-import '../domain/activity_json_helpers.dart';
-import '../domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_json_helpers.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 import 'activities_providers.dart';
 import 'widgets/activity_summary_block.dart';
 
@@ -36,8 +35,25 @@ class SaveActivityScreen extends ConsumerStatefulWidget {
   final ActivitySummary? summary;
   final Activity? existingActivity;
 
-  const SaveActivityScreen({super.key, this.summary, this.existingActivity})
-    : assert(
+  /// Se llama tras guardar una actividad NUEVA (no en modo editar), ya
+  /// con el id asignado en la base de datos. Quien construya esta
+  /// pantalla (hoy, `MapScreen`) decide qué hacer con los esfuerzos de
+  /// segmento detectados durante la grabación -- esta pantalla ya no
+  /// conoce `SegmentDetectionController` directamente.
+  final Future<void> Function(int activityId)? onActivitySaved;
+
+  /// Se llama al descartar una grabación nueva (no en modo editar), antes
+  /// de volver al mapa -- típicamente para tirar esos mismos esfuerzos
+  /// de segmento bufferizados.
+  final VoidCallback? onRecordingDiscarded;
+
+  const SaveActivityScreen({
+    super.key,
+    this.summary,
+    this.existingActivity,
+    this.onActivitySaved,
+    this.onRecordingDiscarded,
+  }) : assert(
         summary != null || existingActivity != null,
         'SaveActivityScreen necesita summary (nueva grabación) o '
         'existingActivity (editar una ya guardada).',
@@ -156,12 +172,10 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
         notes: notes,
         temporaryPhotoPaths: _newPhotos.map((f) => f.path).toList(),
       );
-      // Vuelca los esfuerzos de segmento detectados durante la
-      // grabación, ya con el id de la actividad recién creada (ver
-      // SegmentDetectionController).
-      await ref
-          .read(segmentDetectionProvider.notifier)
-          .flushPendingEfforts(activityId);
+      // Avisa a quien nos construyó (ver `onActivitySaved`) que ya hay
+      // id -- típicamente para volcar los esfuerzos de segmento
+      // detectados durante la grabación.
+      await widget.onActivitySaved?.call(activityId);
 
       // XP total DESPUÉS de guardar -- recalculado sobre la lista ya con
       // la actividad nueva (una salida puede además cambiar el récord
@@ -242,9 +256,10 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
       // debajo en el stack) sepa que también debe cerrarse.
       Navigator.of(context).pop('deleted');
     } else {
-      // Se descarta la grabación -> también los esfuerzos de segmento
-      // detectados en ella.
-      ref.read(segmentDetectionProvider.notifier).discardPendingEfforts();
+      // Se descarta la grabación -> avisa a quien nos construyó (ver
+      // `onRecordingDiscarded`), típicamente para tirar los esfuerzos
+      // de segmento detectados en ella.
+      widget.onRecordingDiscarded?.call();
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }

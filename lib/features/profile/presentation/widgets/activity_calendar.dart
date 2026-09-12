@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
-import '../../../activities/domain/activity_json_helpers.dart';
+import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import '../../domain/calendar_day_info.dart';
 import '../profile_providers.dart';
 import 'day_detail_sheet.dart';

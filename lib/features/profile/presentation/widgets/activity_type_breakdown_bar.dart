@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../../activities/domain/activity_json_helpers.dart';
+import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import '../../domain/profile_stats.dart';
 
 /// Barra de proporción por tipo de actividad (carrera vs entrenamiento,

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:cyclecore_core/theme/cyclecore_palette.dart';
-import '../../domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 
 /// Dibuja el trazado de la actividad como una línea coloreada por
 /// pendiente (mapa de calor, mismo criterio que el detalle), escalada

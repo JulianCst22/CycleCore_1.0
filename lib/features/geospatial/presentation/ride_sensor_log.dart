@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/providers/heart_rate_provider.dart';
-import '../../geospatial/presentation/map_providers.dart'
+import 'map_providers.dart'
     show routeRecordingProvider, RouteRecordingState;
 import '../../sensors/presentation/cadence_providers.dart';
 import '../../sensors/presentation/power_providers.dart';
-import '../domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 
 /// Bitácora de muestras de sensores (FC / potencia / cadencia) con su
 /// timestamp, acumuladas SOLO mientras se está grabando y sin pausa.

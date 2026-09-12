@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
 import 'package:cyclecore_core/theme/app_colors.dart';
-import '../../domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 
 /// Fondo "hero" para la tarjeta grande de actividad -- muestra el
 /// mapa real (tiles de OpenStreetMap) con la ruta dibujada encima en

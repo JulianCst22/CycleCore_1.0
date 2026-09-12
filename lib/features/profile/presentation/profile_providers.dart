@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/database/app_database.dart';
-import '../../activities/domain/activity_json_helpers.dart';
+import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import '../../activities/presentation/activities_providers.dart';
 import '../data/profile_repository.dart';
 import '../domain/calendar_day_info.dart';

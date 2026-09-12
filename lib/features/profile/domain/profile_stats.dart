@@ -1,5 +1,5 @@
 import 'package:cyclecore_core/database/app_database.dart';
-import '../../activities/domain/activity_json_helpers.dart';
+import 'package:cyclecore_core/database/activity_json_helpers.dart';
 
 /// Periodo de agregación para la pantalla de estadísticas, estilo
 /// Strava: semana / mes / año / histórico completo.

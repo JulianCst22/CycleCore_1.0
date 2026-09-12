@@ -1,6 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 
-import '../../activities/domain/activity_summary.dart';
+import 'package:cyclecore_core/database/activity_summary.dart';
 import '../../geospatial/domain/slope_window_calculator.dart';
 import 'segment_profile.dart';
 
