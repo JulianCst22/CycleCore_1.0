@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cyclecore_core/theme/cyclecore_palette.dart';
-import '../domain/cockpit_field.dart';
+import 'package:cyclecore_core/cockpit/cockpit_field.dart';
 import 'cockpit_field_ui.dart';
 
 /// Campos que tiene sentido monitorear como "gauge" -- un subconjunto

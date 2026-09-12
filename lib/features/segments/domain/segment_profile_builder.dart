@@ -1,7 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 
 import 'package:cyclecore_core/database/activity_summary.dart';
-import '../../geospatial/domain/slope_window_calculator.dart';
+import 'package:cyclecore_core/utils/slope_window_calculator.dart';
 import 'segment_profile.dart';
 
 /// A qué distancia del inicio se toma el punto de referencia para el

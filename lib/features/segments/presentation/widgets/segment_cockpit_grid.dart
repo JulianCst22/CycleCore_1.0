@@ -3,7 +3,7 @@ import 'package:latlong2/latlong.dart' as latlng;
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../../geospatial/domain/cockpit_tile_packing.dart';
+import 'package:cyclecore_core/cockpit/cockpit_tile_packing.dart';
 import '../../domain/segment_cockpit_field.dart';
 import '../../domain/segment_cockpit_tile_config.dart';
 import '../../domain/segment_profile.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/cockpit_layout_repository.dart';
-import '../domain/cockpit_tile_config.dart';
+import 'package:cyclecore_core/cockpit/cockpit_tile_config.dart';
 
 final cockpitLayoutRepositoryProvider = Provider<CockpitLayoutRepository>((
   ref,

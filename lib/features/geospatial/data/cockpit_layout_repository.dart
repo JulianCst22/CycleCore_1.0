@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../domain/cockpit_field.dart';
-import '../domain/cockpit_tile_config.dart';
+import 'package:cyclecore_core/cockpit/cockpit_field.dart';
+import 'package:cyclecore_core/cockpit/cockpit_tile_config.dart';
 
 /// Persiste el layout del cockpit (qué campos, en qué orden, con qué
 /// tamaño) en SharedPreferences.

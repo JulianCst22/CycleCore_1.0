@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/theme/cyclecore_palette.dart';
-import '../domain/cockpit_tile_config.dart';
-import '../domain/cockpit_tile_packing.dart';
+import 'package:cyclecore_core/cockpit/cockpit_tile_config.dart';
+import 'package:cyclecore_core/cockpit/cockpit_tile_packing.dart';
 import 'cockpit_field_ui.dart';
-import '../domain/cockpit_field.dart';
+import 'package:cyclecore_core/cockpit/cockpit_field.dart';
 import 'gauge_value.dart';
 
 /// Grilla del cockpit -- renderiza [tiles] usando `packCockpitTiles`

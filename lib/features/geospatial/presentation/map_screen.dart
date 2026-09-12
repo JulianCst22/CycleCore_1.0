@@ -33,7 +33,7 @@ import '../../sensors/presentation/power_providers.dart';
 import '../../voice/domain/voice_event.dart';
 import '../../voice/presentation/voice_providers.dart';
 import '../data/cockpit_layout_repository.dart';
-import '../domain/cockpit_field.dart';
+import 'package:cyclecore_core/cockpit/cockpit_field.dart';
 import 'cockpit_field_ui.dart';
 import 'cockpit_fullscreen_view.dart';
 import 'cockpit_layout_providers.dart';

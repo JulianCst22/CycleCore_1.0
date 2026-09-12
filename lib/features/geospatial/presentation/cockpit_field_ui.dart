@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/utils/format_utils.dart';
-import '../domain/cockpit_field.dart';
+import 'package:cyclecore_core/cockpit/cockpit_field.dart';
 
 /// Resultado ya armado (ícono, color, etiqueta, valor formateado y
 /// unidad) para un campo del cockpit, listo para pintar en un tile.

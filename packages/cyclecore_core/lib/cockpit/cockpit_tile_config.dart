@@ -1,4 +1,4 @@
-import '../domain/cockpit_field.dart';
+import 'cockpit_field.dart';
 
 /// Tamaño visual de un campo dentro del cockpit configurable.
 ///

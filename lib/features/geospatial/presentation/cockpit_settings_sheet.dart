@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import '../data/cockpit_layout_repository.dart';
-import '../domain/cockpit_field.dart';
-import '../domain/cockpit_tile_config.dart';
+import 'package:cyclecore_core/cockpit/cockpit_field.dart';
+import 'package:cyclecore_core/cockpit/cockpit_tile_config.dart';
 import 'cockpit_field_ui.dart';
 import 'cockpit_layout_providers.dart';
 

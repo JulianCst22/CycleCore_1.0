@@ -1,8 +1,8 @@
-import '../../geospatial/domain/cockpit_tile_config.dart' show CockpitTileSize;
+import 'package:cyclecore_core/cockpit/cockpit_tile_config.dart' show CockpitTileSize;
 
 import 'segment_cockpit_field.dart';
 
-export '../../geospatial/domain/cockpit_tile_config.dart'
+export 'package:cyclecore_core/cockpit/cockpit_tile_config.dart'
     show CockpitTileSize, CockpitTileSizeX;
 
 /// Un campo elegido para la pantalla de segmento + su tamaño. Reusa
