@@ -2,8 +2,8 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/database/app_database.dart';
-import '../../geospatial/presentation/ride_sensor_log.dart';
-import '../../geospatial/presentation/map_providers.dart'
+import '../../recording/presentation/ride_sensor_log.dart';
+import '../../recording/presentation/route_recording_providers.dart'
     show routeRecordingProvider, RouteRecordingState;
 import '../../voice/domain/voice_event.dart';
 import '../../voice/presentation/voice_providers.dart';

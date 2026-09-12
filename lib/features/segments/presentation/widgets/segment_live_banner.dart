@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../../geospatial/presentation/map_providers.dart'
+import '../../../recording/presentation/route_recording_providers.dart'
     show secondTickerProvider;
 import '../segment_detection_providers.dart';
 

@@ -7,7 +7,7 @@ import 'package:cyclecore_app/features/navigation/domain/route_preview.dart';
 import 'package:cyclecore_app/features/navigation/presentation/navigation_providers.dart';
 import 'package:cyclecore_app/features/navigation/presentation/route_confirm_card.dart';
 import 'package:cyclecore_app/features/navigation/presentation/saved_places_screen.dart';
-import 'package:cyclecore_app/features/geospatial/presentation/map_providers.dart';
+import 'package:cyclecore_app/features/recording/presentation/route_recording_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

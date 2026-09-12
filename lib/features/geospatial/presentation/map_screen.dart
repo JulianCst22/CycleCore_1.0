@@ -12,7 +12,7 @@ import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cyclecore_palette.dart';
 import '../../../shared_widgets/map_controls_cluster.dart';
 import '../../../shared_widgets/stat_tile.dart';
-import 'ride_sensor_log.dart';
+import '../../recording/presentation/ride_sensor_log.dart';
 import '../../elevation/presentation/elevation_download_dialog.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import '../../activities/presentation/save_activity_screen.dart';
@@ -39,7 +39,7 @@ import 'cockpit_fullscreen_view.dart';
 import 'cockpit_layout_providers.dart';
 import 'cockpit_sliding_panel.dart';
 import 'gps_status_widgets.dart';
-import 'map_providers.dart';
+import '../../recording/presentation/route_recording_providers.dart';
 import 'lateral_data_bar.dart';
 
 class MapScreen extends ConsumerStatefulWidget {

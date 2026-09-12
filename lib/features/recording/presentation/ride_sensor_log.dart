@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/providers/heart_rate_provider.dart';
-import 'map_providers.dart'
+import 'route_recording_providers.dart'
     show routeRecordingProvider, RouteRecordingState;
 import '../../sensors/presentation/cadence_providers.dart';
 import '../../sensors/presentation/power_providers.dart';
