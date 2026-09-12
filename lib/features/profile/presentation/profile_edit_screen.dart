@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../auth/presentation/widgets/auth_text_field.dart';
+import '../../../shared_widgets/auth_text_field.dart';
 import '../domain/cyclist_profile.dart';
 import '../domain/training_zones.dart';
 import 'profile_providers.dart';

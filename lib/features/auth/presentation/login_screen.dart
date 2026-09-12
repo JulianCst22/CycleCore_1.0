@@ -8,7 +8,7 @@ import 'account_success_screen.dart';
 import 'auth_providers.dart';
 import 'account_setup_wizard.dart';
 import 'widgets/auth_error_banner.dart';
-import 'widgets/auth_text_field.dart';
+import '../../../shared_widgets/auth_text_field.dart';
 import 'widgets/dawn_hero.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {

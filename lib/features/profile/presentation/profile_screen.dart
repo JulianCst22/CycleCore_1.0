@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'profile_providers.dart';
-import 'settings_screen.dart';
+import '../../../app/settings_screen.dart';
 import 'widgets/activity_calendar.dart';
 import 'widgets/featured_photos_grid.dart';
 import 'widgets/level_roadmap.dart';

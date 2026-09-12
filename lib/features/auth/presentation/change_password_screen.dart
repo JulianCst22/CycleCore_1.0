@@ -6,7 +6,7 @@ import 'package:cyclecore_core/theme/cc_type.dart';
 import '../domain/auth_exceptions.dart';
 import 'auth_providers.dart';
 import 'widgets/auth_error_banner.dart';
-import 'widgets/auth_text_field.dart';
+import '../../../shared_widgets/auth_text_field.dart';
 import 'widgets/password_strength_bar.dart';
 
 /// Cambiar la contraseña de la cuenta vinculada. Pide primero la

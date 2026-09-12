@@ -4,19 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cyclecore_core/navigation/soft_fade_route.dart';
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../auth/presentation/account_setup_wizard.dart';
-import '../../auth/presentation/auth_providers.dart';
-import '../../auth/presentation/change_password_screen.dart';
-import '../../auth/presentation/login_screen.dart';
-import '../../auth/presentation/welcome_screen.dart';
-import '../../elevation/presentation/elevation_settings_screen.dart';
-import '../../navigation/presentation/navigation_settings_screen.dart';
-import '../../navigation/presentation/saved_places_screen.dart';
-import '../../segments/presentation/segment_data_settings_screen.dart';
-import '../../sensors/presentation/sensors_screen.dart';
-import '../../voice/presentation/voice_selection_screen.dart';
-import 'profile_edit_screen.dart';
-import 'training_zones_screen.dart';
+import '../features/auth/presentation/account_setup_wizard.dart';
+import '../features/auth/presentation/auth_providers.dart';
+import '../features/auth/presentation/change_password_screen.dart';
+import '../features/auth/presentation/login_screen.dart';
+import '../features/auth/presentation/welcome_screen.dart';
+import '../features/elevation/presentation/elevation_settings_screen.dart';
+import '../features/navigation/presentation/navigation_settings_screen.dart';
+import '../features/navigation/presentation/saved_places_screen.dart';
+import '../features/profile/presentation/profile_edit_screen.dart';
+import '../features/profile/presentation/training_zones_screen.dart';
+import '../features/segments/presentation/segment_data_settings_screen.dart';
+import '../features/sensors/presentation/sensors_screen.dart';
+import '../features/voice/presentation/voice_selection_screen.dart';
 
 /// Pantalla de Ajustes -- el "panel de control" del usuario, separado de
 /// `ProfileScreen` (que es pura "vitrina": nivel, racha, fotos).
