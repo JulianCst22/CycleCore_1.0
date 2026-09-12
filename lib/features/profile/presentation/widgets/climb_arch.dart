@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../domain/climb_route.dart';
-import '../../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import 'climb_road.dart';
 
 /// Dibuja los **arcos** sobre la carretera en perspectiva: uno grande

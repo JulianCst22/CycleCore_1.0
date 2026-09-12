@@ -1,6 +1,6 @@
 import 'package:cyclecore_app/features/profile/domain/climb_progress.dart';
 import 'package:cyclecore_app/features/profile/domain/climb_route.dart';
-import 'package:cyclecore_app/features/profile/domain/level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,7 +1,7 @@
 import 'package:cyclecore_app/features/profile/domain/cyclist_kit.dart';
 import 'package:cyclecore_app/features/profile/domain/kit_catalog.dart';
 import 'package:cyclecore_app/features/profile/domain/kit_unlocks.dart';
-import 'package:cyclecore_app/features/profile/domain/level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 KitUnlockContext _ctx({

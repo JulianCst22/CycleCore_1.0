@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../domain/level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 
 /// Override de XP **solo para pruebas** desde el perfil.
 ///

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import 'pedaling_cyclist.dart';
 
 /// Cinemática breve que corta a **vista de perfil** para darle

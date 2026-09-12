@@ -7,7 +7,7 @@ import '../../voice/presentation/widgets/voice_roster_view.dart';
 import '../domain/cyclist_kit.dart';
 import '../domain/kit_catalog.dart';
 import '../domain/kit_unlocks.dart';
-import '../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import 'cyclist_kit_providers.dart';
 import 'widgets/kit_unlock_overlay.dart';
 import 'widgets/pedaling_cyclist.dart';

@@ -5,7 +5,7 @@ import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
 import '../../domain/climb_progress.dart';
 import '../../domain/climb_route.dart';
-import '../../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import '../climb_collectibles_provider.dart';
 
 /// El popup "Mi progreso": la altimetría REAL del Alto de Patios

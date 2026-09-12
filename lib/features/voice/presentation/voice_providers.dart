@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../profile/domain/kit_unlocks.dart';
+import 'package:cyclecore_core/gamification/kit_unlock_context.dart';
 import '../../profile/presentation/cyclist_kit_providers.dart';
 import '../data/voice_engine.dart';
 import '../data/voice_settings_repository.dart';

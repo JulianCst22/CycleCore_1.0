@@ -1,6 +1,6 @@
-import '../../profile/domain/cyclist_kit.dart'
+import 'package:cyclecore_core/gamification/kit_unlock_condition.dart'
     show KitUnlockCondition, KitUnlockKind;
-import '../../profile/domain/level_info.dart' show CyclistRank;
+import 'package:cyclecore_core/gamification/level_info.dart' show CyclistRank;
 
 /// De dónde saca el motor las frases habladas para esta persona.
 ///

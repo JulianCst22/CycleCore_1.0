@@ -7,7 +7,7 @@ import '../data/profile_repository.dart';
 import '../domain/calendar_day_info.dart';
 import '../domain/cyclist_profile.dart';
 import '../domain/featured_photo.dart';
-import '../domain/level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 import '../domain/profile_stats.dart';
 import '../domain/stats_trend.dart';
 import '../domain/streak_calculator.dart';

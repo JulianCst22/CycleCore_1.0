@@ -1,7 +1,7 @@
 import 'climb_progress.dart';
 import 'climb_route.dart';
-import 'level_info.dart';
-import 'rank_tier.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 
 /// Qué le pasó al ciclista de la subida cuando el usuario guardó una
 /// actividad: cuánta XP ganó, cuánto avanzó sobre el Alto de Patios, qué

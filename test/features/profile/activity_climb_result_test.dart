@@ -1,5 +1,5 @@
 import 'package:cyclecore_app/features/profile/domain/activity_climb_result.dart';
-import 'package:cyclecore_app/features/profile/domain/level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 int _xpForLevel(int level) => LevelCalculator.cumulativeXpToReach(level);

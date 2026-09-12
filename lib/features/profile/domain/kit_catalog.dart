@@ -1,5 +1,5 @@
 import 'cyclist_kit.dart';
-import 'level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 
 /// Catálogo de todo lo que se puede llevar en la subida: los 6 maillots
 /// y las 6 bicis de rango (cambian de color con el rango, se desbloquean

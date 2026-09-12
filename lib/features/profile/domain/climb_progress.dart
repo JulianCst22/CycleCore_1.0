@@ -1,6 +1,6 @@
 import 'climb_route.dart';
-import 'level_info.dart';
-import 'rank_tier.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 
 /// Dónde está el ciclista sobre la subida REAL del Alto de Patios,
 /// derivado de su nivel + progreso dentro del nivel.

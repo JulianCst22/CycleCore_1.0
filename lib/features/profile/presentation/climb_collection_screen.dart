@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import '../domain/climb_route.dart';
-import '../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import 'climb_collectibles_provider.dart';
 
 /// Repaso de todo lo que ya se descubrió en la subida: los puntos de

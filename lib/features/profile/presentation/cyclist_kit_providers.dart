@@ -5,7 +5,7 @@ import '../data/cyclist_kit_repository.dart';
 import '../domain/cyclist_kit.dart';
 import '../domain/kit_catalog.dart';
 import '../domain/kit_unlocks.dart';
-import '../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import 'climb_collectibles_provider.dart';
 import 'profile_providers.dart';
 import 'widgets/pedaling_cyclist.dart';
@@ -66,7 +66,7 @@ final kitUnlockContextProvider = Provider<KitUnlockContext?>((ref) {
   if (level == null || stats == null) return null;
   final postales =
       ref.watch(climbCollectiblesProvider).valueOrNull?.length ?? 0;
-  return KitUnlockContext.from(
+  return kitUnlockContextFrom(
     levelInfo: level,
     allTimeStats: stats,
     postalesCount: postales,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
-import '../../domain/level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 import '../profile_providers.dart';
 
 /// Insignia de nivel y rango -- el corazón visual de la gamificación

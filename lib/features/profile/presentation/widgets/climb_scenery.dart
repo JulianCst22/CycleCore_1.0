@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
 import '../../domain/climb_route.dart';
-import '../../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import '../profile_providers.dart';
 import 'climb_arch.dart';
 import 'climb_road.dart';

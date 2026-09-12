@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../domain/climb_route.dart';
-import '../../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import '../xp_debug_provider.dart';
 
 /// Botón + bottom sheet para fijar manualmente un nivel de prueba desde

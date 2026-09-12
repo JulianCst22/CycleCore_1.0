@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
-import '../../domain/level_info.dart';
-import '../../domain/rank_tier.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
 import '../climb_screen.dart';
 import '../profile_providers.dart';
 

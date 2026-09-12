@@ -1,5 +1,5 @@
-import 'rank_tier.dart';
-import 'level_info.dart';
+import 'package:cyclecore_core/gamification/rank_tier.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 
 /// Un punto de interés fijo en la "subida", asociado a un nivel
 /// concreto. Es contenido de producto (nombres y datos), separado del

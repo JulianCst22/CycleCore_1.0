@@ -1,5 +1,5 @@
 import 'package:cyclecore_app/features/profile/domain/kit_unlocks.dart';
-import 'package:cyclecore_app/features/profile/domain/level_info.dart';
+import 'package:cyclecore_core/gamification/level_info.dart';
 import 'package:cyclecore_app/features/profile/presentation/cyclist_kit_providers.dart';
 import 'package:cyclecore_app/features/voice/data/voice_engine.dart';
 import 'package:cyclecore_app/features/voice/domain/voice_event.dart';
