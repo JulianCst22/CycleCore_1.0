@@ -4,9 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../voice/domain/voice_persona.dart';
-import '../../voice/presentation/voice_providers.dart';
-import '../../voice/presentation/widgets/voice_unlock_overlay.dart';
 import '../domain/activity_climb_result.dart';
 import '../domain/climb_progress.dart';
 import '../domain/climb_route.dart';
@@ -18,6 +15,7 @@ import 'package:cyclecore_core/gamification/rank_tier.dart';
 import 'climb_collectibles_provider.dart';
 import 'climb_collection_screen.dart';
 import 'cyclist_kit_providers.dart';
+import 'extension_points.dart';
 import 'profile_providers.dart';
 import 'wardrobe_screen.dart';
 import 'widgets/climb_arch.dart';
@@ -261,7 +259,10 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
     if (!mounted) return;
     await _maybeShowKitUnlock();
     if (!mounted) return;
-    await _maybeShowVoiceUnlock();
+    for (final check in ref.read(unlockCelebrationSourcesProvider)) {
+      await check(context, ref);
+      if (!mounted) return;
+    }
   }
 
   /// Encadena el festejo de "¡Desbloqueaste una pieza!" si esta
@@ -292,35 +293,6 @@ class _ClimbScreenState extends ConsumerState<ClimbScreen>
           ? null
           : kitSetProgress(set, ref.read(unlockedKitIdsProvider)),
       onEquip: () => ref.read(cyclistKitProvider.notifier).equip(item),
-    );
-  }
-
-  /// Encadena el festejo de "¡Desbloqueaste una voz!" si esta actividad
-  /// desbloqueó alguna voz de guía nueva.
-  Future<void> _maybeShowVoiceUnlock() async {
-    final newIds = await ref
-        .read(voiceUnlocksSeenProvider.notifier)
-        .reconcile(ref.read(unlockedVoicePersonaIdsProvider));
-    if (!mounted) return;
-
-    VoicePersona? chosen;
-    for (final id in newIds) {
-      final persona = voicePersonaById(id);
-      if (persona != null && persona.tier == VoiceTier.desbloqueable) {
-        chosen = persona;
-        break;
-      }
-    }
-    if (chosen == null) return;
-    final persona = chosen;
-
-    await VoiceUnlockFlow.showUnlock(
-      context,
-      persona,
-      onEquip: () =>
-          ref.read(voiceSettingsProvider.notifier).selectPersona(persona),
-      onPreview: () =>
-          ref.read(voiceSettingsProvider.notifier).previewPersona(persona),
     );
   }
 
@@ -473,7 +445,9 @@ class _ClimbMenuButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hasNew =
         ref.watch(unseenKitUnlocksProvider).isNotEmpty ||
-        ref.watch(unseenVoiceUnlocksProvider).isNotEmpty;
+        ref
+            .watch(unseenUnlockIndicatorsProvider)
+            .any((indicator) => ref.watch(indicator));
     final debugAll = ref.watch(kitDebugUnlockAllProvider);
 
     PopupMenuItem<String> row(

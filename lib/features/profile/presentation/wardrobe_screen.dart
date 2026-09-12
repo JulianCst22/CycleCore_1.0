@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../voice/presentation/widgets/voice_roster_view.dart';
 import '../domain/cyclist_kit.dart';
 import '../domain/kit_catalog.dart';
 import '../domain/kit_unlocks.dart';
 import 'package:cyclecore_core/gamification/rank_tier.dart';
 import 'cyclist_kit_providers.dart';
+import 'extension_points.dart';
 import 'widgets/kit_unlock_overlay.dart';
 import 'widgets/pedaling_cyclist.dart';
 
@@ -47,9 +47,12 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
     final debugAll = ref.watch(kitDebugUnlockAllProvider);
     final maillot = KitCatalog.byId[kit.maillotId];
     final bici = KitCatalog.byId[kit.biciId];
+    // Pestañas de otras features (hoy, "Voz" -- ver extension_points.dart)
+    // que se agregan antes de "Sets", igual que siempre estuvo Voz.
+    final extraTabs = ref.watch(wardrobeExtraTabsProvider);
 
     return DefaultTabController(
-      length: 5,
+      length: 4 + extraTabs.length,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Vestidor'),
@@ -93,25 +96,25 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                 ],
               ),
             ),
-            const TabBar(
+            TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.center,
               tabs: [
-                Tab(text: 'Maillot'),
-                Tab(text: 'Bici'),
-                Tab(text: 'Gestos'),
-                Tab(text: 'Voz'),
-                Tab(text: 'Sets'),
+                const Tab(text: 'Maillot'),
+                const Tab(text: 'Bici'),
+                const Tab(text: 'Gestos'),
+                for (final tab in extraTabs) Tab(text: tab.label),
+                const Tab(text: 'Sets'),
               ],
             ),
-            const Expanded(
+            Expanded(
               child: TabBarView(
                 children: [
-                  _SlotGrid(KitSlot.maillot),
-                  _SlotGrid(KitSlot.bici),
-                  _SlotGrid(KitSlot.gesto),
-                  VoiceRosterView(),
-                  _SetsList(),
+                  const _SlotGrid(KitSlot.maillot),
+                  const _SlotGrid(KitSlot.bici),
+                  const _SlotGrid(KitSlot.gesto),
+                  for (final tab in extraTabs) Builder(builder: tab.builder),
+                  const _SetsList(),
                 ],
               ),
             ),
