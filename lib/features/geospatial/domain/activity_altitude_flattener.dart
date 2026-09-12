@@ -1,7 +1,7 @@
+import 'package:cyclecore_core/utils/elevation_gain_loss.dart';
 import '../../elevation/data/elevation_resolver.dart';
-import '../../geospatial/domain/route_point.dart';
-import '../../geospatial/domain/slope_window_calculator.dart';
-import 'elevation_gain_loss.dart';
+import 'route_point.dart';
+import 'slope_window_calculator.dart';
 
 /// Resultado de "aplanar" la altimetría de una actividad completa
 /// contra la cadena de prioridades de elevación (GPX > HGT > fusión en

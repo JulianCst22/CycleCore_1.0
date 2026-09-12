@@ -17,7 +17,7 @@ import '../domain/activity_calories.dart';
 import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import '../domain/activity_records.dart';
 import 'package:cyclecore_core/database/activity_summary.dart';
-import '../domain/elevation_gain_loss.dart';
+import 'package:cyclecore_core/utils/elevation_gain_loss.dart';
 import 'activities_providers.dart';
 import 'widgets/share_route_art.dart';
 

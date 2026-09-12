@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cyclecore_core/database/app_database.dart';
 import '../../elevation/data/elevation_resolver.dart';
 import '../../geospatial/domain/route_point.dart';
-import '../domain/activity_altitude_flattener.dart';
+import '../../geospatial/domain/activity_altitude_flattener.dart';
 import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import 'package:cyclecore_core/database/activity_summary.dart';
 

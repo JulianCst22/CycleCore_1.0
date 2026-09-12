@@ -10,7 +10,7 @@ import 'package:cyclecore_core/fuzzy_engine/slope_plausibility/slope_plausibilit
 import 'package:cyclecore_core/sensors/altitude_debug_logger.dart';
 import 'package:cyclecore_core/sensors/altitude_fusion_service.dart';
 import 'package:cyclecore_core/sensors/barometer_service.dart';
-import '../../activities/domain/activity_altitude_flattener.dart';
+import '../domain/activity_altitude_flattener.dart';
 import 'package:cyclecore_core/database/activity_summary.dart';
 import '../../elevation/data/elevation_resolver.dart';
 import '../../elevation/presentation/elevation_providers.dart';

@@ -6,7 +6,7 @@ import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import 'package:cyclecore_core/database/activity_summary.dart';
-import '../domain/elevation_gain_loss.dart';
+import 'package:cyclecore_core/utils/elevation_gain_loss.dart';
 import 'activities_providers.dart';
 
 /// "Ajustar altimetría" -- vuelve a correr el aplanado de una actividad
