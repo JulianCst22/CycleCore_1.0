@@ -1,5 +1,5 @@
 import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_app/features/activities/presentation/activities_providers.dart';
+import 'package:cyclecore_core/database/database_providers.dart';
 import 'package:cyclecore_app/features/activities/presentation/widgets/activity_xp_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +32,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(const ActivityXpRow(activityId: 7), [
-        activitiesListProvider.overrideWith((ref) => Stream.value([_a(7)])),
+        allActivitiesProvider.overrideWith((ref) => Stream.value([_a(7)])),
       ]),
     );
     await tester.pump();
@@ -53,7 +53,7 @@ void main() {
   testWidgets('no pinta nada si aún no hay datos de XP', (tester) async {
     await tester.pumpWidget(
       _wrap(const ActivityXpRow(activityId: 7), [
-        activitiesListProvider.overrideWith(
+        allActivitiesProvider.overrideWith(
           (ref) => Stream.value(const <Activity>[]),
         ),
       ]),

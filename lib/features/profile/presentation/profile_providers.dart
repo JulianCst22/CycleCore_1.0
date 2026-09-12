@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/database/database_providers.dart';
 import 'package:cyclecore_core/database/activity_json_helpers.dart';
-import '../../activities/presentation/activities_providers.dart';
 import '../data/profile_repository.dart';
 import '../domain/calendar_day_info.dart';
 import '../domain/cyclist_profile.dart';
@@ -64,14 +64,14 @@ final calendarReferenceDateProvider = StateProvider<DateTime>(
 /// Estadísticas totales (todo el histórico) -- usadas en el resumen
 /// compacto del perfil principal.
 final profileStatsProvider = Provider<AsyncValue<ProfileStats>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData(ProfileStats.fromActivities);
 });
 
 /// Estadísticas filtradas por el periodo elegido -- usadas en la
 /// pantalla de estadísticas completa, estilo Strava.
 final profileStatsForPeriodProvider = Provider<AsyncValue<ProfileStats>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   final period = ref.watch(statsPeriodProvider);
   return activitiesAsync.whenData(
     (activities) => ProfileStats.fromActivitiesInPeriod(activities, period),
@@ -89,7 +89,7 @@ final statsTrendMetricProvider = StateProvider<StatsTrendMetric>(
 /// semanas, meses o años según el periodo elegido, para la métrica
 /// elegida.
 final statsTrendProvider = Provider<AsyncValue<List<StatsTrendBucket>>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   final period = ref.watch(statsPeriodProvider);
   final metric = ref.watch(statsTrendMetricProvider);
   return activitiesAsync.whenData(
@@ -104,7 +104,7 @@ final statsTrendProvider = Provider<AsyncValue<List<StatsTrendBucket>>>((ref) {
 /// Racha actual y racha más larga, derivadas de las fechas de inicio de
 /// cada actividad guardada.
 final currentStreakProvider = Provider<AsyncValue<int>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData(
     (activities) => StreakCalculator.currentStreak(
       activities.map((a) => a.startedAt).toList(),
@@ -113,7 +113,7 @@ final currentStreakProvider = Provider<AsyncValue<int>>((ref) {
 });
 
 final longestStreakProvider = Provider<AsyncValue<int>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData(
     (activities) => StreakCalculator.longestStreak(
       activities.map((a) => a.startedAt).toList(),
@@ -124,7 +124,7 @@ final longestStreakProvider = Provider<AsyncValue<int>>((ref) {
 /// Días (fecha sin hora) que forman la racha activa ahora mismo -- el
 /// calendario los pinta con el ícono de fuego.
 final activeStreakDaysProvider = Provider<AsyncValue<Set<DateTime>>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData(
     (activities) => StreakCalculator.currentStreakDays(
       activities.map((a) => a.startedAt).toList(),
@@ -138,7 +138,7 @@ final activeStreakDaysProvider = Provider<AsyncValue<Set<DateTime>>>((ref) {
 /// un tipo no tiene fotos, o solo hay una actividad de ese tipo, se
 /// ignora (no hay "récord" real que destacar con una sola actividad).
 final featuredPhotosProvider = Provider<AsyncValue<List<FeaturedPhoto>>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData((activities) {
     final maxDistanceByType = <String, double>{};
     final recordByType = <String, Activity>{};
@@ -179,7 +179,7 @@ final featuredPhotosProvider = Provider<AsyncValue<List<FeaturedPhoto>>>((ref) {
 /// actividades de ese día -- usado por vistas que solo necesitan el
 /// conteo (no el color ni el detalle).
 final activityDaysProvider = Provider<AsyncValue<Map<DateTime, int>>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData((activities) {
     final map = <DateTime, int>{};
     for (final a in activities) {
@@ -198,7 +198,7 @@ final activityDaysProvider = Provider<AsyncValue<Map<DateTime, int>>>((ref) {
 /// que se abre al tocar un día del calendario.
 final activitiesByDayProvider =
     Provider<AsyncValue<Map<DateTime, List<Activity>>>>((ref) {
-      final activitiesAsync = ref.watch(activitiesListProvider);
+      final activitiesAsync = ref.watch(allActivitiesProvider);
       return activitiesAsync.whenData((activities) {
         final map = <DateTime, List<Activity>>{};
         for (final a in activities) {
@@ -217,7 +217,7 @@ final activitiesByDayProvider =
 /// calendario para colorear cada celda.
 final calendarDayInfoProvider =
     Provider<AsyncValue<Map<DateTime, CalendarDayInfo>>>((ref) {
-      final activitiesAsync = ref.watch(activitiesListProvider);
+      final activitiesAsync = ref.watch(allActivitiesProvider);
       return activitiesAsync.whenData(CalendarDayInfo.fromActivities);
     });
 
@@ -226,7 +226,7 @@ final calendarDayInfoProvider =
 final activityXpProvider = Provider<AsyncValue<Map<int, ActivityXpBreakdown>>>((
   ref,
 ) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData((activities) {
     final breakdowns = XpCalculator.computeForActivities(activities);
     return {for (final b in breakdowns) b.activityId: b};
@@ -237,7 +237,7 @@ final activityXpProvider = Provider<AsyncValue<Map<int, ActivityXpBreakdown>>>((
 /// actividades. Nunca se persiste aparte: se recalcula siempre desde
 /// las actividades guardadas.
 final totalXpProvider = Provider<AsyncValue<int>>((ref) {
-  final activitiesAsync = ref.watch(activitiesListProvider);
+  final activitiesAsync = ref.watch(allActivitiesProvider);
   return activitiesAsync.whenData(XpCalculator.totalXpFor);
 });
 

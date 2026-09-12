@@ -5,8 +5,8 @@ import 'package:cyclecore_core/database/app_database.dart';
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/utils/format_utils.dart';
 import 'package:cyclecore_core/database/activity_json_helpers.dart';
-import '../../../activities/presentation/activity_detail_screen.dart';
 import '../../domain/xp_calculator.dart';
+import '../extension_points.dart';
 import '../profile_providers.dart';
 import '../../domain/personal_records.dart';
 
@@ -36,6 +36,7 @@ class DayDetailSheet extends ConsumerWidget {
 
     final activities = activitiesByDayAsync.valueOrNull?[day] ?? const [];
     final xpMap = xpByActivityAsync.valueOrNull ?? const {};
+    final openDetail = ref.read(openActivityDetailProvider);
 
     return SafeArea(
       child: Padding(
@@ -72,7 +73,11 @@ class DayDetailSheet extends ConsumerWidget {
               )
             else
               ...activities.map(
-                (a) => _DayActivityTile(activity: a, xp: xpMap[a.id]),
+                (a) => _DayActivityTile(
+                  activity: a,
+                  xp: xpMap[a.id],
+                  onOpenDetail: openDetail,
+                ),
               ),
           ],
         ),
@@ -84,23 +89,27 @@ class DayDetailSheet extends ConsumerWidget {
 class _DayActivityTile extends StatelessWidget {
   final Activity activity;
   final ActivityXpBreakdown? xp;
+  final OpenActivityDetail? onOpenDetail;
 
-  const _DayActivityTile({required this.activity, required this.xp});
+  const _DayActivityTile({
+    required this.activity,
+    required this.xp,
+    required this.onOpenDetail,
+  });
 
   @override
   Widget build(BuildContext context) {
     final typeUi = ActivityTypeUi.fromValue(activity.activityType);
+    final openDetail = onOpenDetail;
 
     return InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () {
-        Navigator.of(context).pop();
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ActivityDetailScreen(activityId: activity.id),
-          ),
-        );
-      },
+      onTap: openDetail == null
+          ? null
+          : () {
+              Navigator.of(context).pop();
+              openDetail(context, activity.id);
+            },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),

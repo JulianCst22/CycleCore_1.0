@@ -13,3 +13,12 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   ref.onDispose(db.close);
   return db;
 });
+
+/// Todas las actividades guardadas -- lectura directa de la tabla, sin
+/// pasar por `ActivitiesRepository` (que trae consigo lógica de fotos/
+/// altimetría que la mayoría de consumidores no necesita). Lo usan
+/// varias features (profile, segments) solo para derivar estadísticas o
+/// resúmenes a partir de la lista completa.
+final allActivitiesProvider = StreamProvider<List<Activity>>((ref) {
+  return ref.watch(appDatabaseProvider).watchAllActivities();
+});

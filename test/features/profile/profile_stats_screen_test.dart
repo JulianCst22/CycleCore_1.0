@@ -1,5 +1,5 @@
 import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_app/features/activities/presentation/activities_providers.dart';
+import 'package:cyclecore_core/database/database_providers.dart';
 import 'package:cyclecore_app/features/profile/domain/cyclist_profile.dart';
 import 'package:cyclecore_app/features/profile/domain/profile_stats.dart'
     show ProfileStats, StatsPeriod;
@@ -63,7 +63,7 @@ void main() {
         // mes se ejecute (si no, actividades de "hace 5 días" caen fuera
         // de "este mes" a comienzos de mes y sale el estado vacío).
         statsPeriodProvider.overrideWith((ref) => StatsPeriod.all),
-        activitiesListProvider.overrideWith(
+        allActivitiesProvider.overrideWith(
           (ref) => Stream.value([
             _a(startedAt: DateTime.now().subtract(const Duration(days: 2))),
             _a(
@@ -92,7 +92,7 @@ void main() {
   testWidgets('sin actividades muestra el mensaje vacío', (tester) async {
     await tester.pumpWidget(
       _wrap([
-        activitiesListProvider.overrideWith(
+        allActivitiesProvider.overrideWith(
           (ref) => Stream.value(const <Activity>[]),
         ),
         profileProvider.overrideWith(() => _FakeProfile(null)),

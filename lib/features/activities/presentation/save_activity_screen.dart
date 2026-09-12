@@ -15,7 +15,7 @@ import '../../profile/presentation/xp_debug_provider.dart';
 import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import 'package:cyclecore_core/database/activity_summary.dart';
 import 'activities_providers.dart';
-import 'widgets/activity_summary_block.dart';
+import '../../../shared_widgets/activity_summary_block.dart';
 
 enum ActivityKind { race, training }
 

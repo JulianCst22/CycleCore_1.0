@@ -25,7 +25,7 @@ import 'activity_charts.dart';
 import 'adjust_altitude_screen.dart';
 import 'save_activity_screen.dart';
 import 'share_activity_screen.dart';
-import 'widgets/activity_summary_block.dart';
+import '../../../shared_widgets/activity_summary_block.dart';
 import 'widgets/activity_xp_row.dart';
 import 'widgets/photo_viewer_screen.dart';
 

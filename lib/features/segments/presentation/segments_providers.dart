@@ -102,14 +102,6 @@ final allSegmentEffortsProvider = StreamProvider<List<SegmentEffort>>((ref) {
   return ref.watch(segmentsRepositoryProvider).watchAllEfforts();
 });
 
-/// Solo para enriquecer el feed de esfuerzos recientes con el título de
-/// la actividad -- lee la tabla directamente (no pasa por
-/// `ActivitiesRepository`, que trae consigo lógica de fotos/altimetría
-/// que este resumen no necesita).
-final _recentActivitiesProvider = StreamProvider<List<Activity>>((ref) {
-  return ref.watch(appDatabaseProvider).watchAllActivities();
-});
-
 /// Resumen del menú de segmentos: cifras del panel, feed de esfuerzos
 /// recientes y una `SegmentSummary` por segmento (con su mejor marca y
 /// su actividad reciente). Combina tres streams y se recalcula solo
@@ -117,7 +109,7 @@ final _recentActivitiesProvider = StreamProvider<List<Activity>>((ref) {
 final segmentsOverviewProvider = Provider<AsyncValue<SegmentsOverview>>((ref) {
   final segments = ref.watch(segmentsListProvider);
   final efforts = ref.watch(allSegmentEffortsProvider);
-  final activities = ref.watch(_recentActivitiesProvider);
+  final activities = ref.watch(allActivitiesProvider);
 
   if (segments.isLoading || efforts.isLoading) {
     return const AsyncValue.loading();

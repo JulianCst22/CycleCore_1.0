@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:cyclecore_core/theme/app_theme.dart';
 
 import 'app/app_gate.dart';
+import 'features/activities/presentation/activity_profile_extension_points.dart';
 import 'features/profile/presentation/extension_points.dart';
 import 'features/voice/presentation/voice_profile_extension_points.dart';
 
@@ -21,10 +22,10 @@ Future<void> main() async {
     // en cualquier pantalla, sin importar qué tan anidada esté.
     //
     // Los overrides conectan los puntos de extensión de `profile` (ver
-    // extension_points.dart) con la implementación real de `voice` --
-    // este es el ÚNICO lugar de toda la app donde algo importa a la vez
-    // profile y voice para esto. Ni profile ni voice se importan entre
-    // sí directamente.
+    // extension_points.dart) con las implementaciones reales de `voice`
+    // y `activities` -- este es el ÚNICO lugar de toda la app donde
+    // algo importa profile junto con esas features para esto. Ninguna
+    // se importa directamente entre sí.
     ProviderScope(
       overrides: [
         unlockCelebrationSourcesProvider.overrideWithValue(
@@ -34,6 +35,7 @@ Future<void> main() async {
         unseenUnlockIndicatorsProvider.overrideWithValue(
           [voiceHasUnseenUnlocksProvider],
         ),
+        openActivityDetailProvider.overrideWithValue(openActivityDetail),
       ],
       child: const CycleCoreApp(),
     ),

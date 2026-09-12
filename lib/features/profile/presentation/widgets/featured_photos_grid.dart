@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/theme/app_colors.dart';
 import 'package:cyclecore_core/theme/cc_colors.dart';
-import '../../../activities/presentation/activity_detail_screen.dart';
+import '../extension_points.dart';
 import '../profile_providers.dart';
 
 /// Grid de fotos "destacadas": las de actividades que fueron récord
@@ -18,6 +18,7 @@ class FeaturedPhotosGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final photosAsync = ref.watch(featuredPhotosProvider);
+    final openDetail = ref.read(openActivityDetailProvider);
 
     return photosAsync.when(
       loading: () => const SizedBox(
@@ -44,12 +45,9 @@ class FeaturedPhotosGrid extends ConsumerWidget {
             return ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ActivityDetailScreen(activityId: photo.activityId),
-                  ),
-                ),
+                onTap: openDetail == null
+                    ? null
+                    : () => openDetail(context, photo.activityId),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
