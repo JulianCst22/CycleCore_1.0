@@ -12,29 +12,26 @@ import 'package:cyclecore_core/sensors/altitude_fusion_service.dart';
 import 'package:cyclecore_core/sensors/barometer_service.dart';
 import '../domain/activity_altitude_flattener.dart';
 import 'package:cyclecore_core/database/activity_summary.dart';
+import 'package:cyclecore_core/location/location_service.dart';
+import 'package:cyclecore_core/providers/location_providers.dart';
 import '../../elevation/data/elevation_resolver.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import '../../sensors/presentation/speed_providers.dart';
-import '../data/location_service.dart';
 import '../domain/live_slope_calculator.dart';
 import '../domain/route_point.dart';
 import '../domain/slope_presentation_formatter.dart';
 
-/// Instancia única del servicio de ubicación, compartida por toda la app.
-final locationServiceProvider = Provider<LocationService>((ref) {
-  return LocationService();
-});
+// `locationServiceProvider` y `currentPositionProvider` viven en
+// cyclecore_core/providers/location_providers.dart -- son infraestructura
+// de ubicación pura, sin nada de estado de la grabación en vivo, y las
+// necesitan features que no tienen por qué depender de geospatial
+// (navigation, elevation). Se re-exportan acá para no romper al resto
+// de este archivo (`MapScreen`, etc.) que las usa via este import.
+export 'package:cyclecore_core/providers/location_providers.dart';
 
 /// Instancia única del servicio de barómetro.
 final barometerServiceProvider = Provider<BarometerService>((ref) {
   return BarometerService();
-});
-
-/// Posición actual del dispositivo, obtenida una sola vez.
-/// Se usa para centrar el mapa la primera vez que se abre la pantalla.
-final currentPositionProvider = FutureProvider<Position>((ref) async {
-  final service = ref.read(locationServiceProvider);
-  return service.getCurrentPosition();
 });
 
 /// Emite un evento cada segundo mientras exista algún listener activo.

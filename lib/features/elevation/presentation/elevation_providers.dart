@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cyclecore_core/database/app_database.dart';
 import 'package:cyclecore_core/database/database_providers.dart';
 import 'package:cyclecore_core/elevation/srtm_tile_naming.dart';
-import '../../geospatial/presentation/map_providers.dart';
+import 'package:cyclecore_core/providers/location_providers.dart';
 import '../data/elevation_repository.dart';
 import '../data/elevation_resolver.dart';
 import '../data/gpx_track_repository.dart';

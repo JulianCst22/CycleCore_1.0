@@ -25,6 +25,11 @@ dependencies:
   # --- Sensores del dispositivo (barómetro) ---
   sensors_plus: ^6.0.1
 
+  # --- Ubicación del dispositivo (GPS) ---
+  geolocator: ^13.0.1
+  geolocator_android: ^4.6.2
+  permission_handler: ^11.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

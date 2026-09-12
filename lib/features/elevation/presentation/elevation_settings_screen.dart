@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cyclecore_core/elevation/srtm_tile_naming.dart';
 import 'package:cyclecore_core/theme/app_colors.dart';
-import '../../geospatial/presentation/map_providers.dart';
+import 'package:cyclecore_core/providers/location_providers.dart';
 import 'elevation_providers.dart';
 
 /// Pantalla de Ajustes > Elevación. Antes la descarga de teselas HGT

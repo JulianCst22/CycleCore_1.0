@@ -4,12 +4,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cyclecore_core/database/app_database.dart';
 import 'package:cyclecore_core/database/database_providers.dart';
 import 'package:cyclecore_core/navigation/road_region_id.dart';
-// currentPositionProvider y locationServiceProvider viven en
-// geospatial/presentation/map_providers.dart -- mismo lugar de donde
-// los importa elevation_providers.dart.
+import 'package:cyclecore_core/providers/location_providers.dart';
 import '../../elevation/data/elevation_resolver.dart';
 import '../../elevation/presentation/elevation_providers.dart';
-import '../../geospatial/presentation/map_providers.dart';
 import '../data/geocoding_service.dart';
 import '../data/recent_destinations_store.dart';
 import '../data/road_region_repository.dart';

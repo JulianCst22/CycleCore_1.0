@@ -7,7 +7,7 @@ import 'package:latlong2/latlong.dart' as latlng;
 import 'package:cyclecore_core/database/app_database.dart';
 import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../geospatial/presentation/map_providers.dart';
+import 'package:cyclecore_core/providers/location_providers.dart';
 import '../data/geocoding_service.dart';
 import '../domain/climb_detection.dart';
 import '../domain/navigation_target.dart';
