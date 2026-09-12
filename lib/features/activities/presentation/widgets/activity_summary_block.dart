@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/cc_colors.dart';
-import '../../../../core/theme/cc_type.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
 
 /// Bloque de "Resumen" de una actividad -- los mismos widgets en el
 /// **detalle** y en **guardar/editar**. Antes cada pantalla dibujaba los

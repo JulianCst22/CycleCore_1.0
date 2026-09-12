@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/database/database_providers.dart';
-import '../../../core/navigation/road_region_id.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/database/database_providers.dart';
+import 'package:cyclecore_core/navigation/road_region_id.dart';
 // currentPositionProvider y locationServiceProvider viven en
 // geospatial/presentation/map_providers.dart -- mismo lugar de donde
 // los importa elevation_providers.dart.

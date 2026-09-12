@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../activities/domain/activity_json_helpers.dart';
 import '../../activities/domain/activity_summary.dart';
 import '../data/segments_repository.dart';

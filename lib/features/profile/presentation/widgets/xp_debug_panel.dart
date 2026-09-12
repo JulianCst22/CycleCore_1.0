@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../domain/climb_route.dart';
 import '../../domain/rank_tier.dart';
 import '../xp_debug_provider.dart';

@@ -1,4 +1,4 @@
-import 'package:cyclecore_app/core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 import 'package:cyclecore_app/features/segments/domain/segments_overview.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
 import '../data/geocoding_service.dart';
 import '../data/saved_places_repository.dart';
 import '../domain/navigation_target.dart';

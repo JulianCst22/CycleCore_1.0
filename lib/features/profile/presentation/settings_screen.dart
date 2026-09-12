@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/navigation/soft_fade_route.dart';
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
+import 'package:cyclecore_core/navigation/soft_fade_route.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
 import '../../auth/presentation/account_setup_wizard.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../auth/presentation/change_password_screen.dart';

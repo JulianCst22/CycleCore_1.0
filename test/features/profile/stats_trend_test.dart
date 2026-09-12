@@ -1,4 +1,4 @@
-import 'package:cyclecore_app/core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 import 'package:cyclecore_app/features/profile/domain/profile_stats.dart';
 import 'package:cyclecore_app/features/profile/domain/stats_trend.dart';
 import 'package:flutter_test/flutter_test.dart';

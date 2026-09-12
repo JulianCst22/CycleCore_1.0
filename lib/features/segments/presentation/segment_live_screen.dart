@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cyclecore_palette.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cyclecore_palette.dart';
 import '../data/segment_cockpit_layout_repository.dart';
 import 'segment_cockpit_layout_providers.dart';
 import 'segment_data_settings_screen.dart';

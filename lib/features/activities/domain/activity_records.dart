@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 
 /// Métricas de "toda la actividad" que pueden ser récord personal.
 ///

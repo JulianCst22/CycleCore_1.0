@@ -5,11 +5,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/navigation/navigation_providers.dart';
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/navigation/navigation_providers.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 import '../data/gpx_segment_importer.dart';
 import '../domain/segment_profile.dart';
 import '../domain/segment_source.dart';

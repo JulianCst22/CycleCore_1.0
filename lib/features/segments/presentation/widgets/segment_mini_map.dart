@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../domain/segment_profile.dart';
 
 /// Mapa estático (sin arrastre de marcadores) con la polilínea

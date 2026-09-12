@@ -8,10 +8,10 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cyclecore_palette.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cyclecore_palette.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../domain/activity_calories.dart';
 import '../domain/activity_json_helpers.dart';

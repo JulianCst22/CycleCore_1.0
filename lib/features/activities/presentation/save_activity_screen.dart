@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 import '../../profile/domain/activity_climb_result.dart';
 import '../../profile/domain/xp_calculator.dart';
 import '../../profile/presentation/climb_screen.dart';

@@ -5,10 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../../core/config/app_config.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/elevation/srtm_tile_naming.dart';
-import '../../../core/elevation/srtm_tile_reader.dart';
+import 'package:cyclecore_core/config/app_config.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/elevation/srtm_tile_naming.dart';
+import 'package:cyclecore_core/elevation/srtm_tile_reader.dart';
 
 class ElevationRepository {
   final AppDatabase database;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 
 /// Interpola un color continuo según la pendiente, tipo "mapa de calor":
 /// azul en bajadas fuertes, verde en tramos planos, naranja/rojo en

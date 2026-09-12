@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/cc_colors.dart';
-import '../../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 import '../../../geospatial/presentation/map_providers.dart'
     show secondTickerProvider;
 import '../segment_detection_providers.dart';

@@ -1,5 +1,5 @@
-import 'package:cyclecore_app/core/database/app_database.dart';
-import 'package:cyclecore_app/core/theme/app_theme.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_theme.dart';
 import 'package:cyclecore_app/features/navigation/domain/navigation_route.dart';
 import 'package:cyclecore_app/features/navigation/domain/navigation_target.dart';
 import 'package:cyclecore_app/features/navigation/domain/road_graph.dart';

@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/database/database_providers.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/database/database_providers.dart';
 import '../data/activities_repository.dart';
 import '../domain/weekly_summary.dart';
 
-export '../../../core/database/database_providers.dart'
+export 'package:cyclecore_core/database/database_providers.dart'
     show appDatabaseProvider;
 
 final activitiesRepositoryProvider = Provider<ActivitiesRepository>((ref) {

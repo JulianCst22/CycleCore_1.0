@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 
-import '../../../../core/theme/cc_colors.dart';
-import '../../../../core/theme/cc_type.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
 import '../../domain/rank_tier.dart';
 
 /// El festejo IMPONENTE de cambio de rango (niveles 5/10/15/20/25).

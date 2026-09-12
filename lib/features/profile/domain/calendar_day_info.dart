@@ -1,4 +1,4 @@
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 
 /// Resumen de un día para el calendario de actividad: cuántas
 /// actividades hubo y cuál tipo fue el "dominante" (el de mayor

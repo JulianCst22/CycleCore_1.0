@@ -1,5 +1,5 @@
-import 'package:cyclecore_app/core/database/app_database.dart';
-import 'package:cyclecore_app/core/theme/app_theme.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_theme.dart';
 import 'package:cyclecore_app/features/activities/presentation/activities_providers.dart';
 import 'package:cyclecore_app/features/segments/presentation/segment_detail_screen.dart';
 import 'package:cyclecore_app/features/segments/presentation/segments_list_screen.dart';

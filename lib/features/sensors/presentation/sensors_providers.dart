@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/providers/heart_rate_provider.dart';
+import 'package:cyclecore_core/providers/heart_rate_provider.dart';
 import '../data/ble_heart_rate_service.dart';
 import '../data/ble_sensor_service.dart';
 import '../domain/heart_rate_reading.dart';

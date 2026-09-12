@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
 import '../domain/navigation_route.dart';
 import 'end_navigation_confirm.dart';
 import 'navigation_providers.dart';

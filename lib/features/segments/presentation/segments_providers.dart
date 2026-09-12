@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/database/database_providers.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/database/database_providers.dart';
 import '../../activities/presentation/activities_providers.dart'
     show activitiesListProvider;
 import '../data/segment_catalog_repository.dart';

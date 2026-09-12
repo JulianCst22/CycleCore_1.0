@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../elevation/presentation/elevation_providers.dart';
 import '../domain/activity_json_helpers.dart';
 import '../domain/activity_summary.dart';

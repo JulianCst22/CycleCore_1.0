@@ -1,4 +1,4 @@
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 import 'personal_records.dart';
 
 /// Desglose de cuánta experiencia (XP) aportó una actividad concreta y

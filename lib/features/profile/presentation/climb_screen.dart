@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
 import '../../voice/domain/voice_persona.dart';
 import '../../voice/presentation/voice_providers.dart';
 import '../../voice/presentation/widgets/voice_unlock_overlay.dart';

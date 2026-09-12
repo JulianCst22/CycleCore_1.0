@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import 'activity_summary.dart';
 
 /// `routePointsJson` y `photoPathsJson` se guardan como texto plano en la

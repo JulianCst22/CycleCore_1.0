@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/navigation/road_region_id.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/navigation/road_region_id.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import 'navigation_providers.dart';
 
 /// Pantalla de Ajustes > Navegación. A diferencia del diálogo de

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
 import '../../domain/segment_profile.dart';
 
 /// Huella del trazado de un segmento en un cuadro pequeño (la lista de

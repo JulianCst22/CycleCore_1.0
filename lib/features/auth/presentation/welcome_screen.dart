@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
 import 'account_setup_wizard.dart';
 import 'login_screen.dart';
 import 'widgets/dawn_hero.dart';

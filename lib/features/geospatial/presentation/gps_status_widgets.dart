@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/cyclecore_palette.dart';
+import 'package:cyclecore_core/theme/cyclecore_palette.dart';
 import 'slope_ribbon.dart';
 
 /// Overlay a pantalla completa mientras se espera un fix de GPS

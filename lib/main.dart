@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'core/navigation/app_gate.dart';
-import 'core/theme/app_theme.dart';
+import 'package:cyclecore_core/theme/app_theme.dart';
+
+import 'app/app_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../domain/training_zones.dart';
 
 /// Paleta visual del [ZonesEditorForm]. `dark` es el estilo "cockpit"

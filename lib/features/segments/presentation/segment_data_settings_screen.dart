@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cyclecore_palette.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cyclecore_palette.dart';
 import '../domain/segment_cockpit_field.dart';
 import '../domain/segment_cockpit_tile_config.dart';
 import 'segment_cockpit_field_ui.dart';

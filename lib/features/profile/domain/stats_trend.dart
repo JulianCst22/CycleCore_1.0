@@ -1,4 +1,4 @@
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 import 'profile_stats.dart';
 
 /// Qué métrica se está mirando en el gráfico de tendencia de la pantalla

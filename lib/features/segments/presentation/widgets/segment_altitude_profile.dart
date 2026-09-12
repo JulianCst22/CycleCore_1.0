@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/cyclecore_palette.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cyclecore_palette.dart';
 import '../../domain/segment_profile.dart';
 
 /// Perfil de altimetría de un segmento completo (área + línea), con un

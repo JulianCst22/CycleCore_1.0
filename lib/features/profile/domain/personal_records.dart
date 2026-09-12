@@ -1,4 +1,4 @@
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 
 /// Dimensiones en las que una actividad puede ser récord personal
 /// dentro de su propio tipo ('race', 'training', ...). Se usa tanto

@@ -11,6 +11,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # --- Infraestructura compartida (tema, DB local, fuzzy engine, SRTM) ---
+  cyclecore_core:
+    path: packages/cyclecore_core
+
   # Cupertino
   cupertino_icons: ^1.0.8
 

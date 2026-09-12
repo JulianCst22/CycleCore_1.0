@@ -5,7 +5,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 import '../../elevation/data/elevation_resolver.dart';
 import '../../geospatial/domain/route_point.dart';
 import '../domain/activity_altitude_flattener.dart';

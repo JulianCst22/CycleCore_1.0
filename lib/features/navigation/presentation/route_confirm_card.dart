@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 import '../domain/navigation_target.dart';
 import '../domain/route_preview.dart';
 import 'navigation_providers.dart';

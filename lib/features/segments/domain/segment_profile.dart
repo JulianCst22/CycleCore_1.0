@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 
 /// Un punto del perfil congelado de un segmento -- ya recortado y
 /// re-basado a distancia 0 en el inicio del tramo. Viene de un

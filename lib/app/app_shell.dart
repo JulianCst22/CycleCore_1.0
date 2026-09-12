@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/geospatial/presentation/map_screen.dart';
-import '../../features/activities/presentation/activities_list_screen.dart';
-import '../../features/segments/presentation/segments_list_screen.dart';
-import '../../features/profile/presentation/profile_screen.dart';
-import '../../shared_widgets/app_bottom_nav_bar.dart';
-import 'navigation_providers.dart';
+import 'package:cyclecore_core/navigation/navigation_providers.dart';
+
+import '../features/activities/presentation/activities_list_screen.dart';
+import '../features/geospatial/presentation/map_screen.dart';
+import '../features/profile/presentation/profile_screen.dart';
+import '../features/segments/presentation/segments_list_screen.dart';
+import '../shared_widgets/app_bottom_nav_bar.dart';
 
 /// Shell de navegación raíz de la app -- reemplaza la navegación
 /// anterior basada en `Navigator.push` desde adentro de `MapScreen`.

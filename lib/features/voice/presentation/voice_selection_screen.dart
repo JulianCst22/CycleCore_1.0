@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
 import 'widgets/voice_roster_view.dart';
 
 /// Pantalla para elegir la voz de guía y probarla antes de confirmar. Se

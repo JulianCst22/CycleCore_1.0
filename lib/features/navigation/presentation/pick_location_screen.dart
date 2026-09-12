@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
 
 /// Pantalla para marcar un punto exacto en el mapa -- para guardar una
 /// ubicación que no está en el grafo vial (la casa del usuario en una

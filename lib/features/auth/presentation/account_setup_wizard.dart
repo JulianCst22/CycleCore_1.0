@@ -6,8 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
 import '../../profile/domain/cyclist_profile.dart';
 import '../../profile/domain/training_zones.dart';
 import '../../profile/presentation/profile_providers.dart';

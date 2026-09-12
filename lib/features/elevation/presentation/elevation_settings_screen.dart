@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/elevation/srtm_tile_naming.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/elevation/srtm_tile_naming.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import '../../geospatial/presentation/map_providers.dart';
 import 'elevation_providers.dart';
 

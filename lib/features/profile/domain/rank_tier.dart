@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import 'level_info.dart';
 
 /// Metadata visual + rango de niveles de un [CyclistRank].

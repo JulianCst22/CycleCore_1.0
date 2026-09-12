@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
 
 /// Ilustración de fondo para Welcome y Login: un amanecer sobre un
 /// puerto de montaña, con capas de sierra, la carretera trepando y un

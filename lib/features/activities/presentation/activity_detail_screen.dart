@@ -7,10 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../../segments/presentation/segment_creation_screen.dart';
 import '../../segments/presentation/segment_detail_screen.dart';

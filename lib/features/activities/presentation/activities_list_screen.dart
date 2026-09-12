@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cc_type.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:cyclecore_core/utils/format_utils.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../domain/activity_json_helpers.dart';
 import '../domain/activity_records.dart';

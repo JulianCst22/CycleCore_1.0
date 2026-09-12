@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/providers/heart_rate_provider.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cc_colors.dart';
-import '../../../core/theme/cyclecore_palette.dart';
+import 'package:cyclecore_core/providers/heart_rate_provider.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cyclecore_palette.dart';
 import '../../../shared_widgets/map_controls_cluster.dart';
 import '../../../shared_widgets/stat_tile.dart';
 import '../../activities/presentation/ride_sensor_log.dart';

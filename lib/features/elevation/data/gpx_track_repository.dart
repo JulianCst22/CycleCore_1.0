@@ -1,4 +1,4 @@
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 import '../../segments/domain/segment_geometry.dart';
 import '../../segments/domain/segment_profile.dart';
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/cc_colors.dart';
+import 'package:cyclecore_core/theme/cc_colors.dart';
 
 /// Medidor de fuerza de contraseña que aparece al escribir en el
 /// asistente de cuenta. Tres tramos que se llenan y cambian de color, un

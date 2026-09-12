@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../core/fuzzy_engine/altitude_fusion/altitude_fusion_filter.dart';
-import '../../../core/fuzzy_engine/altitude_fusion/altitude_source_reading.dart';
-import '../../../core/fuzzy_engine/slope_plausibility/slope_plausibility_filter.dart';
-import '../../../core/sensors/altitude_debug_logger.dart';
-import '../../../core/sensors/altitude_fusion_service.dart';
-import '../../../core/sensors/barometer_service.dart';
+import 'package:cyclecore_core/fuzzy_engine/altitude_fusion/altitude_fusion_filter.dart';
+import 'package:cyclecore_core/fuzzy_engine/altitude_fusion/altitude_source_reading.dart';
+import 'package:cyclecore_core/fuzzy_engine/slope_plausibility/slope_plausibility_filter.dart';
+import 'package:cyclecore_core/sensors/altitude_debug_logger.dart';
+import 'package:cyclecore_core/sensors/altitude_fusion_service.dart';
+import 'package:cyclecore_core/sensors/barometer_service.dart';
 import '../../activities/domain/activity_altitude_flattener.dart';
 import '../../activities/domain/activity_summary.dart';
 import '../../elevation/data/elevation_resolver.dart';

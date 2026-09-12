@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/accent_gradients.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:cyclecore_core/theme/accent_gradients.dart';
+import 'package:cyclecore_core/theme/app_colors.dart';
 import '../domain/cyclist_profile.dart';
 import '../domain/training_zones.dart';
 import 'profile_form_widgets.dart';

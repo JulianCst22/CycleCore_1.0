@@ -51,3 +51,7 @@ app.*.map.json
 
 # Volcado local del árbol de directorios (generado, no es código)
 arbol.txt
+
+# Los paquetes internos (packages/*) son librerías, no apps: por convención
+# Dart no se versiona su pubspec.lock (solo el de la app raíz).
+packages/*/pubspec.lock

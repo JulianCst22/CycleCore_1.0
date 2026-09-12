@@ -9,9 +9,9 @@ import 'package:path_provider/path_provider.dart';
 // repositorio necesita un campo nuevo, `roadRegionsBaseUrl`, con la
 // misma idea que `elevationTilesBaseUrl` -- la URL base de tu bucket
 // donde vas a subir los archivos `.roadgraph` ya preprocesados.
-import '../../../core/config/app_config.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/navigation/road_region_id.dart';
+import 'package:cyclecore_core/config/app_config.dart';
+import 'package:cyclecore_core/database/app_database.dart';
+import 'package:cyclecore_core/navigation/road_region_id.dart';
 import '../domain/road_graph.dart';
 
 class RoadRegionRepository {

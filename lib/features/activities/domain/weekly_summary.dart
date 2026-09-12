@@ -1,4 +1,4 @@
-import '../../../core/database/app_database.dart';
+import 'package:cyclecore_core/database/app_database.dart';
 
 /// Resumen de la semana en curso, para el banner de la pantalla de
 /// actividades (la que apunta a ser el "home").
