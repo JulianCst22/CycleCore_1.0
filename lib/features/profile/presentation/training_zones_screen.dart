@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/training_zones.dart';
-import 'profile_providers.dart';
+import '../application/profile_providers.dart';
 import 'widgets/zones_editor.dart';
-import 'zones_providers.dart';
+import '../application/zones_providers.dart';
 
 /// Pantalla propia para revisar/ajustar las zonas de entrenamiento
 /// después del alta -- antes solo se podían tocar una vez, durante el
@@ -43,9 +43,7 @@ class _TrainingZonesScreenState extends ConsumerState<TrainingZonesScreen> {
     final zonesAsync = ref.watch(zonesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         title: const Text(
           'Zonas de entrenamiento',

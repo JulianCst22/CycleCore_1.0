@@ -5,12 +5,9 @@ import 'package:drift/drift.dart' show Value;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../elevation/data/elevation_resolver.dart';
-import '../../geospatial/domain/route_point.dart';
-import '../domain/activity_altitude_flattener.dart';
-import '../domain/activity_json_helpers.dart';
-import '../domain/activity_summary.dart';
+import 'package:core_database/core_database.dart';
+import '../../elevation/elevation.dart';
+import '../../recording/recording.dart';
 
 /// Resumen de una re-corrida del aplanado de altimetría -- para
 /// mostrarle al usuario en "Ajustar altimetría" qué tan buena quedó la

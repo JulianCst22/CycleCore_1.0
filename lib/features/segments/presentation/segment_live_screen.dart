@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cyclecore_palette.dart';
+import 'package:core_ui/core_ui.dart';
 import '../data/segment_cockpit_layout_repository.dart';
-import 'segment_cockpit_layout_providers.dart';
+import '../application/segment_cockpit_layout_providers.dart';
 import 'segment_data_settings_screen.dart';
-import 'segment_detection_providers.dart';
-import 'segment_live_data_provider.dart';
+import '../application/segment_detection_providers.dart';
+import '../application/segment_live_data_provider.dart';
 import 'widgets/segment_cockpit_grid.dart';
 
 /// Pantalla de segmento en vivo (Fase D). Ocupa el lugar del cockpit de

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/format_utils.dart';
-import '../../domain/profile_stats.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../../stats/stats.dart';
 import '../profile_stats_screen.dart';
 
 /// Resumen compacto de estadísticas totales, tocable para ir a la

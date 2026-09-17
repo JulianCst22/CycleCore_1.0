@@ -7,26 +7,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
-import '../../../shared_widgets/stat_tile.dart';
-import '../../profile/presentation/profile_providers.dart';
-import '../../segments/presentation/segment_creation_screen.dart';
-import '../../segments/presentation/segment_detail_screen.dart';
-import '../../segments/presentation/segments_providers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../profile/profile.dart';
+import '../../segments/segments.dart';
 import '../domain/activity_calories.dart';
-import '../domain/activity_colors.dart';
-import '../domain/activity_json_helpers.dart';
+import 'activity_colors.dart';
 import '../domain/activity_records.dart';
-import '../domain/activity_summary.dart';
-import '../domain/elevation_gain_loss.dart';
-import 'activities_providers.dart';
+import '../application/activities_providers.dart';
 import 'activity_charts.dart';
 import 'adjust_altitude_screen.dart';
 import 'save_activity_screen.dart';
 import 'share_activity_screen.dart';
-import 'widgets/personal_record_banner.dart';
+import 'widgets/activity_xp_row.dart';
 import 'widgets/photo_viewer_screen.dart';
 
 class ActivityDetailScreen extends ConsumerStatefulWidget {
@@ -59,7 +52,6 @@ class _ActivityDetailScreenState extends ConsumerState<ActivityDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       body: FutureBuilder<Activity?>(
         future: _activityFuture,
         builder: (context, snapshot) {
@@ -94,20 +86,15 @@ class _ActivityDetailScreenState extends ConsumerState<ActivityDetailScreen> {
 /// sola vez). Si la actividad se grabó antes de que existiera este nivel
 /// de detalle por punto, simplemente quedan en null/--.
 ///
-/// Nota: ya NO incluye pendiente máxima/mínima -- se sacaron de "TODOS
-/// LOS DATOS" a pedido, porque esos dos picos puntuales (a menudo
-/// ruido de un solo punto GPS) no aportaban información útil y
-/// generaban dudas sobre la fiabilidad del resto de las stats.
+/// Nota: ya NO incluye pendiente máx/mín (picos puntuales, a menudo
+/// ruido de un solo punto GPS) ni desnivel negativo -- este último se
+/// sacó a pedido: en un recorrido cerrado el desnivel − es casi igual
+/// al + y ocupaba una fila sin aportar nada.
 class _DerivedStats {
   final double? minAltitude;
   final double? maxAltitude;
-  final double? elevationLossMeters;
 
-  const _DerivedStats({
-    this.minAltitude,
-    this.maxAltitude,
-    this.elevationLossMeters,
-  });
+  const _DerivedStats({this.minAltitude, this.maxAltitude});
 
   factory _DerivedStats.fromPoints(List<RoutePointSnapshot> points) {
     if (points.length < 2) return const _DerivedStats();
@@ -119,19 +106,7 @@ class _DerivedStats {
       maxAlt = math.max(maxAlt, p.altitude);
     }
 
-    // Desnivel negativo con histéresis -- MISMO método que el
-    // aplanador (`computeGainLoss`). Sumar cada delta negativo, como
-    // hacía antes, inflaba la pérdida en cualquier serie con ruido
-    // (p.ej. una subida pura marcaba "desnivel −" alto).
-    final loss = computeGainLoss(
-      points.map((p) => p.altitude).toList(),
-    ).lossMeters;
-
-    return _DerivedStats(
-      minAltitude: minAlt,
-      maxAltitude: maxAlt,
-      elevationLossMeters: loss,
-    );
+    return _DerivedStats(minAltitude: minAlt, maxAltitude: maxAlt);
   }
 }
 
@@ -174,16 +149,12 @@ class _ActivityDetailBody extends ConsumerWidget {
     final routePoints = activity.routePoints;
     final photoPaths = activity.photoPaths;
     final derived = _DerivedStats.fromPoints(routePoints);
+    final hasRoute = routePoints.length > 1;
     final dateLabel = DateFormat(
-      "EEEE d 'de' MMMM 'de' y, HH:mm",
+      "EEE d MMM y · HH:mm",
       'es',
     ).format(activity.startedAt);
 
-    // Récord personal: se compara contra el resto de actividades del
-    // mismo tipo (misma fuente que usa la lista, así el badge de la
-    // lista y este desglose siempre coinciden). Mientras el listado
-    // completo no haya cargado, simplemente no se muestra nada -- en
-    // cuanto llega, este widget se reconstruye solo.
     final weightKg = ref.watch(profileProvider).valueOrNull?.weightKg;
     final calories = estimateCalories(
       avgPowerWatts: activity.avgPower,
@@ -193,33 +164,35 @@ class _ActivityDetailBody extends ConsumerWidget {
       weightKg: weightKg,
     );
 
-    final allActivitiesAsync = ref.watch(activitiesListProvider);
-    final personalRecords = allActivitiesAsync.maybeWhen(
-      data: (all) => computeActivityRecords(
-        activity: activity,
-        allActivities: all,
-      ).records,
-      orElse: () => const <RecordType>{},
-    );
+    // Récord personal: se compara contra el resto de actividades del
+    // mismo tipo (misma fuente que la lista, así el badge y este
+    // desglose siempre coinciden). Hasta que el listado no cargue, no
+    // se resalta nada; en cuanto llega, este widget se reconstruye solo.
+    final records = ref
+        .watch(activitiesListProvider)
+        .maybeWhen(
+          data: (all) => computeActivityRecords(
+            activity: activity,
+            allActivities: all,
+          ).records,
+          orElse: () => const <RecordType>{},
+        );
 
     return CustomScrollView(
       slivers: [
         SliverAppBar(
-          backgroundColor: AppColors.panelBackground,
+          backgroundColor: CcColors.bg,
           pinned: true,
-          expandedHeight: routePoints.length > 1 ? 240 : 0,
-          iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
+          expandedHeight: hasRoute ? 260 : 0,
+          iconTheme: const IconThemeData(color: CcColors.ink),
           title: Text(
             activity.title,
-            style: const TextStyle(color: AppColors.textPrimaryOnPanel),
+            style: const TextStyle(color: CcColors.ink),
           ),
           actions: [
             PopupMenuButton<String>(
-              icon: const Icon(
-                Icons.more_vert,
-                color: AppColors.textPrimaryOnPanel,
-              ),
-              color: AppColors.panelBackground,
+              icon: const Icon(Icons.more_vert, color: CcColors.ink),
+              color: CcColors.surfaceHi,
               onSelected: (value) {
                 switch (value) {
                   case 'edit':
@@ -260,331 +233,340 @@ class _ActivityDetailBody extends ConsumerWidget {
               ],
             ),
           ],
-          flexibleSpace: routePoints.length > 1
+          flexibleSpace: hasRoute
               ? FlexibleSpaceBar(background: _RouteMap(points: routePoints))
               : null,
         ),
-        SliverList(
-          delegate: SliverChildListDelegate([
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(typeUi.icon, size: 16, color: typeUi.color),
-                      const SizedBox(width: 6),
-                      Text(
-                        typeUi.label,
-                        style: TextStyle(
-                          color: typeUi.color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Icon(
-                        Icons.pedal_bike,
-                        size: 15,
-                        color: AppColors.textSecondaryOnPanel,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        activity.bikeName,
-                        style: const TextStyle(
-                          color: AppColors.textSecondaryOnPanel,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _MetaLine(
+                typeUi: typeUi,
+                bikeName: activity.bikeName,
+                dateLabel: dateLabel,
+              ),
+
+              const SizedBox(height: 12),
+              ActivityXpRow(activityId: activity.id),
+
+              if (records.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _RecordBanner(records: records),
+              ],
+
+              // --- Héroe: la distancia, y debajo la fila con filete
+              // (tiempo / promedio / desnivel+). Las cifras que son
+              // récord personal van en dorado ([CcColors.gold]).
+              const SizedBox(height: 18),
+              ActivitySummaryHero(
+                label: 'Distancia',
+                value: formatDistanceKm(activity.distanceMeters),
+                unit: 'km',
+                gold: records.contains(RecordType.distance),
+              ),
+              ActivityDividedRow(
+                cells: [
+                  ActivityStatCell(
+                    label: 'Tiempo',
+                    value: formatDuration(
+                      Duration(seconds: activity.durationSeconds),
+                    ),
+                    gold: records.contains(RecordType.duration),
                   ),
-
-                  // Debajo de "Entrenamiento": el desglose de récord
-                  // personal, con qué métrica(s) se superaron y su
-                  // valor -- esto es lo que faltaba en el badge de la
-                  // lista, que solo decía "Récord personal" sin decir
-                  // de qué.
-                  if (personalRecords.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    PersonalRecordBanner(
-                      activity: activity,
-                      records: personalRecords,
-                    ),
-                  ],
-
-                  const SizedBox(height: 4),
-                  Text(
-                    dateLabel,
-                    style: const TextStyle(
-                      color: AppColors.textSecondaryOnPanel,
-                      fontSize: 12.5,
-                    ),
+                  ActivityStatCell(
+                    label: 'Promedio',
+                    value: formatSpeedKmh(activity.avgSpeedKmh),
+                    unit: 'km/h',
                   ),
-                  const SizedBox(height: 20),
-
-                  // --- Totales principales ---
-                  GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1.15,
-                    children: [
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.straighten,
-                          accentColor: AppColors.accentDistance,
-                          value: formatDistanceKm(activity.distanceMeters),
-                          unit: 'km',
-                          label: 'DISTANCIA',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.timer_outlined,
-                          accentColor: AppColors.accentTime,
-                          value: formatDuration(
-                            Duration(seconds: activity.durationSeconds),
-                          ),
-                          unit: '',
-                          label: 'TIEMPO',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.speed,
-                          accentColor: AppColors.accentSpeed,
-                          value: formatSpeedKmh(activity.avgSpeedKmh),
-                          unit: 'km/h',
-                          label: 'PROMEDIO',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.bolt,
-                          accentColor: AppColors.accentSpeed,
-                          value: formatSpeedKmh(activity.maxSpeedKmh),
-                          unit: 'km/h',
-                          label: 'VEL. MÁX',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.terrain,
-                          accentColor: AppColors.accentElevation,
-                          value:
-                              activity.elevationGainMeters.toStringAsFixed(0),
-                          unit: 'm',
-                          label: 'DESNIVEL +',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.favorite,
-                          accentColor: AppColors.accentHeartRate,
-                          value: activity.avgHeartRate?.toString() ?? '--',
-                          unit: 'bpm',
-                          label: 'FC PROM.',
-                        ),
-                      ),
-                    ],
+                  ActivityStatCell(
+                    label: 'Desnivel+',
+                    value: activity.elevationGainMeters.toStringAsFixed(0),
+                    unit: 'm',
+                    gold: records.contains(RecordType.elevationGain),
                   ),
-
-                  // --- Gráfico interactivo de altimetría/FC/velocidad ---
-                  if (routePoints.length > 1) ...[
-                    const SizedBox(height: 24),
-                    ActivityChartsCard(points: routePoints),
-                  ],
-
-                  // --- Todos los datos, incluyendo los derivados ---
-                  const SizedBox(height: 24),
-                  const Text(
-                    'TODOS LOS DATOS',
-                    style: TextStyle(
-                      color: AppColors.textSecondaryOnPanel,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1.15,
-                    children: [
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.favorite,
-                          accentColor: AppColors.accentHeartRate,
-                          value: activity.maxHeartRate?.toString() ?? '--',
-                          unit: 'bpm',
-                          label: 'FC MÁXIMA',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.south,
-                          accentColor: AppColors.accentElevation,
-                          value: derived.elevationLossMeters
-                                  ?.toStringAsFixed(0) ??
-                              '--',
-                          unit: 'm',
-                          label: 'DESNIVEL −',
-                        ),
-                      ),
-                      // Esta era la tarjeta que se desbordaba ("right
-                      // overflowed by 1.6 px") con valores de 4 dígitos
-                      // como 2587 -- el FittedBox la achica solo lo
-                      // necesario para que quepa, sin tocar StatTile.
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.height,
-                          accentColor: AppColors.accentElevation,
-                          value:
-                              derived.minAltitude?.toStringAsFixed(0) ?? '--',
-                          unit: 'm',
-                          label: 'ALT. MÍNIMA',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.height,
-                          accentColor: AppColors.accentElevation,
-                          value:
-                              derived.maxAltitude?.toStringAsFixed(0) ?? '--',
-                          unit: 'm',
-                          label: 'ALT. MÁXIMA',
-                        ),
-                      ),
-                      // --- Potencia y cadencia (Fase C) ---
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.electric_bolt,
-                          accentColor: AppColors.accentPower,
-                          value: activity.avgPower?.toString() ?? '--',
-                          unit: 'W',
-                          label: 'POT. PROM.',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.bolt,
-                          accentColor: AppColors.accentPower,
-                          value: activity.maxPower?.toString() ?? '--',
-                          unit: 'W',
-                          label: 'POT. MÁX',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.autorenew,
-                          accentColor: AppColors.accentCadence,
-                          value: activity.avgCadence?.toString() ?? '--',
-                          unit: 'rpm',
-                          label: 'CAD. PROM.',
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.loop,
-                          accentColor: AppColors.accentCadence,
-                          value: activity.maxCadence?.toString() ?? '--',
-                          unit: 'rpm',
-                          label: 'CAD. MÁX',
-                        ),
-                      ),
-                      // Calorías estimadas -- con potencia se calcula del
-                      // trabajo mecánico; si no, modelo MET + desnivel
-                      // usando el peso del perfil (ver activity_calories.dart).
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: StatTile(
-                          icon: Icons.local_fire_department,
-                          accentColor: AppColors.accentSlope,
-                          value: calories?.toString() ?? '--',
-                          unit: 'kcal',
-                          label: 'CALORÍAS',
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // --- Segmentos completados en esta ruta + crear uno
-                  // nuevo -- antes el botón de "crear segmento" vivía
-                  // junto a los totales, arriba; ahora vive acá abajo,
-                  // junto a la lista de segmentos ya hechos en esta
-                  // actividad, para que todo lo relacionado con
-                  // segmentos quede junto.
-                  if (routePoints.length > 2) ...[
-                    const SizedBox(height: 24),
-                    _SegmentsInRouteSection(activity: activity),
-                  ],
-
-                  if (photoPaths.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'FOTOS',
-                      style: TextStyle(
-                        color: AppColors.textSecondaryOnPanel,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _PhotoGallery(photoPaths: photoPaths),
-                  ],
-
-                  if (activity.notes != null &&
-                      activity.notes!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'NOTAS',
-                      style: TextStyle(
-                        color: AppColors.textSecondaryOnPanel,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      activity.notes!,
-                      style: const TextStyle(
-                        color: AppColors.textPrimaryOnPanel,
-                        fontSize: 14,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
                 ],
               ),
-            ),
-          ]),
+
+              // --- Altimetría y análisis: el mismo gráfico interactivo
+              // de siempre (área coloreada por pendiente, overlays
+              // combinables de FC/velocidad/potencia/cadencia, lectura
+              // al deslizar el dedo). ---
+              if (hasRoute) ...[
+                const SizedBox(height: 26),
+                ActivityChartsCard(points: routePoints),
+              ],
+
+              // --- Todos los datos: filas agrupadas (prom + máx del
+              // mismo dato en una línea) en vez de la cuadrícula de
+              // mosaicos. Sin "desnivel −" (se quitó a pedido). ---
+              const SizedBox(height: 26),
+              const ActivitySectionLabel('Todos los datos'),
+              const SizedBox(height: 2),
+              ..._allDataRows(derived, calories, records),
+
+              // --- Segmentos completados en esta ruta + crear uno
+              // nuevo -- todo lo de segmentos junto, al final. ---
+              if (routePoints.length > 2) ...[
+                const SizedBox(height: 26),
+                _SegmentsInRouteSection(activity: activity),
+              ],
+
+              if (photoPaths.isNotEmpty) ...[
+                const SizedBox(height: 26),
+                const ActivitySectionLabel('Fotos'),
+                const SizedBox(height: 12),
+                _PhotoGallery(photoPaths: photoPaths),
+              ],
+
+              if (activity.notes != null &&
+                  activity.notes!.trim().isNotEmpty) ...[
+                const SizedBox(height: 26),
+                const ActivitySectionLabel('Notas'),
+                const SizedBox(height: 8),
+                Text(
+                  activity.notes!,
+                  style: const TextStyle(
+                    color: CcColors.ink,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ]),
+          ),
         ),
       ],
     );
   }
+
+  /// Construye las filas de "Todos los datos", saltándose las métricas
+  /// sin ningún valor (si no hubo potenciómetro no aparece la fila de
+  /// potencia, en vez de mostrar "--" por todos lados).
+  List<Widget> _allDataRows(
+    _DerivedStats derived,
+    int? calories,
+    Set<RecordType> records,
+  ) {
+    return [
+      if (activity.avgHeartRate != null || activity.maxHeartRate != null)
+        ActivityDataRow(
+          icon: Icons.favorite,
+          iconColor: AppColors.accentHeartRate,
+          label: 'Ritmo cardíaco',
+          unit: 'bpm',
+          values: [
+            (
+              pair: 'prom',
+              value: activity.avgHeartRate?.toString() ?? '--',
+              gold: false,
+            ),
+            (
+              pair: 'máx',
+              value: activity.maxHeartRate?.toString() ?? '--',
+              gold: false,
+            ),
+          ],
+        ),
+      if (activity.avgPower != null || activity.maxPower != null)
+        ActivityDataRow(
+          icon: Icons.electric_bolt,
+          iconColor: AppColors.accentPower,
+          label: 'Potencia',
+          unit: 'W',
+          values: [
+            (
+              pair: 'prom',
+              value: activity.avgPower?.toString() ?? '--',
+              gold: false,
+            ),
+            (
+              pair: 'máx',
+              value: activity.maxPower?.toString() ?? '--',
+              gold: records.contains(RecordType.maxPower),
+            ),
+          ],
+        ),
+      if (activity.avgCadence != null || activity.maxCadence != null)
+        ActivityDataRow(
+          icon: Icons.autorenew,
+          iconColor: AppColors.accentCadence,
+          label: 'Cadencia',
+          unit: 'rpm',
+          values: [
+            (
+              pair: 'prom',
+              value: activity.avgCadence?.toString() ?? '--',
+              gold: false,
+            ),
+            (
+              pair: 'máx',
+              value: activity.maxCadence?.toString() ?? '--',
+              gold: false,
+            ),
+          ],
+        ),
+      ActivityDataRow(
+        icon: Icons.speed,
+        iconColor: AppColors.accentSpeed,
+        label: 'Velocidad máx',
+        unit: 'km/h',
+        values: [
+          (
+            pair: null,
+            value: formatSpeedKmh(activity.maxSpeedKmh),
+            gold: records.contains(RecordType.maxSpeed),
+          ),
+        ],
+      ),
+      if (derived.minAltitude != null && derived.maxAltitude != null)
+        ActivityDataRow(
+          icon: Icons.height,
+          iconColor: AppColors.accentElevation,
+          label: 'Altitud',
+          unit: 'm',
+          values: [
+            (
+              pair: 'mín',
+              value: derived.minAltitude!.toStringAsFixed(0),
+              gold: false,
+            ),
+            (
+              pair: 'máx',
+              value: derived.maxAltitude!.toStringAsFixed(0),
+              gold: false,
+            ),
+          ],
+        ),
+      ActivityDataRow(
+        icon: Icons.local_fire_department,
+        iconColor: AppColors.accentSlope,
+        label: 'Calorías',
+        unit: 'kcal',
+        values: [
+          (
+            pair: null,
+            value: calories != null ? formatThousands(calories) : '--',
+            gold: false,
+          ),
+        ],
+      ),
+    ];
+  }
+}
+
+/// Línea de contexto bajo el título: tipo de actividad · bici · fecha.
+class _MetaLine extends StatelessWidget {
+  final ActivityTypeUi typeUi;
+  final String bikeName;
+  final String dateLabel;
+
+  const _MetaLine({
+    required this.typeUi,
+    required this.bikeName,
+    required this.dateLabel,
+  });
+
+  Widget _dot() => Container(
+    width: 3,
+    height: 3,
+    decoration: const BoxDecoration(
+      color: CcColors.inkFaint,
+      shape: BoxShape.circle,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(typeUi.icon, size: 13, color: typeUi.color),
+            const SizedBox(width: 5),
+            Text(
+              typeUi.label,
+              style: TextStyle(
+                color: typeUi.color,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+        _dot(),
+        Text(
+          bikeName,
+          style: const TextStyle(color: CcColors.inkDim, fontSize: 12.5),
+        ),
+        _dot(),
+        Text(
+          dateLabel,
+          style: const TextStyle(color: CcColors.inkDim, fontSize: 12.5),
+        ),
+      ],
+    );
+  }
+}
+
+/// Banner compacto de récord personal -- una sola línea que nombra qué
+/// marcas se batieron. El valor concreto de cada una ya sale en dorado
+/// en su propio dato, así que aquí no hace falta repetirlo.
+class _RecordBanner extends StatelessWidget {
+  final Set<RecordType> records;
+
+  const _RecordBanner({required this.records});
+
+  static const _short = {
+    RecordType.distance: 'distancia',
+    RecordType.duration: 'duración',
+    RecordType.maxSpeed: 'velocidad máx.',
+    RecordType.maxPower: 'potencia máx.',
+    RecordType.elevationGain: 'desnivel',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = RecordType.values
+        .where(records.contains)
+        .map((r) => _short[r]!)
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: CcColors.gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CcColors.gold.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.emoji_events, size: 14, color: CcColors.gold),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Récord personal · ${_joinNatural(labels)}',
+              style: const TextStyle(
+                color: CcColors.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _joinNatural(List<String> items) {
+  if (items.isEmpty) return '';
+  if (items.length == 1) return items.first;
+  return '${items.sublist(0, items.length - 1).join(', ')} y ${items.last}';
 }
 
 /// Sección "Segmentos en esta ruta": qué segmentos (ya creados por el
@@ -605,9 +587,9 @@ class _SegmentsInRouteSection extends ConsumerWidget {
       ),
     );
     if (createdId != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Segmento creado.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Segmento creado.')));
     }
   }
 
@@ -794,8 +776,9 @@ class _RouteMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rawLatLngs =
-        points.map((p) => latlng.LatLng(p.latitude, p.longitude)).toList();
+    final rawLatLngs = points
+        .map((p) => latlng.LatLng(p.latitude, p.longitude))
+        .toList();
     final bounds = LatLngBounds.fromPoints(rawLatLngs);
 
     final smoothLatLngs = _smoothCoordinates(rawLatLngs);
@@ -1038,6 +1021,7 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
     );
   }
 }
+
 /// Fila ícono + texto para los ítems del menú de 3 puntos del
 /// detalle de actividad.
 class _MenuRow extends StatelessWidget {

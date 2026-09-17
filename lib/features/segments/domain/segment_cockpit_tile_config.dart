@@ -1,9 +1,5 @@
-import '../../geospatial/domain/cockpit_tile_config.dart' show CockpitTileSize;
-
+import '../../cockpit/cockpit.dart' show CockpitTileSize;
 import 'segment_cockpit_field.dart';
-
-export '../../geospatial/domain/cockpit_tile_config.dart'
-    show CockpitTileSize, CockpitTileSizeX;
 
 /// Un campo elegido para la pantalla de segmento + su tamaño. Reusa
 /// `CockpitTileSize` (Chico/Ancho/Grande) del cockpit del mapa -- la

@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../voice/domain/voice_event.dart';
-import '../../voice/presentation/voice_providers.dart';
+import '../../voice/voice.dart';
 import '../domain/navigation_route.dart';
-import 'navigation_providers.dart';
+import '../application/navigation_providers.dart';
 
 /// Traduce cada `TurnDirection` a su `VoiceEventType` fijo -- ver la
 /// nota en voice_event.dart sobre por qué la distancia no va en el
@@ -32,7 +31,7 @@ VoiceEventType? _voiceEventFor(TurnDirection direction) {
   }
 }
 
-/// Envolvé con esto la pantalla del mapa (ver map_screen.dart) para
+/// Envolvé con esto la pantalla del mapa (ver `RideScreen`) para
 /// que cada vez que `TurnInstructionBanner` avanza a la próxima
 /// instrucción (`nextInstructionIndexProvider`), se dispare el aviso
 /// de voz correspondiente exactamente una vez.

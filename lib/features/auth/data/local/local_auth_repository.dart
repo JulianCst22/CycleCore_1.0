@@ -116,9 +116,9 @@ class LocalAuthRepository implements AuthRepository {
     final users = await _loadUsers();
 
     final match = users.cast<Map<String, dynamic>?>().firstWhere(
-          (u) => u?['email'] == normalizedEmail,
-          orElse: () => null,
-        );
+      (u) => u?['email'] == normalizedEmail,
+      orElse: () => null,
+    );
     if (match == null) throw const InvalidCredentialsException();
 
     final expectedHash = _hashPassword(password, match['salt'] as String);
@@ -133,14 +133,52 @@ class LocalAuthRepository implements AuthRepository {
     );
   }
 
+  @override
+  Future<bool> emailTaken(String email) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final users = await _loadUsers();
+    return users.any((u) => u['email'] == normalizedEmail);
+  }
+
+  @override
+  Future<void> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (newPassword.length < 6) throw const WeakPasswordException();
+
+    final normalizedEmail = email.trim().toLowerCase();
+    final users = await _loadUsers();
+    final index = users.indexWhere((u) => u['email'] == normalizedEmail);
+    if (index == -1) throw const InvalidCredentialsException();
+
+    final user = users[index];
+    final currentHash = _hashPassword(currentPassword, user['salt'] as String);
+    if (currentHash != user['passwordHash']) {
+      throw const WrongCurrentPasswordException();
+    }
+
+    final newSalt = _generateSalt();
+    users[index] = {
+      ...user,
+      'salt': newSalt,
+      'passwordHash': _hashPassword(newPassword, newSalt),
+    };
+    await _saveUsers(users);
+  }
+
   Future<AuthSession> _createSession({
     required String userId,
     required String email,
     String? displayName,
   }) async {
     const validFor = Duration(days: 30);
-    final token =
-        await _jwt.issue(userId: userId, email: email, validFor: validFor);
+    final token = await _jwt.issue(
+      userId: userId,
+      email: email,
+      validFor: validFor,
+    );
     final now = DateTime.now();
 
     final session = AuthSession(

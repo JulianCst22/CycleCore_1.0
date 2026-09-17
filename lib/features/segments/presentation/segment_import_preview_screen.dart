@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:core_ui/core_ui.dart';
 import '../data/gpx_segment_importer.dart';
-import 'segments_providers.dart';
+import '../application/segments_providers.dart';
 import 'widgets/segment_altitude_profile.dart';
 import 'widgets/segment_mini_map.dart';
 
@@ -76,9 +75,7 @@ class _SegmentImportPreviewScreenState
     final stats = result.stats;
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(
           'Importar segmento',

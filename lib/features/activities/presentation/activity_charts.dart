@@ -2,10 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
-import '../domain/activity_colors.dart';
-import '../domain/activity_summary.dart';
+import 'package:core_ui/core_ui.dart';
+import 'activity_colors.dart';
+import 'package:core_database/core_database.dart';
 
 enum ChartOverlay { heartRate, speed, slope, power, cadence }
 

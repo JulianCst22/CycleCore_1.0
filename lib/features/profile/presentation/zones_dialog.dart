@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/training_zones.dart';
 import 'widgets/zones_editor.dart';
 

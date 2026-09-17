@@ -3,65 +3,45 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../domain/cycling_power_parser.dart';
 import '../domain/cycling_power_reading.dart';
 import '../domain/discovered_device.dart';
+import 'ble_sensor_service.dart';
+import 'fbp_sensor_link.dart';
 
-/// Única puerta de entrada a flutter_blue_plus para sensores de
-/// potencia. Mismo criterio que `BleHeartRateService`: ningún otro
-/// archivo debería importar flutter_blue_plus directamente para esto.
+/// Acceso BLE a medidores de potencia.
 ///
-/// Usa los UUID estándar de Bluetooth SIG (Cycling Power Service
-/// 0x1818, Cycling Power Measurement 0x2A63), compatibles con
-/// prácticamente cualquier medidor de potencia del mercado (Stages,
-/// Quarq, Assioma, 4iiii, etc).
-class BleCyclingPowerService {
-  static final Guid _powerServiceUuid = Guid('1818');
-  static final Guid _powerMeasurementCharUuid = Guid('2A63');
+/// Usa los UUID estándar de Bluetooth SIG (Cycling Power Service 0x1818,
+/// Cycling Power Measurement 0x2A63), compatibles con prácticamente
+/// cualquier medidor del mercado (Stages, Quarq, Assioma, 4iiii, etc).
+class BleCyclingPowerService implements BleSensorService<CyclingPowerReading> {
+  static final Guid _serviceUuid = Guid('1818');
+  static final Guid _measurementCharUuid = Guid('2A63');
 
-  Stream<List<DiscoveredDevice>> scanForPowerSensors({
+  @override
+  Stream<List<DiscoveredDevice>> scan({
     Duration timeout = const Duration(seconds: 12),
-  }) {
-    FlutterBluePlus.startScan(
-      withServices: [_powerServiceUuid],
-      timeout: timeout,
-    );
+  }) =>
+      fbpScanForService(_serviceUuid, 'Medidor de potencia', timeout: timeout);
 
-    return FlutterBluePlus.scanResults.map(
-      (results) => results
-          .map(
-            (r) => DiscoveredDevice(
-              id: r.device.remoteId.str,
-              name: r.device.platformName.isNotEmpty
-                  ? r.device.platformName
-                  : 'Medidor de potencia',
-              rssi: r.rssi,
-            ),
-          )
-          .toList(),
-    );
-  }
+  @override
+  Future<void> stopScan() => fbpStopScan();
 
-  Future<void> stopScan() => FlutterBluePlus.stopScan();
+  @override
+  Future<SensorLink<CyclingPowerReading>> connect(String deviceId) =>
+      fbpConnect(deviceId, _watch);
 
-  Future<BluetoothDevice> connect(String deviceId) async {
-    final device = BluetoothDevice.fromId(deviceId);
-    await device.connect(autoConnect: false);
-    return device;
-  }
-
-  /// Se suscribe a las lecturas de potencia de un dispositivo ya
-  /// conectado. Debe llamarse después de connect().
-  Stream<CyclingPowerReading> watchPower(BluetoothDevice device) async* {
+  Stream<CyclingPowerReading> _watch(BluetoothDevice device) async* {
     final services = await device.discoverServices();
 
     final powerService = services.firstWhere(
-      (s) => s.uuid == _powerServiceUuid,
+      (s) => s.uuid == _serviceUuid,
       orElse: () => throw StateError(
         'Este dispositivo no expone el servicio estándar de potencia '
         '(0x1818).',
       ),
     );
 
-    final measurementCharacteristic = powerService.characteristics
-        .firstWhere((c) => c.uuid == _powerMeasurementCharUuid);
+    final measurementCharacteristic = powerService.characteristics.firstWhere(
+      (c) => c.uuid == _measurementCharUuid,
+    );
 
     await measurementCharacteristic.setNotifyValue(true);
 
@@ -70,12 +50,4 @@ class BleCyclingPowerService {
       yield parseCyclingPowerMeasurement(rawData);
     }
   }
-
-  Stream<BluetoothConnectionState> watchConnectionState(
-    BluetoothDevice device,
-  ) {
-    return device.connectionState;
-  }
-
-  Future<void> disconnect(BluetoothDevice device) => device.disconnect();
 }

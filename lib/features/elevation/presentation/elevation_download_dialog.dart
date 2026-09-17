@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/elevation/srtm_tile_naming.dart';
-import '../../../core/theme/app_colors.dart';
-import 'elevation_providers.dart';
+import '../domain/srtm_tile_naming.dart';
+import 'package:core_ui/core_ui.dart';
+import '../application/elevation_providers.dart';
 
 /// Popup para descargar las teselas de elevación de la zona actual.
 /// Devuelve true si se descargó (o ya estaba todo descargado), false si

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../activities/domain/activity_json_helpers.dart';
-import '../../domain/calendar_day_info.dart';
-import '../profile_providers.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../../stats/stats.dart';
 import 'day_detail_sheet.dart';
 
 /// Calendario de actividad interactivo: cada celda muestra el número
@@ -65,7 +63,7 @@ class ActivityCalendar extends ConsumerWidget {
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
             ),
-            error: (_, __) => const SizedBox(
+            error: (_, _) => const SizedBox(
               height: 40,
               child: Center(
                 child: Text(

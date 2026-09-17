@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/elevation/srtm_tile_naming.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../geospatial/presentation/map_providers.dart';
-import 'elevation_providers.dart';
+import '../domain/srtm_tile_naming.dart';
+import 'package:core_ui/core_ui.dart';
+import 'package:core_platform/core_platform.dart';
+import '../application/elevation_providers.dart';
 
 /// Pantalla de Ajustes > Elevación. Antes la descarga de teselas HGT
 /// solo aparecía como un diálogo justo antes de "Grabar" -- esta
@@ -21,9 +21,7 @@ class ElevationSettingsScreen extends ConsumerWidget {
     final positionAsync = ref.watch(currentPositionProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         title: const Text(
           'Elevación',

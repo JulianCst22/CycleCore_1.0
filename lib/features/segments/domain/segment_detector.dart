@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
-import 'segment_geometry.dart';
-import 'segment_profile.dart';
+import 'package:core_geo/core_geo.dart';
 
 /// Un segmento vigilado, en la forma mínima que el detector necesita --
 /// sin depender de la fila Drift `Segment`. El controlador (capa de

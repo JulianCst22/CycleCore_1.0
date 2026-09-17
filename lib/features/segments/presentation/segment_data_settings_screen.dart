@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/cyclecore_palette.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/segment_cockpit_field.dart';
 import '../domain/segment_cockpit_tile_config.dart';
 import 'segment_cockpit_field_ui.dart';
-import 'segment_cockpit_layout_providers.dart';
+import '../application/segment_cockpit_layout_providers.dart';
 import 'widgets/segment_cockpit_grid.dart';
+import '../../cockpit/cockpit.dart';
 
 /// Editor de la pantalla de segmento en vivo -- se llega desde
 /// Perfil → Ajustes → "Datos del segmento". Acá el usuario decide
@@ -29,9 +29,7 @@ class SegmentDataSettingsScreen extends ConsumerWidget {
     final notifier = ref.read(segmentCockpitLayoutProvider.notifier);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(

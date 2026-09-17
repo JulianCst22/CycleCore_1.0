@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/activity_summary.dart';
+import 'package:core_database/core_database.dart';
 
 /// Dibuja el trazado de una ruta como una línea simple, escalada para
 /// caber en un cuadro pequeño (ej. una tarjeta de lista). No usa tiles

@@ -1,0 +1,14 @@
+name: core_geo
+description: >
+  Cálculo geoespacial puro de CycleCore: distancias y rumbos, perfiles
+  geográficos y proyección sobre ellos, pendiente por ventana y desnivel
+  con histéresis. Dart puro, sin Flutter.
+publish_to: 'none'
+
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.1
+
+dev_dependencies:
+  lints: ^6.0.0

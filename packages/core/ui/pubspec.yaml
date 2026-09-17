@@ -1,0 +1,21 @@
+name: core_ui
+description: >
+  Sistema de diseño de CycleCore: tokens de color, tipografía, tema,
+  formato de datos para mostrar y widgets compartidos. No conoce ninguna
+  feature ni la base de datos.
+publish_to: 'none'
+
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

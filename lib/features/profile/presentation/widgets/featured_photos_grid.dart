@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../activities/presentation/activity_detail_screen.dart';
-import '../profile_providers.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../application/extension_points.dart';
+import '../../../stats/stats.dart';
 
 /// Grid de fotos "destacadas": las de actividades que fueron récord
 /// personal para su tipo (mismo criterio de medalla que en la lista de
@@ -17,6 +17,7 @@ class FeaturedPhotosGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final photosAsync = ref.watch(featuredPhotosProvider);
+    final openDetail = ref.read(openActivityDetailProvider);
 
     return photosAsync.when(
       loading: () => const SizedBox(
@@ -25,7 +26,7 @@ class FeaturedPhotosGrid extends ConsumerWidget {
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (photos) {
         if (photos.isEmpty) return const _EmptyFeatured();
 
@@ -43,23 +44,20 @@ class FeaturedPhotosGrid extends ConsumerWidget {
             return ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ActivityDetailScreen(activityId: photo.activityId),
-                  ),
-                ),
+                onTap: openDetail == null
+                    ? null
+                    : () => openDetail(context, photo.activityId),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     Image.file(
                       File(photo.photoPath),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: AppColors.panelBackground,
+                      errorBuilder: (_, _, _) => Container(
+                        color: CcColors.surface,
                         child: const Icon(
                           Icons.broken_image_outlined,
-                          color: AppColors.textSecondaryOnPanel,
+                          color: CcColors.inkDim,
                         ),
                       ),
                     ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/segment_cockpit_field.dart';
 
 /// Valor ya formateado (ícono, color, etiqueta, valor, unidad) de un

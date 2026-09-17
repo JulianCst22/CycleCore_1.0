@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/format_utils.dart';
-import '../../../geospatial/presentation/map_providers.dart'
+import 'package:core_ui/core_ui.dart';
+import '../../../recording/recording.dart'
     show secondTickerProvider;
-import '../segment_detection_providers.dart';
+import '../../application/segment_detection_providers.dart';
 
 /// Banner compacto que aparece sobre el mapa mientras el ciclista está
 /// dentro de un segmento vigilado (Fase C). La pantalla de segmento
@@ -27,7 +26,7 @@ class SegmentLiveBanner extends ConsumerWidget {
     final delta = active.deltaVsGhost();
 
     return Material(
-      color: Colors.black.withValues(alpha: 0.78),
+      color: CcColors.glass,
       borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -98,8 +97,8 @@ class SegmentLiveBanner extends ConsumerWidget {
                       color: delta.isNegative
                           ? AppColors.ghostAhead
                           : (delta.inSeconds == 0
-                              ? AppColors.textSecondaryOnPanel
-                              : AppColors.ghostBehind),
+                                ? AppColors.textSecondaryOnPanel
+                                : AppColors.ghostBehind),
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),

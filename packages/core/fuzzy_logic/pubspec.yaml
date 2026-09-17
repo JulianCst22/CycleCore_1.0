@@ -1,0 +1,14 @@
+name: core_fuzzy_logic
+description: >
+  Motor de inferencia difusa Sugeno de orden cero de CycleCore: funciones
+  de pertenencia, reglas y defuzzificación por promedio ponderado.
+  Dart puro y genérico: no sabe de altitud, pendientes ni ciclismo.
+publish_to: 'none'
+
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.1
+
+dev_dependencies:
+  lints: ^6.0.0

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../elevation/presentation/elevation_providers.dart';
-import '../domain/activity_json_helpers.dart';
-import '../domain/activity_summary.dart';
-import '../domain/elevation_gain_loss.dart';
-import 'activities_providers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../elevation/elevation.dart';
+import 'package:core_geo/core_geo.dart';
+import '../application/activities_providers.dart';
 
 /// "Ajustar altimetría" -- vuelve a correr el aplanado de una actividad
 /// ya guardada usando la cadena de prioridades ACTUAL (GPX > HGT >
@@ -84,9 +82,7 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(

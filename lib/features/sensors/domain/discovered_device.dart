@@ -1,7 +1,7 @@
-/// Representa un dispositivo BLE encontrado durante el escaneo, ya
-/// filtrado para que sea (probablemente) un sensor de frecuencia
-/// cardíaca -- el filtrado real ocurre en BleHeartRateService, este
-/// modelo solo transporta el resultado.
+/// Un dispositivo BLE encontrado durante el escaneo, ya filtrado para
+/// que sea (probablemente) un sensor del tipo buscado -- el filtrado
+/// real ocurre en el `Ble*Service`; este modelo sólo transporta el
+/// resultado a la UI.
 class DiscoveredDevice {
   final String id;
   final String name;

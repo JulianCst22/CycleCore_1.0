@@ -1,8 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 
-import '../../activities/domain/activity_summary.dart';
-import '../../geospatial/domain/slope_window_calculator.dart';
-import 'segment_profile.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_geo/core_geo.dart';
 
 /// A qué distancia del inicio se toma el punto de referencia para el
 /// rumbo de arranque de un segmento (`startBearingDegrees`). Vive acá

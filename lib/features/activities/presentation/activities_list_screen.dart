@@ -4,112 +4,93 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
-import 'activities_providers.dart';
-import 'activity_detail_screen.dart';
-import '../domain/activity_json_helpers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../profile/profile.dart';
 import '../domain/activity_records.dart';
+import '../application/activities_providers.dart';
+import 'activity_detail_screen.dart';
 import 'widgets/activity_record_badge.dart';
 import 'widgets/pressable_scale.dart';
 import 'widgets/route_hero_background.dart';
 
+/// Pantalla de actividades -- pensada para ser el "home" de la app, al
+/// estilo de Strava/Komoot: un saludo personal, el pulso de la semana en
+/// una franja compacta y, debajo, el historial de recorridos en tarjetas
+/// grandes con foto/mapa.
+///
+/// Rediseño (rama `feature/design-system`): se abandona el `AppBar`
+/// "Tus actividades" por un encabezado propio (`Hola, <nombre>` + "Tu
+/// trayectoria"), se añade el banner semanal y las cifras que son récord
+/// personal se pintan en dorado ([CcColors.gold]) para que el logro
+/// salte a la vista. El botón flotante lleva al Mapa, que es donde
+/// arranca un recorrido.
 class ActivitiesListScreen extends ConsumerWidget {
   const ActivitiesListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activitiesAsync = ref.watch(activitiesListProvider);
+    final firstName = ref
+        .watch(profileProvider)
+        .valueOrNull
+        ?.name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .first;
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
-      appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
-        elevation: 0,
-        title: const Text(
-          'Tus actividades',
-          style: TextStyle(color: AppColors.textPrimaryOnPanel),
-        ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
-      ),
+      backgroundColor: CcColors.bg,
       body: activitiesAsync.when(
         loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+          child: CircularProgressIndicator(color: CcColors.orange),
         ),
-        error: (error, stackTrace) => Center(
-          child: Text(
-            'No se pudieron cargar tus actividades:\n$error',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSecondaryOnPanel),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              'No se pudieron cargar tus actividades:\n$error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: CcColors.inkDim),
+            ),
           ),
         ),
-        data: (activities) {
-          if (activities.isEmpty) {
-            return const _EmptyState();
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            itemCount: activities.length,
-            itemBuilder: (context, index) {
-              final activity = activities[index];
-              // Récord personal: ahora cubre distancia, duración,
-              // velocidad máxima, potencia máxima y desnivel -- el
-              // mismo cálculo que usa la pantalla de detalle, así el
-              // badge de la lista y el desglose del detalle siempre
-              // coinciden.
-              final records = computeActivityRecords(
-                activity: activity,
-                allActivities: activities,
-              );
-              return _ActivityCard(
-                activity: activity,
-                isPersonalRecord: !records.isEmpty,
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.route_outlined,
-              size: 56,
-              color: AppColors.textSecondaryOnPanel.withValues(alpha: 0.6),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Aún no tienes actividades guardadas',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textPrimaryOnPanel,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+        data: (activities) => CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Header(firstName: firstName),
+                    const _WeekBanner(),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Graba tu primer recorrido desde el mapa y aparecerá aquí.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondaryOnPanel,
-                fontSize: 13,
+            if (activities.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyState(),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 108),
+                sliver: SliverList.separated(
+                  itemCount: activities.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 15),
+                  itemBuilder: (context, index) {
+                    final activity = activities[index];
+                    final records = computeActivityRecords(
+                      activity: activity,
+                      allActivities: activities,
+                    ).records;
+                    return _ActivityCard(activity: activity, records: records);
+                  },
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -117,186 +98,324 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// Tarjeta grande tipo "hero" -- carrusel (ruta + fotos) arriba, título
-/// y stats destacados abajo. Es `ConsumerStatefulWidget` (y no
-/// `StatelessWidget` como antes) porque necesita guardar en qué página
-/// del carrusel está el usuario, para animar los puntos indicadores.
+class _Header extends StatelessWidget {
+  final String? firstName;
+
+  const _Header({this.firstName});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = firstName;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (name == null || name.isEmpty)
+            const Text(
+              '¡Hola! 👋',
+              style: TextStyle(
+                color: CcColors.inkDim,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w500,
+              ),
+            )
+          else
+            Text.rich(
+              TextSpan(
+                style: const TextStyle(
+                  color: CcColors.inkDim,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w500,
+                ),
+                children: [
+                  const TextSpan(text: 'Hola, '),
+                  TextSpan(
+                    text: name,
+                    style: const TextStyle(
+                      color: CcColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const TextSpan(text: ' 👋'),
+                ],
+              ),
+            ),
+          const SizedBox(height: 3),
+          Text(
+            'Tu trayectoria',
+            style: CcType.displayStyle(size: 28, weight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Franja compacta con el resumen de la semana: cifra de distancia,
+/// desnivel acumulado, salidas y tiempo, más un mini-gráfico de las
+/// últimas 6 semanas. Deliberadamente baja de altura -- el protagonista
+/// de la pantalla son las tarjetas de abajo, no este panel.
+class _WeekBanner extends ConsumerWidget {
+  const _WeekBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summary = ref.watch(weeklySummaryProvider).valueOrNull;
+    if (summary == null || summary.isEmpty) return const SizedBox.shrink();
+
+    final hours = summary.movingTime.inHours;
+    final minutes = summary.movingTime.inMinutes
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
+    final rideWord = summary.rideCount == 1 ? 'salida' : 'salidas';
+    final km = summary.distanceKm;
+    final kmText = km >= 100 ? km.toStringAsFixed(0) : km.toStringAsFixed(1);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [CcColors.surfaceHi, CcColors.surface],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: CcColors.line),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                'ESTA SEMANA',
+                style: CcType.label(size: 9.5, color: CcColors.inkFaint),
+              ),
+              const Spacer(),
+              Text(
+                '${summary.rideCount} $rideWord · $hours:$minutes h',
+                style: const TextStyle(
+                  color: CcColors.inkDim,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        kmText,
+                        style: CcType.displayStyle(
+                          size: 25,
+                          weight: FontWeight.w800,
+                        ),
+                      ),
+                      const Text(' km', style: _bannerUnitStyle),
+                      const Text(
+                        '   ·   ',
+                        style: TextStyle(
+                          color: CcColors.inkFaint,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        formatThousands(summary.elevationGainMeters.round()),
+                        style: CcType.displayStyle(
+                          size: 25,
+                          weight: FontWeight.w800,
+                        ),
+                      ),
+                      const Text(' m D+', style: _bannerUnitStyle),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _WeekBars(values: summary.last6WeeksKm),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const _bannerUnitStyle = TextStyle(
+  color: CcColors.inkDim,
+  fontSize: 13,
+  fontWeight: FontWeight.w600,
+);
+
+/// Mini-gráfico de barras de las últimas 6 semanas de distancia. La
+/// última barra (semana en curso) va en naranja.
+class _WeekBars extends StatelessWidget {
+  final List<double> values;
+
+  const _WeekBars({required this.values});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxKm = values.fold<double>(0, (a, b) => b > a ? b : a);
+    return SizedBox(
+      height: 30,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < values.length; i++) ...[
+            if (i > 0) const SizedBox(width: 5),
+            Container(
+              width: 6,
+              height: maxKm == 0
+                  ? 4
+                  : (4 + 24 * (values[i] / maxKm)).clamp(4, 28).toDouble(),
+              decoration: BoxDecoration(
+                color: i == values.length - 1 ? CcColors.orange : CcColors.line,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarjeta grande de actividad -- carrusel (mapa de la ruta + fotos)
+/// arriba, título y stats destacados abajo. Es `ConsumerStatefulWidget`
+/// porque guarda en qué página del carrusel está el usuario (para los
+/// puntos indicadores) y necesita `ref` para eliminar la actividad.
 class _ActivityCard extends ConsumerStatefulWidget {
   final Activity activity;
-  final bool isPersonalRecord;
+  final Set<RecordType> records;
 
-  const _ActivityCard({
-    required this.activity,
-    this.isPersonalRecord = false,
-  });
+  const _ActivityCard({required this.activity, required this.records});
 
   @override
   ConsumerState<_ActivityCard> createState() => _ActivityCardState();
 }
 
 class _ActivityCardState extends ConsumerState<_ActivityCard> {
-  int _currentPage = 0;
+  int _page = 0;
 
   @override
   Widget build(BuildContext context) {
     final activity = widget.activity;
+    final records = widget.records;
     final typeUi = ActivityTypeUi.fromValue(activity.activityType);
-    final dateLabel =
-        DateFormat("d MMM · HH:mm", 'es').format(activity.startedAt);
-    final photoPaths = activity.photoPaths;
-    // Página 0 siempre es el mapa de la ruta; las siguientes son fotos.
-    // Así siempre hay algo que mostrar aunque no se hayan agregado fotos.
-    final pageCount = 1 + photoPaths.length;
+    final photos = activity.photoPaths;
+    final dateLabel = DateFormat(
+      "EEE d MMM · HH:mm",
+      'es',
+    ).format(activity.startedAt);
+    // Página 0 = mapa de la ruta; el resto, fotos. Siempre hay algo que
+    // mostrar aunque la actividad no tenga fotos.
+    final pageCount = 1 + photos.length;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+    return PressableScale(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ActivityDetailScreen(activityId: activity.id),
+        ),
+      ),
       child: Container(
-        // El color del tipo de actividad ya no vive en un borde plano
-        // (se perdía sobre el fondo oscuro) sino en un glow de sombra
-        // teñido, combinado con una sombra neutra para dar profundidad
-        // real -- efecto "la tarjeta flota y emite luz de su color".
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
+          color: CcColors.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: CcColors.line),
           boxShadow: [
             BoxShadow(
-              color: typeUi.color.withValues(alpha: 0.28),
-              blurRadius: 26,
-              spreadRadius: -6,
-              offset: const Offset(0, 12),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: Material(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(30),
-          clipBehavior: Clip.antiAlias,
-          child: PressableScale(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      ActivityDetailScreen(activityId: activity.id),
-                ),
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Línea superior en degradado: ancla el color del tipo
-                // de actividad de forma elegante, sin competir con el
-                // resto de la tarjeta como hacía el borde perimetral.
-                // Se desvanece en ambos extremos y flota con un margen
-                // respecto al borde -- así se integra como un detalle
-                // sutil en vez de "gritar" como una barra sólida.
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(28, 10, 28, 0),
-                  child: Container(
-                    height: 3,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        stops: const [0.0, 0.5, 1.0],
-                        colors: [
-                          typeUi.color.withValues(alpha: 0.0),
-                          typeUi.color.withValues(alpha: 0.85),
-                          typeUi.color.withValues(alpha: 0.0),
-                        ],
-                      ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _mediaHeader(activity, typeUi, dateLabel, photos, pageCount),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 12, 15, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    activity.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: CcType.displayStyle(
+                      size: 17.5,
+                      weight: FontWeight.w700,
+                      height: 1.15,
                     ),
                   ),
-                ),
-                _buildMediaHeader(
-                  context,
-                  activity: activity,
-                  typeUi: typeUi,
-                  dateLabel: dateLabel,
-                  photoPaths: photoPaths,
-                  pageCount: pageCount,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        activity.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimaryOnPanel,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                        ),
+                      _CardStat(
+                        label: 'Distancia',
+                        value: formatDistanceKm(activity.distanceMeters),
+                        unit: 'km',
+                        big: true,
+                        gold: records.contains(RecordType.distance),
                       ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _HeroStat(
-                              icon: Icons.straighten,
-                              value:
-                                  formatDistanceKm(activity.distanceMeters),
-                              unit: 'km',
-                              label: 'Distancia',
-                            ),
-                          ),
-                          const _StatDivider(),
-                          Expanded(
-                            child: _HeroStat(
-                              icon: Icons.timer_outlined,
-                              value: formatDuration(
-                                Duration(seconds: activity.durationSeconds),
-                              ),
-                              unit: '',
-                              label: 'Duración',
-                            ),
-                          ),
-                          const _StatDivider(),
-                          Expanded(
-                            child: _HeroStat(
-                              icon: Icons.terrain,
-                              value: activity.elevationGainMeters
-                                  .toStringAsFixed(0),
-                              unit: 'm',
-                              label: 'Desnivel',
-                            ),
-                          ),
-                        ],
+                      const _CardStatDivider(),
+                      _CardStat(
+                        label: 'Tiempo',
+                        value: formatDuration(
+                          Duration(seconds: activity.durationSeconds),
+                        ),
+                        gold: records.contains(RecordType.duration),
+                      ),
+                      const _CardStatDivider(),
+                      _CardStat(
+                        label: 'Desnivel+',
+                        value: activity.elevationGainMeters.toStringAsFixed(0),
+                        unit: 'm',
+                        gold: records.contains(RecordType.elevationGain),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildMediaHeader(
-    BuildContext context, {
-    required Activity activity,
-    required ActivityTypeUi typeUi,
-    required String dateLabel,
-    required List<String> photoPaths,
-    required int pageCount,
-  }) {
+  Widget _mediaHeader(
+    Activity activity,
+    ActivityTypeUi typeUi,
+    String dateLabel,
+    List<String> photos,
+    int pageCount,
+  ) {
     return SizedBox(
-      height: 210,
+      height: 150,
       child: Stack(
         fit: StackFit.expand,
         children: [
           PageView.builder(
             itemCount: pageCount,
-            onPageChanged: (page) => setState(() => _currentPage = page),
+            onPageChanged: (page) => setState(() => _page = page),
             itemBuilder: (context, index) {
               if (index == 0) {
                 return RouteHeroBackground(
@@ -304,172 +423,137 @@ class _ActivityCardState extends ConsumerState<_ActivityCard> {
                   accentColor: typeUi.color,
                 );
               }
-              final path = photoPaths[index - 1];
               return Image.file(
-                File(path),
+                File(photos[index - 1]),
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: AppColors.panelBackground,
+                errorBuilder: (_, _, _) => Container(
+                  color: CcColors.surfaceInset,
                   child: const Icon(
                     Icons.broken_image_outlined,
-                    color: AppColors.textSecondaryOnPanel,
+                    color: CcColors.inkFaint,
                   ),
                 ),
               );
             },
           ),
-
-          // Degradado inferior -- para que la fecha sea legible sobre
-          // cualquier foto, sin importar qué tan clara sea.
           const Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            height: 56,
+            height: 62,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black54],
+                  colors: [Colors.transparent, Color(0xE60E1116)],
                 ),
               ),
             ),
           ),
-
-          Positioned(
-            left: 12,
-            top: 12,
-            child: _TypeChip(typeUi: typeUi),
-          ),
-
-          // Badge de récord personal -- se apila debajo del chip de
-          // tipo para no competir con él, y solo aparece cuando esta
-          // actividad es la de mayor distancia para su tipo.
-          if (widget.isPersonalRecord)
-            const Positioned(
-              left: 12,
-              top: 44,
-              child: ActivityRecordBadge(),
-            ),
-
-          Positioned(
-            right: 8,
-            top: 8,
-            child: _MenuButton(
-              onTap: () => _showActivityMenu(context, activity),
-            ),
-          ),
-
+          Positioned(left: 12, top: 12, child: _TypeChip(typeUi: typeUi)),
+          if (widget.records.isNotEmpty)
+            const Positioned(left: 12, top: 44, child: ActivityRecordBadge()),
           Positioned(
             left: 14,
-            bottom: 10,
+            bottom: 9,
             child: Text(
               dateLabel,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-
           if (pageCount > 1)
             Positioned(
-              bottom: 12,
-              right: 14,
-              child: _PageDots(count: pageCount, current: _currentPage),
+              right: 12,
+              bottom: 11,
+              child: _PageDots(count: pageCount, current: _page),
             ),
         ],
       ),
     );
   }
+}
 
-  Future<void> _showActivityMenu(
-    BuildContext context,
-    Activity activity,
-  ) async {
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.panelBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.textSecondaryOnPanel.withValues(
-                    alpha: 0.35,
+/// Un dato de la tarjeta -- etiqueta en versalitas + cifra. `gold` la
+/// pinta en dorado cuando esa métrica es récord personal; `big` la usa
+/// para la distancia (el dato ancla de cada tarjeta).
+class _CardStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final String unit;
+  final bool big;
+  final bool gold;
+
+  const _CardStat({
+    required this.label,
+    required this.value,
+    this.unit = '',
+    this.big = false,
+    this.gold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: CcType.label(size: 9, color: CcColors.inkFaint),
+          ),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  value,
+                  style: CcType.displayStyle(
+                    size: big ? 25 : 17,
+                    weight: FontWeight.w700,
+                    color: gold ? CcColors.gold : CcColors.ink,
                   ),
-                  borderRadius: BorderRadius.circular(2),
                 ),
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.delete_outline,
-                  color: AppColors.recordButtonActive,
-                ),
-                title: const Text(
-                  'Eliminar actividad',
-                  style: TextStyle(color: AppColors.textPrimaryOnPanel),
-                ),
-                onTap: () async {
-                  Navigator.of(sheetContext).pop();
-                  final confirmed = await _confirmDelete(context);
-                  if (confirmed) {
-                    ref
-                        .read(activitiesRepositoryProvider)
-                        .deleteActivity(activity.id);
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<bool> _confirmDelete(BuildContext context) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.panelBackground,
-        title: const Text(
-          '¿Eliminar actividad?',
-          style: TextStyle(color: AppColors.textPrimaryOnPanel),
-        ),
-        content: const Text(
-          'Esta acción no se puede deshacer.',
-          style: TextStyle(color: AppColors.textSecondaryOnPanel),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: AppColors.textSecondaryOnPanel),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: AppColors.recordButtonActive),
+                if (unit.isNotEmpty) ...[
+                  const SizedBox(width: 3),
+                  Text(
+                    unit,
+                    style: const TextStyle(
+                      color: CcColors.inkDim,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
       ),
     );
-    return result ?? false;
+  }
+}
+
+class _CardStatDivider extends StatelessWidget {
+  const _CardStatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 30,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      color: CcColors.line,
+    );
   }
 }
 
@@ -483,7 +567,7 @@ class _TypeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
+        color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -496,32 +580,10 @@ class _TypeChip extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontSize: 11.5,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MenuButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _MenuButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: 0.45),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.all(7),
-          child: Icon(Icons.more_vert, size: 18, color: Colors.white),
-        ),
       ),
     );
   }
@@ -554,61 +616,42 @@ class _PageDots extends StatelessWidget {
   }
 }
 
-class _HeroStat extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String unit;
-  final String label;
-
-  const _HeroStat({
-    required this.icon,
-    required this.value,
-    required this.unit,
-    required this.label,
-  });
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: AppColors.textSecondaryOnPanel),
-            const SizedBox(width: 4),
+            const Icon(
+              Icons.route_outlined,
+              size: 56,
+              color: CcColors.inkFaint,
+            ),
+            const SizedBox(height: 16),
             Text(
-              unit.isEmpty ? value : '$value $unit',
-              style: const TextStyle(
-                color: AppColors.textPrimaryOnPanel,
-                fontSize: 15.5,
-                fontWeight: FontWeight.bold,
+              'Aún no tienes actividades',
+              textAlign: TextAlign.center,
+              style: CcType.displayStyle(size: 18, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Graba tu primer recorrido desde el mapa y aparecerá aquí. '
+              'Toca el botón naranja para empezar.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: CcColors.inkDim,
+                fontSize: 13,
+                height: 1.5,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textSecondaryOnPanel,
-            fontSize: 11,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatDivider extends StatelessWidget {
-  const _StatDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 30,
-      margin: const EdgeInsets.symmetric(horizontal: 6),
-      color: AppColors.textSecondaryOnPanel.withValues(alpha: 0.15),
+      ),
     );
   }
 }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/navigation/road_region_id.dart';
-import '../../../core/theme/app_colors.dart';
-import 'navigation_providers.dart';
+import '../domain/road_region_id.dart';
+import 'package:core_ui/core_ui.dart';
+import '../application/navigation_providers.dart';
 
 /// Pantalla de Ajustes > Navegación. A diferencia del diálogo de
 /// elevación (que aparece justo antes de grabar), acá la detección de
@@ -18,9 +18,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
     final regionAsync = ref.watch(currentRoadRegionProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         elevation: 0,
         title: const Text(
           'Navegación',

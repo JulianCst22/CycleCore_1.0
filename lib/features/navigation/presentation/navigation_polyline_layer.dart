@@ -2,15 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/theme/app_colors.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/navigation_route.dart';
 
 /// Devuelve las capas de `flutter_map` para dibujar la ruta sugerida:
-/// una polilínea punteada (para distinguirla del trazado grabado, que
-/// ya usa una polilínea sólida) más un marcador por cada instrucción
-/// de giro. Se agrega tal cual a la lista `children` de tu
-/// `FlutterMap`, después de la capa del trazado grabado.
-List<Widget> buildNavigationRouteLayers(NavigationRoute route) {
+/// una polilínea (para distinguirla del trazado grabado -- naranja -- y
+/// del segmento en vivo -- turquesa -- va en verde, ver
+/// [CcColors.route]) más un marcador por cada instrucción de giro. Se
+/// agrega tal cual a la lista `children` de tu `FlutterMap`, después de
+/// la capa del trazado grabado.
+///
+/// [preview] `true` cuando la ruta todavía no está activa (se está
+/// mostrando en la tarjeta de confirmar): se dibuja un poco más tenue.
+List<Widget> buildNavigationRouteLayers(
+  NavigationRoute route, {
+  bool preview = false,
+}) {
   if (route.polyline.isEmpty) return const [];
 
   final points = route.polyline
@@ -22,12 +29,12 @@ List<Widget> buildNavigationRouteLayers(NavigationRoute route) {
       polylines: [
         Polyline(
           points: points,
-          strokeWidth: 5,
-          color: AppColors.accentElevation,
-          // `pattern` (línea punteada) existe desde flutter_map ~7.
-          // Si tu versión es más vieja y esto no compila, borrá esta
-          // línea -- la ruta se ve sólida, sigue funcionando igual.
-          pattern: const StrokePattern.dotted(),
+          strokeWidth: 6,
+          color: preview
+              ? CcColors.route.withValues(alpha: 0.65)
+              : CcColors.route,
+          borderStrokeWidth: 2,
+          borderColor: Colors.black.withValues(alpha: 0.25),
         ),
       ],
     ),
@@ -43,7 +50,7 @@ List<Widget> buildNavigationRouteLayers(NavigationRoute route) {
                 decoration: BoxDecoration(
                   color: instruction.direction == TurnDirection.arrive
                       ? AppColors.recordButtonActive
-                      : AppColors.accentElevation,
+                      : CcColors.route,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                 ),

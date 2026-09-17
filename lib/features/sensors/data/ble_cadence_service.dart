@@ -3,58 +3,34 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../domain/cycling_speed_cadence_parser.dart';
 import '../domain/cycling_speed_cadence_reading.dart';
 import '../domain/discovered_device.dart';
+import 'ble_sensor_service.dart';
+import 'fbp_sensor_link.dart';
 
-/// Puerta de entrada a flutter_blue_plus para el sensor de CADENCIA
-/// (manivela) dedicado. Usa el mismo servicio estándar CSC que
-/// `ble_speed_service.dart` -- ver el comentario de ese archivo para el
-/// razonamiento completo de por qué son dos clases independientes en
-/// vez de una sola compartida.
-class BleCadenceService {
-  static final Guid _cscServiceUuid = Guid('1816');
-  static final Guid _cscMeasurementCharUuid = Guid('2A5B');
+/// Acceso BLE al sensor de CADENCIA (manivela) dedicado. Usa el mismo
+/// servicio estándar CSC (0x1816) que [BleSpeedService] -- ver ese
+/// archivo para el porqué de tener dos servicios independientes.
+class BleCadenceService
+    implements BleSensorService<CyclingSpeedCadenceReading> {
+  static final Guid _serviceUuid = Guid('1816');
+  static final Guid _measurementCharUuid = Guid('2A5B');
 
-  Stream<List<DiscoveredDevice>> scanForCadenceSensors({
+  @override
+  Stream<List<DiscoveredDevice>> scan({
     Duration timeout = const Duration(seconds: 12),
-  }) {
-    FlutterBluePlus.startScan(
-      withServices: [_cscServiceUuid],
-      timeout: timeout,
-    );
+  }) => fbpScanForService(_serviceUuid, 'Sensor de cadencia', timeout: timeout);
 
-    return FlutterBluePlus.scanResults.map(
-      (results) => results
-          .map(
-            (r) => DiscoveredDevice(
-              id: r.device.remoteId.str,
-              name: r.device.platformName.isNotEmpty
-                  ? r.device.platformName
-                  : 'Sensor de cadencia',
-              rssi: r.rssi,
-            ),
-          )
-          .toList(),
-    );
-  }
+  @override
+  Future<void> stopScan() => fbpStopScan();
 
-  Future<void> stopScan() => FlutterBluePlus.stopScan();
+  @override
+  Future<SensorLink<CyclingSpeedCadenceReading>> connect(String deviceId) =>
+      fbpConnect(deviceId, _watch);
 
-  Future<BluetoothDevice> connect(String deviceId) async {
-    final device = BluetoothDevice.fromId(deviceId);
-    await device.connect(autoConnect: false);
-    return device;
-  }
-
-  /// Se suscribe a las lecturas CSC de un dispositivo ya conectado. El
-  /// controlador de cadencia solo usa `reading.hasCrankData` -- si el
-  /// dispositivo también trae datos de rueda, simplemente se ignoran
-  /// aquí (esta tarjeta no es dueña de la velocidad).
-  Stream<CyclingSpeedCadenceReading> watchCadence(
-    BluetoothDevice device,
-  ) async* {
+  Stream<CyclingSpeedCadenceReading> _watch(BluetoothDevice device) async* {
     final services = await device.discoverServices();
 
     final cscService = services.firstWhere(
-      (s) => s.uuid == _cscServiceUuid,
+      (s) => s.uuid == _serviceUuid,
       orElse: () => throw StateError(
         'Este dispositivo no expone el servicio estándar de velocidad/'
         'cadencia (0x1816).',
@@ -62,7 +38,7 @@ class BleCadenceService {
     );
 
     final measurementCharacteristic = cscService.characteristics.firstWhere(
-      (c) => c.uuid == _cscMeasurementCharUuid,
+      (c) => c.uuid == _measurementCharUuid,
     );
 
     await measurementCharacteristic.setNotifyValue(true);
@@ -72,12 +48,4 @@ class BleCadenceService {
       yield parseCyclingSpeedCadenceMeasurement(rawData);
     }
   }
-
-  Stream<BluetoothConnectionState> watchConnectionState(
-    BluetoothDevice device,
-  ) {
-    return device.connectionState;
-  }
-
-  Future<void> disconnect(BluetoothDevice device) => device.disconnect();
 }

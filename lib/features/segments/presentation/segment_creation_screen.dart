@@ -6,14 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../activities/domain/activity_json_helpers.dart';
-import '../../activities/domain/activity_summary.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
 import '../data/segments_repository.dart';
 import '../domain/segment_profile_builder.dart';
 import '../domain/segment_stats_calculator.dart';
-import 'segments_providers.dart';
+import '../application/segments_providers.dart';
 
 /// Pantalla de creación de segmento: el usuario arrastra dos
 /// marcadores (A = inicio, B = fin) sobre la polilínea de una
@@ -211,9 +209,7 @@ class _SegmentCreationScreenState
   Widget build(BuildContext context) {
     if (_points.length < 3) {
       return Scaffold(
-        backgroundColor: AppColors.panelBackground,
         appBar: AppBar(
-          backgroundColor: AppColors.panelBackground,
           iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
           title: const Text(
             'Crear segmento',
@@ -245,9 +241,7 @@ class _SegmentCreationScreenState
     );
 
     return Scaffold(
-      backgroundColor: AppColors.panelBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.panelBackground,
         iconTheme: const IconThemeData(color: AppColors.textPrimaryOnPanel),
         title: const Text(
           'Crear segmento',

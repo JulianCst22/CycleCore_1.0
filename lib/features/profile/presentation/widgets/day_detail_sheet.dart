@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/database/app_database.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/format_utils.dart';
-import '../../../activities/domain/activity_json_helpers.dart';
-import '../../../activities/presentation/activity_detail_screen.dart';
-import '../../domain/xp_calculator.dart';
-import '../profile_providers.dart';
-import '../../domain/personal_records.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../../gamification/gamification.dart';
+import '../../application/extension_points.dart';
+import '../../../stats/stats.dart';
 
 /// Hoja inferior con el detalle de las actividades de un día del
 /// calendario -- se abre al tocar una celda con actividad. Muestra
@@ -36,6 +33,7 @@ class DayDetailSheet extends ConsumerWidget {
 
     final activities = activitiesByDayAsync.valueOrNull?[day] ?? const [];
     final xpMap = xpByActivityAsync.valueOrNull ?? const {};
+    final openDetail = ref.read(openActivityDetailProvider);
 
     return SafeArea(
       child: Padding(
@@ -72,7 +70,11 @@ class DayDetailSheet extends ConsumerWidget {
               )
             else
               ...activities.map(
-                (a) => _DayActivityTile(activity: a, xp: xpMap[a.id]),
+                (a) => _DayActivityTile(
+                  activity: a,
+                  xp: xpMap[a.id],
+                  onOpenDetail: openDetail,
+                ),
               ),
           ],
         ),
@@ -84,23 +86,27 @@ class DayDetailSheet extends ConsumerWidget {
 class _DayActivityTile extends StatelessWidget {
   final Activity activity;
   final ActivityXpBreakdown? xp;
+  final OpenActivityDetail? onOpenDetail;
 
-  const _DayActivityTile({required this.activity, required this.xp});
+  const _DayActivityTile({
+    required this.activity,
+    required this.xp,
+    required this.onOpenDetail,
+  });
 
   @override
   Widget build(BuildContext context) {
     final typeUi = ActivityTypeUi.fromValue(activity.activityType);
+    final openDetail = onOpenDetail;
 
     return InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () {
-        Navigator.of(context).pop();
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ActivityDetailScreen(activityId: activity.id),
-          ),
-        );
-      },
+      onTap: openDetail == null
+          ? null
+          : () {
+              Navigator.of(context).pop();
+              openDetail(context, activity.id);
+            },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),

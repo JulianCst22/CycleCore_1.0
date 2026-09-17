@@ -1,0 +1,21 @@
+name: core_platform
+description: >
+  Servicios de la plataforma para CycleCore: ubicación GPS (permisos,
+  servicio en primer plano, fix estable) y configuración de entorno.
+publish_to: 'none'
+
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_riverpod: ^2.5.1
+  geolocator: ^13.0.1
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
