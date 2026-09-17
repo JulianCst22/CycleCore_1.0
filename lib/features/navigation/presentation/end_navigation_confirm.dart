@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'navigation_providers.dart';
+import 'package:core_ui/core_ui.dart';
+import '../application/navigation_providers.dart';
 
 /// Pide confirmación antes de terminar la navegación activa -- las dos
 /// X (el banner de giro y el botón flotante del mapa) llaman a esto en

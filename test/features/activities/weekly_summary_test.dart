@@ -1,4 +1,4 @@
-import 'package:cyclecore_core/database/app_database.dart';
+import 'package:core_database/core_database.dart';
 import 'package:cyclecore_app/features/activities/domain/weekly_summary.dart';
 import 'package:flutter_test/flutter_test.dart';
 

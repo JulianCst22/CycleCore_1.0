@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 import 'account_setup_wizard.dart';
 import 'login_screen.dart';
 import 'widgets/dawn_hero.dart';
@@ -10,7 +9,7 @@ import 'widgets/dawn_hero.dart';
 /// sesión -- el "momento de vender la app" antes de pedir cualquier
 /// dato. Tres caminos: "Crear cuenta", "Iniciar sesión", "Continuar
 /// como invitado". Ninguno es obligatorio -- ver
-/// `core/navigation/app_gate.dart`.
+/// `AppGate` (lib/app).
 ///
 /// Rediseño: se abandona la foto de stock enlazada por internet (rompía
 /// el offline-first). El fondo es ahora una ilustración de amanecer

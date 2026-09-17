@@ -4,8 +4,7 @@ import 'dart:ui' show Tangent;
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 
 /// Momento de bienvenida al terminar el registro completo
 /// (`AccountSetupWizard` en modo normal). Un ciclista sube un camino de

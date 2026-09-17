@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/providers/heart_rate_provider.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import '../application/heart_rate_provider.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/discovered_device.dart';
 import '../domain/sensor_kind.dart';
-import 'cadence_providers.dart';
-import 'power_providers.dart';
-import 'sensors_providers.dart';
-import 'speed_providers.dart';
+import '../application/cadence_providers.dart';
+import '../application/power_providers.dart';
+import '../application/sensors_providers.dart';
+import '../application/speed_providers.dart';
 import 'wheel_size_dialog.dart';
 
 /// Pantalla de sensores BLE: un resumen arriba ("N de 4 listos") y un

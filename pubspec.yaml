@@ -11,15 +11,30 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- Infraestructura compartida (tema, DB local, fuzzy engine, SRTM) ---
-  cyclecore_core:
-    path: packages/cyclecore_core
+  # --- Módulos core (packages/core): infraestructura compartida, sin
+  # lógica de negocio y sin conocer ninguna feature ---
+  core_ui:
+    path: packages/core/ui
+  core_database:
+    path: packages/core/database
+  core_fuzzy_logic:
+    path: packages/core/fuzzy_logic
+  core_geo:
+    path: packages/core/geo
+  core_platform:
+    path: packages/core/platform
 
   # Cupertino
   cupertino_icons: ^1.0.8
 
   # --- Estado / reactividad ---
   flutter_riverpod: ^2.5.1
+
+  # --- Utilidades usadas directamente (antes llegaban solo como
+  # dependencias transitivas) ---
+  intl: ^0.20.2
+  crypto: ^3.0.6
+  collection: ^1.19.1
 
   # --- Mapas y geoespacial ---
   flutter_map: ^7.0.2
@@ -47,9 +62,6 @@ dependencies:
 
   # --- Voz (reproducción de audios pre-grabados / voice packs) ---
   audioplayers: ^6.0.0
-
-  # --- Conectividad ---
-  connectivity_plus: ^6.0.5
 
   # --- Permisos ---
   permission_handler: ^11.3.1

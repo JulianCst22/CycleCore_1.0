@@ -1,6 +1,5 @@
-import 'package:cyclecore_core/database/app_database.dart';
-import '../../segments/domain/segment_geometry.dart';
-import '../../segments/domain/segment_profile.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_geo/core_geo.dart';
 
 /// Un track GPX cargado en memoria, con su bounding box para descartar
 /// rápido las consultas que caen lejos.

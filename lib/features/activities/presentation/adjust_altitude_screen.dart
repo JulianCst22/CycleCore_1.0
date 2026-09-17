@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/app_colors.dart';
-import '../../elevation/presentation/elevation_providers.dart';
-import 'package:cyclecore_core/database/activity_json_helpers.dart';
-import 'package:cyclecore_core/database/activity_summary.dart';
-import 'package:cyclecore_core/utils/elevation_gain_loss.dart';
-import 'activities_providers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../elevation/elevation.dart';
+import 'package:core_geo/core_geo.dart';
+import '../application/activities_providers.dart';
 
 /// "Ajustar altimetría" -- vuelve a correr el aplanado de una actividad
 /// ya guardada usando la cadena de prioridades ACTUAL (GPX > HGT >

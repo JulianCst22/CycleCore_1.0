@@ -1,5 +1,5 @@
-import 'package:cyclecore_core/providers/heart_rate_provider.dart';
-import 'package:cyclecore_app/features/sensors/presentation/power_providers.dart';
+import 'package:cyclecore_app/features/sensors/application/heart_rate_provider.dart';
+import 'package:cyclecore_app/features/sensors/application/power_providers.dart';
 import 'package:cyclecore_app/features/sensors/presentation/sensors_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 import '../../domain/voice_persona.dart';
-import '../voice_providers.dart';
+import '../../application/voice_providers.dart';
 
 /// La lista de voces de guía en tres estantes -- **Gratis**, **Por
 /// desbloquear** y **Premium** -- con el interruptor de voz on/off

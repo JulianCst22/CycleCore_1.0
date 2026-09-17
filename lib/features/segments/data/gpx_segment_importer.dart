@@ -1,6 +1,6 @@
 import 'package:gpx/gpx.dart';
 
-import '../domain/segment_profile.dart';
+import 'package:core_geo/core_geo.dart';
 import '../domain/segment_profile_builder.dart';
 import '../domain/segment_stats_calculator.dart';
 

@@ -55,7 +55,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                   child: Image.file(
                     File(widget.photoPaths[index]),
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, _, _) => const Icon(
                       Icons.broken_image_outlined,
                       color: Colors.white54,
                       size: 48,

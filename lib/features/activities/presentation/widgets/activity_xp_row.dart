@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../../profile/domain/xp_calculator.dart';
-import '../../../profile/presentation/profile_providers.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../../gamification/gamification.dart';
 
 /// Fila de XP en el detalle de la actividad: cuánta experiencia aportó
 /// esta salida + un botón de info que explica cómo se gana y cómo se

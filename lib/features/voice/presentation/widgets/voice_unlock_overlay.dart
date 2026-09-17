@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 import '../../domain/voice_persona.dart';
 
 /// El festejo de "¡Desbloqueaste una voz!" -- foco cenital + la voz bajo

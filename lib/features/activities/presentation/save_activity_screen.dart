@@ -4,18 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../profile/domain/activity_climb_result.dart';
-import '../../profile/domain/xp_calculator.dart';
-import '../../profile/presentation/climb_screen.dart';
-import '../../profile/presentation/xp_debug_provider.dart';
-import 'package:cyclecore_core/database/activity_json_helpers.dart';
-import 'package:cyclecore_core/database/activity_summary.dart';
-import 'activities_providers.dart';
-import '../../../shared_widgets/activity_summary_block.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../gamification/gamification.dart';
+import '../application/activities_providers.dart';
 
 enum ActivityKind { race, training }
 
@@ -37,7 +29,7 @@ class SaveActivityScreen extends ConsumerStatefulWidget {
 
   /// Se llama tras guardar una actividad NUEVA (no en modo editar), ya
   /// con el id asignado en la base de datos. Quien construya esta
-  /// pantalla (hoy, `MapScreen`) decide qué hacer con los esfuerzos de
+  /// pantalla (hoy, `RideScreen`) decide qué hacer con los esfuerzos de
   /// segmento detectados durante la grabación -- esta pantalla ya no
   /// conoce `SegmentDetectionController` directamente.
   final Future<void> Function(int activityId)? onActivitySaved;

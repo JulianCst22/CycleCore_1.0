@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/navigation_route.dart';
 import 'end_navigation_confirm.dart';
-import 'navigation_providers.dart';
+import '../application/navigation_providers.dart';
 
 /// Distancia (metros) por debajo de la cual se considera que ya
 /// "llegaste" al punto de una instrucción y se avanza a la siguiente.

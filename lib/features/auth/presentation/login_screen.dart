@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/auth_exceptions.dart';
 import 'account_success_screen.dart';
-import 'auth_providers.dart';
+import '../application/auth_providers.dart';
 import 'account_setup_wizard.dart';
 import 'widgets/auth_error_banner.dart';
-import '../../../shared_widgets/auth_text_field.dart';
 import 'widgets/dawn_hero.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {

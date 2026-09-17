@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/elevation/srtm_tile_naming.dart';
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/providers/location_providers.dart';
-import 'elevation_providers.dart';
+import '../domain/srtm_tile_naming.dart';
+import 'package:core_ui/core_ui.dart';
+import 'package:core_platform/core_platform.dart';
+import '../application/elevation_providers.dart';
 
 /// Pantalla de Ajustes > Elevación. Antes la descarga de teselas HGT
 /// solo aparecía como un diálogo justo antes de "Grabar" -- esta

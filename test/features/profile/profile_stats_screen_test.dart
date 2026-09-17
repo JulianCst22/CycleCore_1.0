@@ -1,9 +1,9 @@
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/database/database_providers.dart';
+import 'package:core_database/core_database.dart';
 import 'package:cyclecore_app/features/profile/domain/cyclist_profile.dart';
-import 'package:cyclecore_app/features/profile/domain/profile_stats.dart'
+import 'package:cyclecore_app/features/stats/domain/profile_stats.dart'
     show ProfileStats, StatsPeriod;
-import 'package:cyclecore_app/features/profile/presentation/profile_providers.dart';
+import 'package:cyclecore_app/features/profile/application/profile_providers.dart';
+import 'package:cyclecore_app/features/stats/application/stats_providers.dart';
 import 'package:cyclecore_app/features/profile/presentation/profile_stats_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

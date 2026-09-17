@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/segment_cockpit_field.dart';
 import '../domain/segment_cockpit_tile_config.dart';
+import '../../cockpit/cockpit.dart' show CockpitTileSize;
 
 /// Persiste qué campos muestra la pantalla de segmento en vivo, en qué
 /// orden y con qué tamaño. Mismo patrón (y misma clase de tamaño) que

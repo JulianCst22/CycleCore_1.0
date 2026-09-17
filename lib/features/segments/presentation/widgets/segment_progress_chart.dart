@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import '../segments_providers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../application/segments_providers.dart';
 
 /// Franja "Progreso" del detalle de segmento: TODOS los esfuerzos como
 /// puntos en el tiempo (arriba = más rápido, la mejor marca en dorado),

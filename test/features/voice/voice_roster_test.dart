@@ -1,10 +1,10 @@
-import 'package:cyclecore_app/features/profile/domain/kit_unlocks.dart';
-import 'package:cyclecore_core/gamification/level_info.dart';
-import 'package:cyclecore_app/features/profile/presentation/cyclist_kit_providers.dart';
+import 'package:cyclecore_app/features/gamification/domain/kit_unlocks.dart';
+import 'package:cyclecore_app/features/gamification/domain/level_info.dart';
+import 'package:cyclecore_app/features/gamification/application/cyclist_kit_providers.dart';
 import 'package:cyclecore_app/features/voice/data/voice_engine.dart';
 import 'package:cyclecore_app/features/voice/domain/voice_event.dart';
 import 'package:cyclecore_app/features/voice/domain/voice_persona.dart';
-import 'package:cyclecore_app/features/voice/presentation/voice_providers.dart';
+import 'package:cyclecore_app/features/voice/application/voice_providers.dart';
 import 'package:cyclecore_app/features/voice/presentation/widgets/voice_roster_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

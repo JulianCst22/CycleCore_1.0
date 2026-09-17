@@ -6,19 +6,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import '../../profile/domain/cyclist_profile.dart';
-import '../../profile/domain/training_zones.dart';
-import '../../profile/presentation/profile_providers.dart';
-import '../../profile/presentation/widgets/birth_date_field.dart';
-import '../../profile/presentation/widgets/zones_editor.dart';
-import '../../profile/presentation/zones_providers.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../profile/profile.dart';
 import '../domain/auth_exceptions.dart';
 import 'account_success_screen.dart';
-import 'auth_providers.dart';
+import '../application/auth_providers.dart';
 import 'widgets/auth_error_banner.dart';
-import '../../../shared_widgets/auth_text_field.dart';
 import 'widgets/dawn_hero.dart';
 import 'widgets/password_strength_bar.dart';
 

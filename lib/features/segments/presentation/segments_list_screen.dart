@@ -5,20 +5,18 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/navigation/navigation_providers.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
 import '../data/gpx_segment_importer.dart';
-import '../domain/segment_profile.dart';
+import 'package:core_geo/core_geo.dart';
 import '../domain/segment_source.dart';
 import '../domain/segments_overview.dart';
 import 'segment_catalog_screen.dart';
 import 'segment_detail_screen.dart';
 import 'segment_import_preview_screen.dart';
-import 'segments_providers.dart';
+import '../application/segments_providers.dart';
 import 'widgets/segment_route_thumbnail.dart';
+import '../domain/segment_profile_access.dart';
 
 /// Menú de segmentos del usuario -- rediseñado como un registro de
 /// entrenamiento de tus tramos, no un inventario: un panel con las
@@ -27,7 +25,13 @@ import 'widgets/segment_route_thumbnail.dart';
 ///
 /// Es la pestaña "Segmentos" del `AppBottomNavBar` (índice 1).
 class SegmentsListScreen extends ConsumerWidget {
-  const SegmentsListScreen({super.key});
+  /// Lleva al historial de actividades, desde donde se crea un segmento
+  /// a partir de una ruta propia. Cambiar de pestaña es cosa de quien las
+  /// arma (`AppShell`), así que se inyecta; sin él, el botón solo muestra
+  /// la indicación.
+  final VoidCallback? onBrowseActivities;
+
+  const SegmentsListScreen({super.key, this.onBrowseActivities});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,7 +53,10 @@ class SegmentsListScreen extends ConsumerWidget {
             ),
           ),
         ),
-        data: (overview) => _Content(overview: overview),
+        data: (overview) => _Content(
+          overview: overview,
+          onBrowseActivities: onBrowseActivities,
+        ),
       ),
     );
   }
@@ -57,8 +64,9 @@ class SegmentsListScreen extends ConsumerWidget {
 
 class _Content extends ConsumerWidget {
   final SegmentsOverview overview;
+  final VoidCallback? onBrowseActivities;
 
-  const _Content({required this.overview});
+  const _Content({required this.overview, this.onBrowseActivities});
 
   // --- Añadir segmentos --------------------------------------------
 
@@ -122,8 +130,8 @@ class _Content extends ConsumerWidget {
     );
   }
 
-  void _goToActivitiesToCreate(BuildContext context, WidgetRef ref) {
-    ref.read(appTabIndexProvider.notifier).state = 2;
+  void _goToActivitiesToCreate(BuildContext context) {
+    onBrowseActivities?.call();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
@@ -261,7 +269,7 @@ class _Content extends ConsumerWidget {
               onExplore: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SegmentCatalogScreen()),
               ),
-              onCreate: () => _goToActivitiesToCreate(context, ref),
+              onCreate: () => _goToActivitiesToCreate(context),
               onImport: () => _importFromGpx(context, ref),
             ),
           ),

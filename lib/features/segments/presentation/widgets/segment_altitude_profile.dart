@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/theme/cyclecore_palette.dart';
-import '../../domain/segment_profile.dart';
+import 'package:core_ui/core_ui.dart';
+import 'package:core_geo/core_geo.dart';
 
 /// Perfil de altimetría de un segmento completo (área + línea), con un
 /// marcador opcional "estás aquí" en una fracción [progress] del

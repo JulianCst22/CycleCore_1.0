@@ -4,14 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../profile/presentation/profile_providers.dart';
-import 'package:cyclecore_core/database/activity_json_helpers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../profile/profile.dart';
 import '../domain/activity_records.dart';
-import 'activities_providers.dart';
+import '../application/activities_providers.dart';
 import 'activity_detail_screen.dart';
 import 'widgets/activity_record_badge.dart';
 import 'widgets/pressable_scale.dart';

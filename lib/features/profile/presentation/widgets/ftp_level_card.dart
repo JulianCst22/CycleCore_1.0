@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 import '../../domain/cyclist_profile.dart';
 import '../../domain/ftp_level.dart';
 import '../profile_edit_screen.dart';
-import '../profile_providers.dart';
+import '../../application/profile_providers.dart';
 import '../training_zones_screen.dart';
 
 /// Tarjeta "Rendimiento": pone el FTP en contexto. Muestra los vatios,

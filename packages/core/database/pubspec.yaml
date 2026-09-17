@@ -1,0 +1,27 @@
+name: core_database
+description: >
+  Base de datos local de CycleCore (Drift + SQLite): esquema, migraciones,
+  consultas y los modelos que se persisten como JSON. No conoce ninguna
+  feature.
+publish_to: 'none'
+
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_riverpod: ^2.5.1
+  drift: ^2.20.3
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+  # --- Generación de código de Drift (app_database.g.dart) ---
+  drift_dev: ^2.20.3
+  build_runner: ^2.4.12

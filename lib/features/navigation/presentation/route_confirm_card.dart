@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/navigation_target.dart';
 import '../domain/route_preview.dart';
-import 'navigation_providers.dart';
+import '../application/navigation_providers.dart';
 
 /// Tarjeta inferior "Confirmar la ruta": aparece cuando hay un
 /// `routePreviewProvider` -- muestra a dónde te manda antes de arrancar.

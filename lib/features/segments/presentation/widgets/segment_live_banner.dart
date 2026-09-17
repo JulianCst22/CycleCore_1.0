@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../../recording/presentation/route_recording_providers.dart'
+import 'package:core_ui/core_ui.dart';
+import '../../../recording/recording.dart'
     show secondTickerProvider;
-import '../segment_detection_providers.dart';
+import '../../application/segment_detection_providers.dart';
 
 /// Banner compacto que aparece sobre el mapa mientras el ciclista está
 /// dentro de un segmento vigilado (Fase C). La pantalla de segmento

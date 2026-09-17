@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import 'package:cyclecore_core/providers/location_providers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import 'package:core_platform/core_platform.dart';
 import '../data/geocoding_service.dart';
 import '../domain/climb_detection.dart';
 import '../domain/navigation_target.dart';
-import 'navigation_providers.dart';
+import '../application/navigation_providers.dart';
 import 'pick_location_screen.dart';
 
 /// Bogotá -- centro de fallback si todavía no hay un fix de GPS.

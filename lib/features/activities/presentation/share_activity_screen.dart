@@ -8,18 +8,15 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/theme/cyclecore_palette.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../profile/presentation/profile_providers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../profile/profile.dart';
 import '../domain/activity_calories.dart';
-import 'package:cyclecore_core/database/activity_json_helpers.dart';
 import '../domain/activity_records.dart';
-import 'package:cyclecore_core/database/activity_summary.dart';
-import 'package:cyclecore_core/utils/elevation_gain_loss.dart';
-import 'activities_providers.dart';
+import 'package:core_geo/core_geo.dart';
+import '../application/activities_providers.dart';
 import 'widgets/share_route_art.dart';
+import 'record_type_ui.dart';
 
 /// Genera imágenes "lindas" de una actividad para compartir (Instagram,
 /// WhatsApp, etc.) -- estilo Strava/Hevy/Garmin. Varios estilos que se
@@ -466,7 +463,7 @@ class _ShareCard extends StatelessWidget {
           child: ListView.separated(
             physics: const NeverScrollableScrollPhysics(),
             itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            separatorBuilder: (_, _) => const SizedBox(height: 16),
             itemBuilder: (context, i) {
               final r = list[i];
               return Container(

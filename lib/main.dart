@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'package:cyclecore_core/theme/app_theme.dart';
+import 'package:core_ui/core_ui.dart';
 
 import 'app/app_gate.dart';
-import 'features/activities/presentation/activity_profile_extension_points.dart';
-import 'features/profile/presentation/extension_points.dart';
-import 'features/voice/presentation/voice_profile_extension_points.dart';
+import 'features/activities/activities.dart';
+import 'features/profile/profile.dart';
+import 'features/gamification/gamification.dart';
+import 'features/voice/voice.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,11 +22,11 @@ Future<void> main() async {
     // ProviderScope debe envolver toda la app para que Riverpod funcione
     // en cualquier pantalla, sin importar qué tan anidada esté.
     //
-    // Los overrides conectan los puntos de extensión de `profile` (ver
-    // extension_points.dart) con las implementaciones reales de `voice`
-    // y `activities` -- este es el ÚNICO lugar de toda la app donde
-    // algo importa profile junto con esas features para esto. Ninguna
-    // se importa directamente entre sí.
+    // Los overrides conectan los puntos de extensión de `gamification` y
+    // `profile` (sus `extension_points.dart`) con las implementaciones
+    // reales de `voice`, `activities` y `profile` -- este es el ÚNICO
+    // lugar de toda la app que conoce a ambos lados. Esas features no se
+    // importan entre sí en ese sentido.
     ProviderScope(
       overrides: [
         unlockCelebrationSourcesProvider.overrideWithValue(
@@ -36,6 +37,9 @@ Future<void> main() async {
           [voiceHasUnseenUnlocksProvider],
         ),
         openActivityDetailProvider.overrideWithValue(openActivityDetail),
+        riderNameProvider.overrideWith(
+          (ref) => ref.watch(profileProvider).valueOrNull?.name,
+        ),
       ],
       child: const CycleCoreApp(),
     ),
@@ -50,14 +54,14 @@ class CycleCoreApp extends StatelessWidget {
     return MaterialApp(
       title: 'CycleCore',
       debugShowCheckedModeBanner: false,
-      // Todo el theming vive en core/theme -- los tokens de color están
-      // en cc_colors.dart y la tipografía en cc_type.dart. La app es
+      // Todo el theming vive en el módulo core_ui -- los tokens de color
+      // están en cc_colors.dart y la tipografía en cc_type.dart. La app es
       // oscura a propósito (uso al aire libre).
       theme: AppTheme.dark,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.dark,
       // AppGate decide entre Onboarding y AppShell según exista perfil
-      // local. Ver core/navigation/app_gate.dart.
+      // local. Ver lib/app/app_gate.dart.
       home: const AppGate(),
     );
   }

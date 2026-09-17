@@ -4,11 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 import '../../domain/cyclist_profile.dart';
-import 'package:cyclecore_core/gamification/rank_tier.dart';
-import '../profile_providers.dart';
+import '../../../gamification/gamification.dart';
 import 'avatar_viewer_screen.dart';
 
 /// Encabezado tipo "tarjeta de perfil" -- avatar circular, nombre,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:core_ui/core_ui.dart';
 
 /// Banner de error compartido por Login y el asistente de cuenta.
 ///

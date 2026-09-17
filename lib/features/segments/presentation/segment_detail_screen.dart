@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import '../domain/segment_profile.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/segment_source.dart';
-import 'segments_providers.dart';
+import '../application/segments_providers.dart';
 import 'widgets/segment_altitude_profile.dart';
 import 'widgets/segment_mini_map.dart';
 import 'widgets/segment_progress_chart.dart';
+import '../domain/segment_profile_access.dart';
 
 /// Detalle de un segmento: dónde está (mapa), cómo es (perfil), tu
 /// mejor marca, tu progreso a lo largo del tiempo y el historial

@@ -1,6 +1,5 @@
-import 'package:cyclecore_core/utils/elevation_gain_loss.dart';
-import '../../elevation/data/elevation_resolver.dart';
-import 'package:cyclecore_core/utils/slope_window_calculator.dart';
+import 'package:core_geo/core_geo.dart';
+import '../../elevation/elevation.dart';
 import 'route_point.dart';
 
 /// Resultado de "aplanar" la altimetría de una actividad completa
@@ -75,7 +74,7 @@ class FlattenedAltitudeResult {
 /// sumando cada delta -- así una serie ruidosa (barómetro indoor de un
 /// test, costuras de HGT) no infla el desnivel en ambos sentidos.
 class ActivityAltitudeFlattener {
-  final ElevationResolver resolver;
+  final ElevationLookup resolver;
   final int smoothingRadius;
   final double slopeWindowMeters;
 

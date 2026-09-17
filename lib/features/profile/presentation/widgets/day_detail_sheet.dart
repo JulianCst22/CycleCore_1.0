@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import 'package:cyclecore_core/database/activity_json_helpers.dart';
-import '../../domain/xp_calculator.dart';
-import '../extension_points.dart';
-import '../profile_providers.dart';
-import '../../domain/personal_records.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../../gamification/gamification.dart';
+import '../../application/extension_points.dart';
+import '../../../stats/stats.dart';
 
 /// Hoja inferior con el detalle de las actividades de un día del
 /// calendario -- se abre al tocar una celda con actividad. Muestra

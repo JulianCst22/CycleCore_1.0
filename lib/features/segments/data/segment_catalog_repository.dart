@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:cyclecore_core/config/app_config.dart';
+import 'package:core_platform/core_platform.dart';
 import '../domain/segment_catalog_entry.dart';
 import '../domain/segment_source.dart';
 import 'gpx_segment_importer.dart';

@@ -1,14 +1,13 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:cyclecore_core/config/app_config.dart';
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/elevation/srtm_tile_naming.dart';
-import 'package:cyclecore_core/elevation/srtm_tile_reader.dart';
+import 'package:core_platform/core_platform.dart';
+import 'package:core_database/core_database.dart';
+import '../domain/srtm_tile_naming.dart';
+import 'srtm_tile_reader.dart';
 
 class ElevationRepository {
   final AppDatabase database;

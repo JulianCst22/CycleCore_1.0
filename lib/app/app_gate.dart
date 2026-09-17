@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:core_ui/core_ui.dart';
 
-import '../features/auth/presentation/auth_providers.dart';
-import '../features/auth/presentation/welcome_screen.dart';
-import '../features/profile/presentation/onboarding_screen.dart';
-import '../features/profile/presentation/profile_providers.dart';
+import '../features/auth/auth.dart';
+import '../features/profile/profile.dart';
 import 'app_shell.dart';
 
 /// Punto de entrada real de la app -- reemplaza el `home: const

@@ -1,9 +1,9 @@
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/app_theme.dart';
-import 'package:cyclecore_app/features/activities/presentation/activities_providers.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
+import 'package:cyclecore_app/features/activities/application/activities_providers.dart';
 import 'package:cyclecore_app/features/segments/presentation/segment_detail_screen.dart';
 import 'package:cyclecore_app/features/segments/presentation/segments_list_screen.dart';
-import 'package:cyclecore_app/features/segments/presentation/segments_providers.dart';
+import 'package:cyclecore_app/features/segments/application/segments_providers.dart';
 import 'package:cyclecore_app/features/segments/presentation/widgets/segment_progress_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

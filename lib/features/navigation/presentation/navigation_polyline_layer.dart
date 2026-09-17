@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/navigation_route.dart';
 
 /// Devuelve las capas de `flutter_map` para dibujar la ruta sugerida:

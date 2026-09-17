@@ -1,27 +1,6 @@
+import '../domain/elevation_lookup.dart';
 import 'elevation_repository.dart';
 import 'gpx_track_repository.dart';
-
-/// De dónde salió una altitud resuelta.
-enum ElevationSource {
-  /// Perfil de un GPX de ciclocomputador -- prioridad 1.
-  gpx,
-
-  /// Grilla SRTM/HGT descargada -- prioridad 2.
-  hgt,
-
-  /// Ninguna fuente confiable en esa coordenada -- el llamador cae al
-  /// GPS/barómetro fusionado y marca el punto como aproximado.
-  none,
-}
-
-class ResolvedElevation {
-  final double? altitudeMeters;
-  final ElevationSource source;
-
-  const ResolvedElevation(this.altitudeMeters, this.source);
-
-  static const none = ResolvedElevation(null, ElevationSource.none);
-}
 
 /// Punto único de la cadena de prioridades de elevación:
 ///
@@ -33,7 +12,7 @@ class ResolvedElevation {
 /// (`ActivityAltitudeFlattener`) como la fusión en vivo
 /// (`RouteRecordingController._onNewPosition`), así que la lógica de
 /// "qué fuente gana" vive en un solo lugar.
-class ElevationResolver {
+class ElevationResolver implements ElevationLookup {
   final GpxTrackRepository gpxTracks;
   final ElevationRepository dem;
 
@@ -46,6 +25,7 @@ class ElevationResolver {
     await dem.preloadCatalog();
   }
 
+  @override
   ResolvedElevation resolve(double lat, double lng) {
     final gpx = gpxTracks.elevationAtSync(lat, lng);
     if (gpx != null) return ResolvedElevation(gpx, ElevationSource.gpx);

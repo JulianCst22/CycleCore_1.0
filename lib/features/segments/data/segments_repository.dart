@@ -1,8 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/database/activity_json_helpers.dart';
-import '../domain/segment_profile.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_geo/core_geo.dart';
 import '../domain/segment_profile_builder.dart';
 import '../domain/segment_source.dart';
 import '../domain/segment_stats_calculator.dart';

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/accent_gradients.dart';
-import 'package:cyclecore_core/theme/app_colors.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/cyclist_profile.dart';
 import '../domain/training_zones.dart';
 import 'profile_form_widgets.dart';
-import 'profile_providers.dart';
+import '../application/profile_providers.dart';
 import 'zones_dialog.dart';
-import 'zones_providers.dart';
+import '../application/zones_providers.dart';
 
 /// Recolector de los datos esenciales para las recomendaciones por
 /// voz (peso, FTP, FC máx/reposo) cuando NO hace falta pedir cuenta:

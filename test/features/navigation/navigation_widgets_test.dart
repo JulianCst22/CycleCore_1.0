@@ -1,18 +1,18 @@
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/app_theme.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:cyclecore_app/features/navigation/domain/navigation_route.dart';
 import 'package:cyclecore_app/features/navigation/domain/navigation_target.dart';
 import 'package:cyclecore_app/features/navigation/domain/road_graph.dart';
 import 'package:cyclecore_app/features/navigation/domain/route_preview.dart';
-import 'package:cyclecore_app/features/navigation/presentation/navigation_providers.dart';
+import 'package:cyclecore_app/features/navigation/application/navigation_providers.dart';
 import 'package:cyclecore_app/features/navigation/presentation/route_confirm_card.dart';
 import 'package:cyclecore_app/features/navigation/presentation/saved_places_screen.dart';
-import 'package:cyclecore_app/features/recording/presentation/route_recording_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:core_platform/core_platform.dart';
 
 SavedPlace _place(int id, String name, {String kind = 'generic'}) => SavedPlace(
   id: id,

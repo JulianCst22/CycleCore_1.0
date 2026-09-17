@@ -1,22 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/navigation/soft_fade_route.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import '../features/auth/presentation/account_setup_wizard.dart';
-import '../features/auth/presentation/auth_providers.dart';
-import '../features/auth/presentation/change_password_screen.dart';
-import '../features/auth/presentation/login_screen.dart';
-import '../features/auth/presentation/welcome_screen.dart';
-import '../features/elevation/presentation/elevation_settings_screen.dart';
-import '../features/navigation/presentation/navigation_settings_screen.dart';
-import '../features/navigation/presentation/saved_places_screen.dart';
-import '../features/profile/presentation/profile_edit_screen.dart';
-import '../features/profile/presentation/training_zones_screen.dart';
-import '../features/segments/presentation/segment_data_settings_screen.dart';
-import '../features/sensors/presentation/sensors_screen.dart';
-import '../features/voice/presentation/voice_selection_screen.dart';
+import 'package:core_ui/core_ui.dart';
+import '../features/auth/auth.dart';
+import '../features/elevation/elevation.dart';
+import '../features/navigation/navigation.dart';
+import '../features/profile/profile.dart';
+import '../features/recording/recording.dart';
+import '../features/segments/segments.dart';
+import '../features/sensors/sensors.dart';
+import '../features/voice/voice.dart';
 
 /// Pantalla de Ajustes -- el "panel de control" del usuario, separado de
 /// `ProfileScreen` (que es pura "vitrina": nivel, racha, fotos).
@@ -26,7 +19,7 @@ import '../features/voice/presentation/voice_selection_screen.dart';
 ///  - **Perfil**: editar tus datos y tus zonas de entrenamiento.
 ///  - **Navegación**: rutas, lugares guardados y mapas de altimetría.
 ///  - **En la salida**: lo que ves y oyes mientras ruedas (voz, datos
-///    del segmento).
+///    del segmento) y la pausa automática.
 ///  - **Sensores**: conectar sensores BLE.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -103,6 +96,7 @@ class SettingsScreen extends StatelessWidget {
                   subtitle: 'Qué se ve mientras recorres un segmento',
                   onTap: () => push(const SegmentDataSettingsScreen()),
                 ),
+                const _AutoPauseTile(),
               ],
             ),
 
@@ -213,6 +207,60 @@ class _SettingsTile extends StatelessWidget {
               ),
             ),
             const Icon(Icons.chevron_right, color: CcColors.inkFaint, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Interruptor de la pausa automática -- mismo lenguaje que
+/// [_SettingsTile], con un `Switch` en vez del chevron.
+class _AutoPauseTile extends ConsumerWidget {
+  const _AutoPauseTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(autoPauseEnabledProvider);
+    void toggle(bool value) =>
+        ref.read(autoPauseEnabledProvider.notifier).setEnabled(value);
+
+    return InkWell(
+      onTap: () => toggle(!enabled),
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 7, 8, 7),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.pause_circle_outline,
+              color: CcColors.orange,
+              size: 21,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pausa automática',
+                    style: CcType.displayStyle(size: 14.5),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    enabled
+                        ? 'La actividad se pausa sola cuando te detienes'
+                        : 'Solo pausas tú, con el botón',
+                    style: CcType.label(size: 11, color: CcColors.inkDim),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: enabled,
+              onChanged: toggle,
+              activeThumbColor: CcColors.orange,
+            ),
           ],
         ),
       ),

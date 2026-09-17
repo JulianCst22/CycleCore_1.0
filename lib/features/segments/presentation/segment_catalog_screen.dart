@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/segment_catalog_entry.dart';
-import 'segments_providers.dart';
+import '../application/segments_providers.dart';
 
 /// Catálogo remoto de segmentos "nativos": la lista que baja del
 /// servidor (`SegmentCatalogRepository`), cada uno con un botón para
@@ -51,7 +50,7 @@ class SegmentCatalogScreen extends ConsumerWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: entries.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final entry = entries[index];
                 return _CatalogTile(

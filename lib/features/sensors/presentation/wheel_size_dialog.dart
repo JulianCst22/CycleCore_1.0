@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
+import 'package:core_ui/core_ui.dart';
 import '../domain/wheel_size.dart';
-import 'speed_providers.dart';
+import '../application/speed_providers.dart';
 
 /// Popup para configurar la circunferencia de rueda. Aparece solo cuando
 /// el sensor de velocidad ya está conectado y reporta datos de rueda

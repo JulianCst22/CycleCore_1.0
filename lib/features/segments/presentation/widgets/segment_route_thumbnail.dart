@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import '../../domain/segment_profile.dart';
+import 'package:core_ui/core_ui.dart';
+import 'package:core_geo/core_geo.dart';
 
 /// Huella del trazado de un segmento en un cuadro pequeño (la lista de
 /// segmentos). No usa tiles de mapa a propósito -- cargar un

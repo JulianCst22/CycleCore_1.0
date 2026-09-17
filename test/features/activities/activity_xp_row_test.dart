@@ -1,5 +1,4 @@
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/database/database_providers.dart';
+import 'package:core_database/core_database.dart';
 import 'package:cyclecore_app/features/activities/presentation/widgets/activity_xp_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

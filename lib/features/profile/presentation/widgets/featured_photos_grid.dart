@@ -3,10 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import '../extension_points.dart';
-import '../profile_providers.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../application/extension_points.dart';
+import '../../../stats/stats.dart';
 
 /// Grid de fotos "destacadas": las de actividades que fueron récord
 /// personal para su tipo (mismo criterio de medalla que en la lista de
@@ -27,7 +26,7 @@ class FeaturedPhotosGrid extends ConsumerWidget {
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (photos) {
         if (photos.isEmpty) return const _EmptyFeatured();
 

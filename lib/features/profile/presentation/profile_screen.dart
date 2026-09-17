@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'profile_providers.dart';
-import '../../../app/settings_screen.dart';
+import 'package:core_ui/core_ui.dart';
+import '../application/profile_providers.dart';
+import '../../stats/stats.dart';
 import 'widgets/activity_calendar.dart';
 import 'widgets/featured_photos_grid.dart';
-import 'widgets/level_roadmap.dart';
+import '../../gamification/gamification.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/stat_summary_row.dart';
-import 'widgets/streak_badge.dart';
-import 'widgets/xp_debug_panel.dart';
 
 /// Pantalla principal de Perfil -- ahora es puramente "vitrina": foto,
 /// nombre, nivel/rango, estadísticas, racha y fotos destacadas. Todo
 /// lo que antes era "control" (cuenta, editar perfil, zonas) se movió
-/// a [SettingsScreen], accesible por el ícono de engranaje arriba a
-/// la izquierda.
+/// a Ajustes, accesible por el ícono de engranaje arriba a la izquierda.
 class ProfileScreen extends ConsumerWidget {
-  const ProfileScreen({super.key});
+  /// Construye la pantalla de Ajustes. Ajustes compone varias features y
+  /// vive en la capa `app`, así que quien arma las pestañas (`AppShell`)
+  /// la inyecta: `profile` no la conoce.
+  final WidgetBuilder? settingsScreenBuilder;
+
+  const ProfileScreen({super.key, this.settingsScreenBuilder});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -55,10 +57,10 @@ class ProfileScreen extends ConsumerWidget {
                 // debug de XP quedan como una barra superior propia
                 // (izquierda / derecha).
                 Row(
-                  children: const [
-                    _SettingsButton(),
-                    Spacer(),
-                    XpDebugEntryButton(),
+                  children: [
+                    _SettingsButton(builder: settingsScreenBuilder),
+                    const Spacer(),
+                    const XpDebugEntryButton(),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -74,7 +76,7 @@ class ProfileScreen extends ConsumerWidget {
                           CircularProgressIndicator(color: AppColors.primary),
                     ),
                   ),
-                  error: (_, __) => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
                   data: (stats) => StatSummaryRow(stats: stats),
                 ),
                 const SizedBox(height: 18),
@@ -105,15 +107,17 @@ class ProfileScreen extends ConsumerWidget {
 /// translúcido" de antes, ahora en su propia fila arriba a la
 /// izquierda (ya no superpuesto sobre el header).
 class _SettingsButton extends StatelessWidget {
-  const _SettingsButton();
+  final WidgetBuilder? builder;
+
+  const _SettingsButton({required this.builder});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const SettingsScreen()),
-      ),
+      onTap: builder == null
+          ? null
+          : () => Navigator.of(context).push(MaterialPageRoute(builder: builder!)),
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(

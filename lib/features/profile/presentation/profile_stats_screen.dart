@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cyclecore_core/theme/cc_colors.dart';
-import 'package:cyclecore_core/theme/cc_type.dart';
-import 'package:cyclecore_core/utils/format_utils.dart';
-import '../../../shared_widgets/activity_summary_block.dart';
-import '../domain/profile_stats.dart';
-import 'profile_providers.dart';
-import 'widgets/activity_type_breakdown_bar.dart';
+import 'package:core_ui/core_ui.dart';
+import '../../stats/stats.dart';
 import 'widgets/ftp_level_card.dart';
-import 'widgets/period_selector.dart';
-import 'widgets/stats_trend_chart.dart';
 
 /// Pantalla de estadísticas completas. Rediseño "Resumen + tendencia":
 /// héroe de distancia + fila con filete (el mismo lenguaje del detalle

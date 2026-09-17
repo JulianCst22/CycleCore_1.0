@@ -6,14 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:cyclecore_core/database/app_database.dart';
-import 'package:cyclecore_core/theme/app_colors.dart';
-import 'package:cyclecore_core/database/activity_json_helpers.dart';
-import 'package:cyclecore_core/database/activity_summary.dart';
+import 'package:core_database/core_database.dart';
+import 'package:core_ui/core_ui.dart';
 import '../data/segments_repository.dart';
 import '../domain/segment_profile_builder.dart';
 import '../domain/segment_stats_calculator.dart';
-import 'segments_providers.dart';
+import '../application/segments_providers.dart';
 
 /// Pantalla de creación de segmento: el usuario arrastra dos
 /// marcadores (A = inicio, B = fin) sobre la polilínea de una
