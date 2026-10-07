@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/cockpit_field.dart';
 import 'cockpit_field_ui.dart';
 import 'gauge_value.dart';
@@ -41,7 +41,7 @@ class LateralDataBar extends ConsumerWidget {
     final current = ref.read(lateralGaugeFieldProvider);
     final picked = await showModalBottomSheet<CockpitField>(
       context: context,
-      backgroundColor: CyclecorePalette.panel,
+      backgroundColor: CcColors.glassDeep,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -110,8 +110,8 @@ class LateralDataBar extends ConsumerWidget {
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                CyclecorePalette.grafito.withValues(alpha: 0.35),
-                CyclecorePalette.grafito.withValues(alpha: 0.85),
+                CcColors.bg.withValues(alpha: 0.45),
+                CcColors.bg.withValues(alpha: 0.92),
               ],
             ),
             borderRadius: BorderRadius.circular(19),

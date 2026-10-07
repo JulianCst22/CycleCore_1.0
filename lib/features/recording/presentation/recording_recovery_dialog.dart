@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/recording_snapshot.dart';
 
 /// Qué hacer con una grabación recuperada del diario.

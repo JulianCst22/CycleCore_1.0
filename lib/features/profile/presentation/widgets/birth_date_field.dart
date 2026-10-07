@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 
 /// Campo "fecha de nacimiento" con el look de los campos de auth pero
 /// que abre un selector de fecha al tocarlo. Se usa en el registro y en

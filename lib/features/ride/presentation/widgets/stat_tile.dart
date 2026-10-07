@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 
 /// Un solo "dato" del panel de ciclocomputador: ícono + etiqueta pequeña
 /// arriba, valor grande + unidad abajo. Pensado para leerse de un

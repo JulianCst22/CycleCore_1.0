@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../data/activities_repository.dart';
 import '../domain/weekly_summary.dart';
 

@@ -1,7 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../core/database/database.dart';
+import '../../../core/geo/geo.dart';
 
 /// A qué distancia del inicio se toma el punto de referencia para el
 /// rumbo de arranque de un segmento (`startBearingDegrees`). Vive acá

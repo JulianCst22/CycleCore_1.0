@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../core/ui/ui.dart';
 
 /// Barra de navegación inferior global de la app.
 ///
@@ -46,8 +46,12 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mismo fondo que el resto de la app: antes iba en `surfaceHi`, un
+    // azul grisáceo más claro que se veía como una pieza aparte. Una
+    // línea fina arriba la separa del contenido.
     return Material(
-      color: CyclecorePalette.panel,
+      color: CcColors.bg,
+      shape: const Border(top: BorderSide(color: CcColors.lineSoft)),
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -85,8 +89,9 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        active ? CyclecorePalette.paramo : AppColors.textSecondaryOnPanel;
+    final color = active
+        ? CyclecorePalette.paramo
+        : AppColors.textSecondaryOnPanel;
     return Expanded(
       child: InkWell(
         onTap: onTap,

@@ -1,5 +1,5 @@
-import 'package:core_database/core_database.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../core/database/database.dart';
+import '../../../core/geo/geo.dart';
 
 /// Un track GPX cargado en memoria, con su bounding box para descartar
 /// rápido las consultas que caen lejos.

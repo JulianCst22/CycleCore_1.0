@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../application/profile_providers.dart';
 import '../../stats/stats.dart';
 import 'widgets/activity_calendar.dart';
-import 'widgets/featured_photos_grid.dart';
+import 'widgets/photos_grid.dart';
 import '../../gamification/gamification.dart';
 import 'widgets/profile_header.dart';
 import 'widgets/stat_summary_row.dart';
@@ -85,7 +85,7 @@ class ProfileScreen extends ConsumerWidget {
                 const ActivityCalendar(),
                 const SizedBox(height: 24),
                 const Text(
-                  'Fotos destacadas',
+                  'Tus fotos',
                   style: TextStyle(
                     color: AppColors.textPrimaryOnPanel,
                     fontWeight: FontWeight.bold,
@@ -93,7 +93,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const FeaturedPhotosGrid(),
+                const PhotosGrid(),
               ],
             );
           },

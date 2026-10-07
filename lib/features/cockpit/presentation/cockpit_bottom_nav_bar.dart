@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 
 /// Barra de navegación inferior fija -- reemplaza las píldoras
 /// flotantes de utilidad que antes vivían arriba del mapa (sensores,

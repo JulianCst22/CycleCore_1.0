@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/segment_cockpit_field.dart';
 import '../domain/segment_cockpit_tile_config.dart';
 import 'segment_cockpit_field_ui.dart';
@@ -69,8 +69,10 @@ class _Editor extends StatelessWidget {
 
   const _Editor({required this.tiles, required this.notifier});
 
+  /// El mapa, el perfil y la barra de progreso no se ofrecen: son la
+  /// cabecera fija de la pantalla de segmento.
   List<SegmentCockpitField> get _available => SegmentCockpitField.values
-      .where((f) => !tiles.any((t) => t.field == f))
+      .where((f) => !f.isVisualBlock && !tiles.any((t) => t.field == f))
       .toList();
 
   void _reorder(int oldIndex, int newIndex) {
@@ -107,8 +109,8 @@ class _Editor extends StatelessWidget {
         const _SectionLabel('CÓMO SE VE'),
         const SizedBox(height: 4),
         const Text(
-          'Vista previa con datos de ejemplo -- así queda la pantalla '
-          'mientras recorrés un segmento.',
+          'Vista previa con datos de ejemplo. Arriba de estos datos '
+          'siempre ves el trazado, el perfil y cuánto te falta.',
           style: TextStyle(
             color: AppColors.textSecondaryOnPanel,
             fontSize: 12,

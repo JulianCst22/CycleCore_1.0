@@ -5,6 +5,7 @@ import '../data/ble_speed_service.dart';
 import '../data/wheel_size_repository.dart';
 import '../domain/cadence_speed_calculator.dart';
 import '../domain/cycling_speed_cadence_reading.dart';
+import '../domain/revolution_stall_detector.dart';
 import '../domain/sensor_kind.dart';
 import 'ble_sensor_controller.dart';
 import 'sensor_connection_state.dart';
@@ -14,6 +15,16 @@ import 'sensor_connection_state.dart';
 /// `CadenceSpeedCalculator` para la velocidad instantánea, para que uno
 /// no interfiera con el otro.
 const _wheelCounterMax = 0x100000000;
+
+/// Sin un evento de rueda nuevo en este tiempo, la bici está quieta. Una
+/// rueda de 2,1 m a 3 km/h tarda 2,5 s por vuelta.
+const _wheelStallAfter = Duration(milliseconds: 3500);
+const _crankStallAfter = Duration(seconds: 3);
+
+/// Más rápido que esto (m/s, ~110 km/h) es un error de lectura o un
+/// sensor que se reinició, no la bicicleta.
+const _maxPlausibleMetersPerSecond = 30.0;
+const _maxPlausibleCadenceRpm = 220.0;
 
 /// Sensor de velocidad (rueda). El más complejo: además de km/h lleva un
 /// odómetro (metros desde que se conectó, fuente de distancia con
@@ -31,10 +42,17 @@ class SpeedSensorController
 
   final WheelSizeRepository _wheelSizeRepository;
   final CadenceSpeedCalculator _calculator = CadenceSpeedCalculator();
+  final RevolutionStallDetector _wheel = RevolutionStallDetector(
+    stallAfter: _wheelStallAfter,
+  );
+  final RevolutionStallDetector _crank = RevolutionStallDetector(
+    stallAfter: _crankStallAfter,
+  );
   double? _wheelCircumferenceMm;
 
   double _odometerMeters = 0;
   int? _lastOdometerWheelRevs;
+  DateTime? _lastOdometerAt;
 
   Future<void> _loadWheelCircumference() async {
     _wheelCircumferenceMm = await _wheelSizeRepository.loadCircumferenceMm();
@@ -42,16 +60,30 @@ class SpeedSensorController
 
   @override
   void onBeforeConnect() {
-    _calculator.reset();
+    _resetCounters();
     _odometerMeters = 0;
     _lastOdometerWheelRevs = null;
+    _lastOdometerAt = null;
+  }
+
+  /// Tras una caída del enlace la velocidad y la cadencia vuelven a tomar
+  /// referencia, pero el odómetro NO se reinicia: el sensor siguió
+  /// contando vueltas mientras tanto y esa distancia es real.
+  @override
+  void onLinkLost() => _resetCounters();
+
+  void _resetCounters() {
+    _calculator.reset();
+    _wheel.reset();
+    _crank.reset();
   }
 
   @override
   void onAfterDisconnect() {
-    _calculator.reset();
+    _resetCounters();
     _odometerMeters = 0;
     _lastOdometerWheelRevs = null;
+    _lastOdometerAt = null;
     // alsoProvidesCadence vuelve a false a propósito -- es una propiedad
     // del dispositivo conectado, no una preferencia general. `disconnect`
     // ya restauró `SensorConnectionState()` por defecto.
@@ -62,12 +94,15 @@ class SpeedSensorController
     // Sólo se procesa cadencia si el usuario marcó que este sensor es un
     // combo -- si no, aunque el dispositivo traiga manivela, esta tarjeta
     // la ignora (esa cadencia debe venir de la tarjeta de Cadencia).
-    if (state.alsoProvidesCadence && reading.hasCrankData) {
+    final now = DateTime.now();
+    if (state.alsoProvidesCadence &&
+        reading.hasCrankData &&
+        _crank.observe(reading.lastCrankEventTime!, now)) {
       final rpm = _calculator.updateCadenceRpm(
         cumulativeCrankRevolutions: reading.cumulativeCrankRevolutions!,
         lastCrankEventTime: reading.lastCrankEventTime!,
       );
-      if (rpm != null) {
+      if (rpm != null && rpm <= _maxPlausibleCadenceRpm) {
         ref.read(speedSourcedCadenceRpmProvider.notifier).state = rpm;
       }
     }
@@ -88,21 +123,47 @@ class SpeedSensorController
     // necesita DOS lecturas para dar km/h; la distancia acumulada sólo
     // necesita el delta de revoluciones).
     final currentRevs = reading.cumulativeWheelRevolutions!;
-    if (_lastOdometerWheelRevs != null) {
-      var revDelta = currentRevs - _lastOdometerWheelRevs!;
+    final lastRevs = _lastOdometerWheelRevs;
+    final lastAt = _lastOdometerAt;
+    if (lastRevs != null && lastAt != null) {
+      var revDelta = currentRevs - lastRevs;
       if (revDelta < 0) revDelta += _wheelCounterMax;
-      _odometerMeters += revDelta * (_wheelCircumferenceMm! / 1000);
+      final meters = revDelta * (_wheelCircumferenceMm! / 1000);
+      // Un salto imposible para el tiempo transcurrido es un sensor que
+      // se reinició (pila, golpe): se toma la nueva referencia sin sumar.
+      final seconds = now.difference(lastAt).inMilliseconds / 1000;
+      if (meters <= _maxPlausibleMetersPerSecond * seconds + 20) {
+        _odometerMeters += meters;
+      }
       ref.read(speedDistanceMetersProvider.notifier).state = _odometerMeters;
     }
     _lastOdometerWheelRevs = currentRevs;
+    _lastOdometerAt = now;
 
+    if (!_wheel.observe(reading.lastWheelEventTime!, now)) return;
     final kmh = _calculator.updateSpeedKmh(
       cumulativeWheelRevolutions: currentRevs,
       lastWheelEventTime: reading.lastWheelEventTime!,
       wheelCircumferenceMm: _wheelCircumferenceMm!,
     );
-    if (kmh != null) {
+    if (kmh != null && kmh <= _maxPlausibleMetersPerSecond * 3.6) {
       ref.read(speedKmhProvider.notifier).state = kmh;
+    }
+  }
+
+  @override
+  void onTick(DateTime now) {
+    if (_wheel.checkStall(now)) {
+      _calculator.resetWheel();
+      if (ref.read(speedKmhProvider) != null) {
+        ref.read(speedKmhProvider.notifier).state = 0;
+      }
+    }
+    if (_crank.checkStall(now)) {
+      _calculator.resetCrank();
+      if (state.alsoProvidesCadence) {
+        ref.read(speedSourcedCadenceRpmProvider.notifier).state = 0;
+      }
     }
   }
 

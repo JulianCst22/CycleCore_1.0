@@ -24,28 +24,13 @@ class BleHeartRateService implements BleSensorService<HeartRateReading> {
   Future<void> stopScan() => fbpStopScan();
 
   @override
-  Future<SensorLink<HeartRateReading>> connect(String deviceId) =>
-      fbpConnect(deviceId, _watch);
-
-  Stream<HeartRateReading> _watch(BluetoothDevice device) async* {
-    final services = await device.discoverServices();
-
-    final heartRateService = services.firstWhere(
-      (s) => s.uuid == _serviceUuid,
-      orElse: () => throw StateError(
+  Future<SensorLink<HeartRateReading>> connect(String deviceId) => fbpConnect(
+    deviceId,
+    serviceUuid: _serviceUuid,
+    characteristicUuid: _measurementCharUuid,
+    parse: parseHeartRateMeasurement,
+    missingServiceMessage:
         'Este dispositivo no expone el servicio estándar de frecuencia '
         'cardíaca (0x180D).',
-      ),
-    );
-
-    final measurementCharacteristic = heartRateService.characteristics
-        .firstWhere((c) => c.uuid == _measurementCharUuid);
-
-    await measurementCharacteristic.setNotifyValue(true);
-
-    await for (final rawData in measurementCharacteristic.lastValueStream) {
-      if (rawData.isEmpty) continue;
-      yield parseHeartRateMeasurement(rawData);
-    }
-  }
+  );
 }

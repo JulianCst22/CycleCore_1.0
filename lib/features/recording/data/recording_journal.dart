@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../domain/recording_snapshot.dart';
 import '../domain/route_point.dart';
 
@@ -186,20 +186,21 @@ class RecordingJournal {
   /// La grabación que quedó sin guardar en el historial, o `null` si no
   /// hay nada que recuperar.
   ///
-  /// Limpia de paso lo que no vale la pena ofrecer: una sesión sin un
-  /// solo punto GPS, o una que alcanzó a guardarse en el historial justo
+  /// Una sesión sin puntos GPS también se recupera: con el ciclista
+  /// quieto la pausa automática no graba puntos, y aun así la salida
+  /// sigue en curso (antes se borraba y al volver no había continuidad).
+  /// Solo se limpia la que alcanzó a guardarse en el historial justo
   /// antes de que la app se cerrara (antes de vaciar el diario).
   Future<RecordingSnapshot?> loadRecoverable() async {
     await _writes;
     final session = await _database.getRecordingSession();
     if (session == null) return null;
 
-    final points = await _database.getRecordingPoints(session.id);
-    if (points.isEmpty ||
-        await _database.hasActivityStartedAt(session.startedAt)) {
+    if (await _database.hasActivityStartedAt(session.startedAt)) {
       await clear();
       return null;
     }
+    final points = await _database.getRecordingPoints(session.id);
 
     final samples = await _database.getRecordingSensorSamples(session.id);
     return _toSnapshot(session, points, samples);
@@ -245,6 +246,7 @@ class RecordingJournal {
       movingTime: Duration(milliseconds: session.movingMillis),
       isPaused: session.isPaused,
       endedAt: session.endedAt,
+      updatedAt: session.updatedAt,
       points: [
         for (final p in points)
           JournalPoint(

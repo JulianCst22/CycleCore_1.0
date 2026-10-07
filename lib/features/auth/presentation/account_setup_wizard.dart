@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/physiology/physiology.dart'
+    show RiderLevel, riderLevelFrom;
+import '../../../core/ui/ui.dart';
 import '../../profile/profile.dart';
 import '../domain/auth_exceptions.dart';
 import 'account_success_screen.dart';
@@ -53,6 +55,8 @@ class _AccountSetupWizardState extends ConsumerState<AccountSetupWizard> {
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
+  final _yearsCtrl = TextEditingController();
+  final _hoursCtrl = TextEditingController();
   final _ftpCtrl = TextEditingController();
   final _maxHrCtrl = TextEditingController();
   final _restingHrCtrl = TextEditingController();
@@ -60,6 +64,7 @@ class _AccountSetupWizardState extends ConsumerState<AccountSetupWizard> {
   int _currentPage = 0;
   String? _avatarPath;
   DateTime? _birthDate;
+  RiderLevel? _declaredLevel;
   bool _submitting = false;
   bool _checkingEmail = false;
   String? _errorText;
@@ -85,6 +90,8 @@ class _AccountSetupWizardState extends ConsumerState<AccountSetupWizard> {
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _weightCtrl.dispose();
+    _yearsCtrl.dispose();
+    _hoursCtrl.dispose();
     _ftpCtrl.dispose();
     _maxHrCtrl.dispose();
     _restingHrCtrl.dispose();
@@ -141,8 +148,17 @@ class _AccountSetupWizardState extends ConsumerState<AccountSetupWizard> {
       restingHr: parseInt(_restingHrCtrl.text),
       birthDate: _birthDate,
       avatarPath: _avatarPath,
+      yearsRiding: parseInt(_yearsCtrl.text),
+      weeklyHours: double.tryParse(_hoursCtrl.text.trim().replaceAll(',', '.')),
+      declaredLevel: _declaredLevel,
     );
   }
+
+  /// Nivel que sale de lo que lleva escrito en horas y años.
+  RiderLevel? get _suggestedLevel => riderLevelFrom(
+    yearsRiding: int.tryParse(_yearsCtrl.text.trim()),
+    weeklyHours: double.tryParse(_hoursCtrl.text.trim().replaceAll(',', '.')),
+  );
 
   int? get _estimatedMaxHr => _birthDate == null
       ? null
@@ -511,9 +527,9 @@ class _AccountSetupWizardState extends ConsumerState<AccountSetupWizard> {
               icon: Icons.monitor_heart_outlined,
               title: 'Ajustemos a tu medida',
               subtitle:
-                  'Con esto, cada zona de esfuerzo y cada consejo por voz será '
-                  'para ti. Todo es opcional -- lo que no pongas ahora lo '
-                  'completas luego en Editar perfil.',
+                  'Con tu peso y cuánto ruedas, el coach ya sabe con qué '
+                  'reserva cuentas. Lo demás es opcional y lo completas '
+                  'luego en Editar perfil.',
             ),
             const SizedBox(height: 28),
             BirthDateField(
@@ -523,22 +539,74 @@ class _AccountSetupWizardState extends ConsumerState<AccountSetupWizard> {
             const SizedBox(height: 14),
             AuthTextField(
               controller: _weightCtrl,
-              label: 'Peso (opcional)',
+              label: 'Peso',
               icon: Icons.monitor_weight_outlined,
               hint: 'Ej. 72',
               suffixText: 'kg',
-              helperText: 'Tu peso en kilos. Se usa para las calorías.',
+              helperText:
+                  'Con el peso se calculan las calorías, tu reserva y los '
+                  'vatios cuando no hay potenciómetro.',
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return null;
-                final n = double.tryParse(v);
+                final n = double.tryParse((v ?? '').trim());
                 if (n == null || n <= 0 || n > 250) return 'Peso inválido';
                 return null;
               },
             ),
             const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: AuthTextField(
+                    controller: _hoursCtrl,
+                    label: 'Horas por semana',
+                    icon: Icons.schedule_outlined,
+                    hint: 'Ej. 6',
+                    suffixText: 'h',
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) {
+                      final n = double.tryParse(
+                        (v ?? '').trim().replaceAll(',', '.'),
+                      );
+                      if (n == null || n < 0 || n > 40) {
+                        return 'Horas inválidas';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AuthTextField(
+                    controller: _yearsCtrl,
+                    label: 'Años rodando',
+                    icon: Icons.history_outlined,
+                    hint: 'Ej. 3',
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return null;
+                      final n = int.tryParse(v.trim());
+                      if (n == null || n < 0 || n > 70) return 'Años inválidos';
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            RiderLevelPicker(
+              suggested: _suggestedLevel,
+              declared: _declaredLevel,
+              onChanged: (level) => setState(() => _declaredLevel = level),
+            ),
+            const SizedBox(height: 18),
             AuthTextField(
               controller: _ftpCtrl,
               label: 'FTP (opcional)',
@@ -605,11 +673,6 @@ class _AccountSetupWizardState extends ConsumerState<AccountSetupWizard> {
             ),
             const SizedBox(height: 26),
             _PrimaryButton(label: 'Continuar', onTap: _goNext),
-            const SizedBox(height: 6),
-            _SkipButton(
-              onTap: _submitting ? null : _skipRemaining,
-              label: 'Ahora no, lo hago luego',
-            ),
           ],
         ),
       ),

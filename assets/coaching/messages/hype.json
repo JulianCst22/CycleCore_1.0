@@ -1,0 +1,976 @@
+{
+  "version": 1,
+  "persona": "hype",
+  "covers": [
+    {
+      "state": "fundido",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "fundido",
+      "demand": "muro",
+      "phase": "remate"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "arranque"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "alLimite",
+      "demand": "muro",
+      "phase": "medio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "muro",
+      "phase": "remate"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "justo",
+      "demand": "muro",
+      "phase": "medio"
+    },
+    {
+      "state": "justo",
+      "demand": "repecho",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "comodo",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "comodo",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "comodo",
+      "demand": "repecho",
+      "phase": "medio"
+    },
+    {
+      "state": "sobrado",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "sobrado",
+      "demand": "repecho",
+      "phase": "medio"
+    }
+  ],
+  "pieces": [
+    {
+      "id": "hype.ap.1",
+      "slot": "apertura",
+      "text": "radio del coche:",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "hype.ap.2",
+      "slot": "apertura",
+      "text": "ojo al dato:",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "hype.ap.3",
+      "slot": "apertura",
+      "text": "copiado,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "hype.ap.4",
+      "slot": "apertura",
+      "text": "calma en el pelotón,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "hype.ap.5",
+      "slot": "apertura",
+      "text": "sin afanes,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "hype.ap.6",
+      "slot": "apertura",
+      "text": "seguimos,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "hype.ap.7",
+      "slot": "apertura",
+      "text": "atención al frente,"
+    },
+    {
+      "id": "hype.es.limite.1",
+      "slot": "estado",
+      "text": "está en rojo:",
+      "states": [
+        "alLimite"
+      ]
+    },
+    {
+      "id": "hype.es.limite.2",
+      "slot": "estado",
+      "text": "va al límite:",
+      "states": [
+        "alLimite"
+      ]
+    },
+    {
+      "id": "hype.es.limite.3",
+      "slot": "estado",
+      "text": "pulso disparado:",
+      "states": [
+        "alLimite"
+      ],
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "hype.es.limite.4",
+      "slot": "estado",
+      "text": "pulso {pulso}:",
+      "states": [
+        "alLimite"
+      ],
+      "values": [
+        "pulso"
+      ]
+    },
+    {
+      "id": "hype.es.fundido.1",
+      "slot": "estado",
+      "text": "se apagó el motor:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "hype.es.fundido.2",
+      "slot": "estado",
+      "text": "sin gasolina:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "hype.es.justo.1",
+      "slot": "estado",
+      "text": "ritmo de carrera:",
+      "states": [
+        "justo"
+      ]
+    },
+    {
+      "id": "hype.es.justo.2",
+      "slot": "estado",
+      "text": "va al filo:",
+      "states": [
+        "justo"
+      ]
+    },
+    {
+      "id": "hype.es.justo.3",
+      "slot": "estado",
+      "text": "marca {potenciaActual} vatios:",
+      "states": [
+        "justo"
+      ],
+      "values": [
+        "potenciaActual"
+      ]
+    },
+    {
+      "id": "hype.es.comodo.1",
+      "slot": "estado",
+      "text": "va con margen:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "hype.es.comodo.2",
+      "slot": "estado",
+      "text": "le queda pólvora:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "hype.es.sobrado.1",
+      "slot": "estado",
+      "text": "esto es trámite:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "hype.es.sobrado.2",
+      "slot": "estado",
+      "text": "va de paseo:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "hype.ac.soltarMucho.1",
+      "slot": "accion",
+      "text": "corte a {potencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.soltarMucho.2",
+      "slot": "accion",
+      "text": "levante ya: {potencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.soltarMucho.3",
+      "slot": "accion",
+      "text": "menos {deltaPotencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "hype.ac.soltarMucho.4",
+      "slot": "accion",
+      "text": "levante el pie",
+      "adjustments": [
+        "soltarMucho"
+      ]
+    },
+    {
+      "id": "hype.ac.soltar.1",
+      "slot": "accion",
+      "text": "baje a {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.soltar.2",
+      "slot": "accion",
+      "text": "ritmo en {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.soltar.3",
+      "slot": "accion",
+      "text": "quite {deltaPotencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "hype.ac.soltar.4",
+      "slot": "accion",
+      "text": "suelte un punto",
+      "adjustments": [
+        "soltar"
+      ]
+    },
+    {
+      "id": "hype.ac.soltar.5",
+      "slot": "accion",
+      "text": "apunte a {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "registers": [
+        "cauto",
+        "neutro"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.mantener.1",
+      "slot": "accion",
+      "text": "sostenga {potencia} vatios",
+      "adjustments": [
+        "mantener"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.mantener.2",
+      "slot": "accion",
+      "text": "clavado en {potencia} vatios",
+      "adjustments": [
+        "mantener"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.mantener.3",
+      "slot": "accion",
+      "text": "mantenga el paso",
+      "adjustments": [
+        "mantener"
+      ]
+    },
+    {
+      "id": "hype.ac.mantener.4",
+      "slot": "accion",
+      "text": "sin tocar nada",
+      "adjustments": [
+        "mantener"
+      ]
+    },
+    {
+      "id": "hype.ac.apretar.1",
+      "slot": "accion",
+      "text": "suba a {potencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.apretar.2",
+      "slot": "accion",
+      "text": "más {deltaPotencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "hype.ac.apretar.3",
+      "slot": "accion",
+      "text": "acelere un poco",
+      "adjustments": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "hype.ac.apretarMucho.1",
+      "slot": "accion",
+      "text": "ataque: {potencia} vatios",
+      "adjustments": [
+        "apretarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ac.apretarMucho.2",
+      "slot": "accion",
+      "text": "ahora, todo",
+      "adjustments": [
+        "apretarMucho"
+      ]
+    },
+    {
+      "id": "hype.ac.apretarMucho.3",
+      "slot": "accion",
+      "text": "lánzese ya",
+      "adjustments": [
+        "apretarMucho"
+      ]
+    },
+    {
+      "id": "hype.mo.tanque.1",
+      "slot": "motivo",
+      "text": "no da el tanque",
+      "diagnoses": [
+        "C2"
+      ]
+    },
+    {
+      "id": "hype.mo.tanque.2",
+      "slot": "motivo",
+      "text": "explota antes de arriba",
+      "diagnoses": [
+        "C2"
+      ]
+    },
+    {
+      "id": "hype.mo.reserva.1",
+      "slot": "motivo",
+      "text": "reserva al límite",
+      "diagnoses": [
+        "C8"
+      ]
+    },
+    {
+      "id": "hype.mo.reserva.2",
+      "slot": "motivo",
+      "text": "quedan {desnivel} metros",
+      "diagnoses": [
+        "C8",
+        "C2"
+      ],
+      "values": [
+        "desnivel"
+      ]
+    },
+    {
+      "id": "hype.mo.arranque.1",
+      "slot": "motivo",
+      "text": "esto arranca apenas",
+      "diagnoses": [
+        "C1"
+      ]
+    },
+    {
+      "id": "hype.mo.muro.1",
+      "slot": "motivo",
+      "text": "viene pared",
+      "diagnoses": [
+        "C3",
+        "C7"
+      ]
+    },
+    {
+      "id": "hype.mo.muro.2",
+      "slot": "motivo",
+      "text": "rampa al {rampa} por ciento",
+      "diagnoses": [
+        "C3",
+        "C7"
+      ],
+      "values": [
+        "rampa"
+      ]
+    },
+    {
+      "id": "hype.mo.ritmo.1",
+      "slot": "motivo",
+      "text": "va en ritmo récord",
+      "diagnoses": [
+        "C4",
+        "C5"
+      ]
+    },
+    {
+      "id": "hype.mo.ritmo.2",
+      "slot": "motivo",
+      "text": "el récord se cae",
+      "diagnoses": [
+        "C5",
+        "C9"
+      ]
+    },
+    {
+      "id": "hype.mo.sobra.1",
+      "slot": "motivo",
+      "text": "tiene de sobra",
+      "diagnoses": [
+        "C9"
+      ]
+    },
+    {
+      "id": "hype.mo.pareja.1",
+      "slot": "motivo",
+      "text": "subida pareja",
+      "diagnoses": [
+        "C6"
+      ]
+    },
+    {
+      "id": "hype.mo.generico.1",
+      "slot": "motivo",
+      "text": "queda montaña"
+    },
+    {
+      "id": "hype.mo.generico.2",
+      "slot": "motivo",
+      "text": "así llega vivo"
+    },
+    {
+      "id": "hype.mo.generico.3",
+      "slot": "motivo",
+      "text": "falta carrera"
+    },
+    {
+      "id": "hype.mo.remate.1",
+      "slot": "motivo",
+      "text": "último esfuerzo",
+      "phases": [
+        "remate"
+      ]
+    },
+    {
+      "id": "hype.mo.remate.2",
+      "slot": "motivo",
+      "text": "la meta está ahí",
+      "phases": [
+        "remate"
+      ]
+    },
+    {
+      "id": "hype.sc.piso.1",
+      "slot": "secundaria",
+      "text": "sin bajar de {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "hype.sc.piso.2",
+      "slot": "secundaria",
+      "text": "piso en {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "hype.sc.piso.3",
+      "slot": "secundaria",
+      "text": "nunca bajo {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "hype.sc.piso.4",
+      "slot": "secundaria",
+      "text": "no menos de {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "hype.sc.cadencia.1",
+      "slot": "secundaria",
+      "text": "pedalee a {cadencia} de cadencia",
+      "values": [
+        "cadencia"
+      ]
+    },
+    {
+      "id": "hype.ci.1",
+      "slot": "cierre",
+      "text": "vamos, vamos"
+    },
+    {
+      "id": "hype.ci.2",
+      "slot": "cierre",
+      "text": "lo tenemos"
+    },
+    {
+      "id": "hype.ci.3",
+      "slot": "cierre",
+      "text": "sigo informando"
+    },
+    {
+      "id": "hype.ci.4",
+      "slot": "cierre",
+      "text": "no mire la velocidad"
+    },
+    {
+      "id": "hype.sg.cumple.1",
+      "slot": "seguimiento",
+      "text": "eso, clavado ahí",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "hype.sg.cumple.2",
+      "slot": "seguimiento",
+      "text": "perfecto, sosténgalo",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "hype.sg.cumple.3",
+      "slot": "seguimiento",
+      "text": "confirmado: {potencia} vatios",
+      "diagnoses": [
+        "cumple"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.sg.nocumple.1",
+      "slot": "seguimiento",
+      "text": "sigue pasado",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "hype.sg.nocumple.2",
+      "slot": "seguimiento",
+      "text": "todavía no corrige",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "hype.sg.nocumple.3",
+      "slot": "seguimiento",
+      "text": "marca {potenciaActual} vatios aún",
+      "diagnoses": [
+        "no-cumple"
+      ],
+      "values": [
+        "potenciaActual"
+      ]
+    },
+    {
+      "id": "hype.mo.muro.3",
+      "slot": "motivo",
+      "text": "pared a la vista",
+      "demands": [
+        "muro"
+      ]
+    },
+    {
+      "id": "hype.mo.repecho.1",
+      "slot": "motivo",
+      "text": "es solo repecho",
+      "demands": [
+        "repecho"
+      ]
+    },
+    {
+      "id": "hype.mo.sostenida.1",
+      "slot": "motivo",
+      "text": "la subida no cede",
+      "demands": [
+        "sostenida"
+      ]
+    },
+    {
+      "id": "hype.mo.arranque.2",
+      "slot": "motivo",
+      "text": "esto apenas arranca",
+      "phases": [
+        "arranque"
+      ]
+    },
+    {
+      "id": "hype.mo.primero.1",
+      "slot": "motivo",
+      "text": "queda casi toda",
+      "phases": [
+        "primerTercio"
+      ]
+    },
+    {
+      "id": "hype.mo.medio.1",
+      "slot": "motivo",
+      "text": "mitad de subida",
+      "phases": [
+        "medio"
+      ]
+    },
+    {
+      "id": "hype.es.fundido.3",
+      "slot": "estado",
+      "text": "sin combustible:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "hype.es.comodo.3",
+      "slot": "estado",
+      "text": "va con resto:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "hype.es.sobrado.3",
+      "slot": "estado",
+      "text": "esto no lo despeina:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "hype.ac.apretar.4",
+      "slot": "accion",
+      "text": "mete {deltaPotencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "hype.ac.apretarMucho.4",
+      "slot": "accion",
+      "text": "ataque en {potencia} vatios",
+      "adjustments": [
+        "apretarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "hype.ap.10",
+      "slot": "apertura",
+      "text": "última vuelta,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "hype.sc.respira.4",
+      "slot": "secundaria",
+      "text": "respire hondo",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "hype.sg.cumple.4",
+      "slot": "seguimiento",
+      "text": "clavado, así mismo",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "hype.sg.nocumple.4",
+      "slot": "seguimiento",
+      "text": "todavía va arriba",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "hype.sc.respira.1",
+      "slot": "secundaria",
+      "text": "respire hondo",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "hype.sc.respira.2",
+      "slot": "secundaria",
+      "text": "afloje la respiración",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "hype.sc.respira.3",
+      "slot": "secundaria",
+      "text": "el pulso a {pulsoObjetivo} pulsaciones",
+      "hints": [
+        "respirar"
+      ],
+      "values": [
+        "pulsoObjetivo"
+      ]
+    },
+    {
+      "id": "hype.sc.pinon.1",
+      "slot": "secundaria",
+      "text": "suba un piñón",
+      "hints": [
+        "pinon"
+      ]
+    },
+    {
+      "id": "hype.sc.pinon.2",
+      "slot": "secundaria",
+      "text": "suba un piñón: {cadencia} de cadencia",
+      "hints": [
+        "pinon"
+      ],
+      "values": [
+        "cadencia"
+      ]
+    },
+    {
+      "id": "hype.pl.regular.1",
+      "slot": "plan",
+      "text": "nos regulamos acá y apretamos arriba",
+      "hints": [
+        "regular"
+      ]
+    },
+    {
+      "id": "hype.pl.regular.2",
+      "slot": "plan",
+      "text": "guarde algo para la rampa",
+      "hints": [
+        "regular"
+      ]
+    },
+    {
+      "id": "hype.pl.sostener.1",
+      "slot": "plan",
+      "text": "parejo hasta arriba",
+      "hints": [
+        "sostener"
+      ]
+    },
+    {
+      "id": "hype.pl.sostener.2",
+      "slot": "plan",
+      "text": "así de parejo hasta la cima",
+      "hints": [
+        "sostener"
+      ]
+    },
+    {
+      "id": "hype.pl.apretar.1",
+      "slot": "plan",
+      "text": "suelte todo lo que le quede",
+      "hints": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "hype.pl.apretar.2",
+      "slot": "plan",
+      "text": "ya no hay nada que guardar",
+      "hints": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "hype.ap.km.1",
+      "slot": "apertura",
+      "text": "quedan {kmRestantes} kilómetros,",
+      "values": [
+        "kmRestantes"
+      ]
+    },
+    {
+      "id": "hype.ci.nombre.1",
+      "slot": "cierre",
+      "text": "usted puede, {nombre}"
+    },
+    {
+      "id": "hype.ci.nombre.2",
+      "slot": "cierre",
+      "text": "vamos, {nombre}"
+    },
+    {
+      "id": "hype.sc.pinonduro.1",
+      "slot": "secundaria",
+      "text": "baje un piñón",
+      "hints": [
+        "pinonDuro"
+      ]
+    },
+    {
+      "id": "hype.sc.pinonduro.2",
+      "slot": "secundaria",
+      "text": "baje un piñón: {cadencia} de cadencia",
+      "hints": [
+        "pinonDuro"
+      ],
+      "values": [
+        "cadencia"
+      ]
+    }
+  ]
+}

@@ -6,11 +6,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/physiology/physiology.dart'
+    show RiderLevel, riderLevelFrom;
+import '../../../core/ui/ui.dart';
 import '../domain/cyclist_profile.dart';
 import '../domain/training_zones.dart';
 import '../application/profile_providers.dart';
 import 'widgets/birth_date_field.dart';
+import 'widgets/rider_level_picker.dart';
 import '../application/zones_providers.dart';
 
 /// Edición de todo el perfil en un solo lugar: identidad (foto, nombre,
@@ -32,12 +35,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _cityCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
+  final _yearsCtrl = TextEditingController();
+  final _hoursCtrl = TextEditingController();
   final _ftpCtrl = TextEditingController();
   final _maxHrCtrl = TextEditingController();
   final _restingHrCtrl = TextEditingController();
 
   String? _avatarPath;
   DateTime? _birthDate;
+  RiderLevel? _declaredLevel;
   bool _saving = false;
   bool _initialized = false;
 
@@ -47,6 +53,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _cityCtrl.dispose();
     _bioCtrl.dispose();
     _weightCtrl.dispose();
+    _yearsCtrl.dispose();
+    _hoursCtrl.dispose();
     _ftpCtrl.dispose();
     _maxHrCtrl.dispose();
     _restingHrCtrl.dispose();
@@ -63,9 +71,18 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _ftpCtrl.text = profile.ftpWatts?.toString() ?? '';
     _maxHrCtrl.text = profile.maxHr?.toString() ?? '';
     _restingHrCtrl.text = profile.restingHr?.toString() ?? '';
+    _yearsCtrl.text = profile.yearsRiding?.toString() ?? '';
+    _hoursCtrl.text = profile.weeklyHours?.toString() ?? '';
     _avatarPath = profile.avatarPath;
     _birthDate = profile.birthDate;
+    _declaredLevel = profile.declaredLevel;
   }
+
+  /// Nivel que sale de lo que lleva escrito, para el selector.
+  RiderLevel? get _suggestedLevel => riderLevelFrom(
+    yearsRiding: int.tryParse(_yearsCtrl.text.trim()),
+    weeklyHours: double.tryParse(_hoursCtrl.text.trim().replaceAll(',', '.')),
+  );
 
   int? get _estimatedMaxHr => _birthDate == null
       ? null
@@ -138,6 +155,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       avatarPath: _avatarPath,
       city: _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
       bio: _bioCtrl.text.trim().isEmpty ? null : _bioCtrl.text.trim(),
+      yearsRiding: pi(_yearsCtrl),
+      weeklyHours: double.tryParse(_hoursCtrl.text.trim().replaceAll(',', '.')),
+      declaredLevel: _declaredLevel,
     );
 
     await ref.read(profileProvider.notifier).saveProfile(updated);
@@ -284,16 +304,65 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   const SizedBox(height: 14),
                   AuthTextField(
                     controller: _weightCtrl,
-                    label: 'Peso (opcional)',
+                    label: 'Peso',
                     icon: Icons.monitor_weight_outlined,
                     hint: 'Ej. 72',
                     suffixText: 'kg',
+                    helperText:
+                        'El coach lo necesita: con él calcula tu reserva y los '
+                        'vatios cuando no hay potenciómetro.',
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    validator: (v) => _rangeD(v, 20, 250, 'Peso inválido'),
+                    validator: (v) {
+                      final n = double.tryParse((v ?? '').trim());
+                      if (n == null || n < 20 || n > 250) {
+                        return 'Peso inválido';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 14),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AuthTextField(
+                          controller: _hoursCtrl,
+                          label: 'Horas por semana',
+                          icon: Icons.schedule_outlined,
+                          hint: 'Ej. 6',
+                          suffixText: 'h',
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) =>
+                              _rangeD(v, 0, 40, 'Horas inválidas'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AuthTextField(
+                          controller: _yearsCtrl,
+                          label: 'Años rodando',
+                          icon: Icons.history_outlined,
+                          hint: 'Ej. 3',
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) => _rangeI(v, 0, 70, 'Años inválidos'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  RiderLevelPicker(
+                    suggested: _suggestedLevel,
+                    declared: _declaredLevel,
+                    onChanged: (level) =>
+                        setState(() => _declaredLevel = level),
+                  ),
+                  const SizedBox(height: 18),
                   AuthTextField(
                     controller: _ftpCtrl,
                     label: 'FTP (opcional)',

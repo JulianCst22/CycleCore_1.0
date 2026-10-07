@@ -1,4 +1,4 @@
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 
 import 'activity_altitude_flattener.dart';
 import 'route_point.dart';
@@ -112,9 +112,17 @@ ActivitySummary buildActivitySummary({
   int? avgCadence;
   int? maxCadence;
   if (cadenceSamples.isNotEmpty) {
-    final rpmValues = cadenceSamples.map((s) => s.rpm);
-    avgCadence = (rpmValues.reduce((a, b) => a + b) / rpmValues.length).round();
-    maxCadence = rpmValues.reduce((a, b) => a > b ? a : b).round();
+    // La media es la del pedaleo: los sensores dicen 0 rpm al dejar de
+    // pedalear, y esos ceros no son una cadencia.
+    final pedalling = [
+      for (final s in cadenceSamples)
+        if (s.rpm > 0) s.rpm,
+    ];
+    if (pedalling.isNotEmpty) {
+      avgCadence = (pedalling.reduce((a, b) => a + b) / pedalling.length)
+          .round();
+      maxCadence = pedalling.reduce((a, b) => a > b ? a : b).round();
+    }
   }
 
   final hours = movingTime.inSeconds / 3600;

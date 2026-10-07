@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 import '../../domain/profile_stats.dart';
 
 /// Barra de proporción por tipo de actividad (carrera vs entrenamiento,

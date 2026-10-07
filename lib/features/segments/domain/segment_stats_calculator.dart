@@ -1,4 +1,4 @@
-import 'package:core_geo/core_geo.dart';
+import '../../../core/geo/geo.dart';
 
 /// Un tramo de menos de esto no tiene sentido como segmento --
 /// probablemente el usuario apenas movió un marcador sin querer, o el

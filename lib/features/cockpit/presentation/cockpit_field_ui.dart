@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/cockpit_field.dart';
 
 /// Resultado ya armado (ícono, color, etiqueta, valor formateado y

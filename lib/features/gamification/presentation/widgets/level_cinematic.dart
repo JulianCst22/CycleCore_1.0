@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 import '../../domain/rank_tier.dart';
 import 'pedaling_cyclist.dart';
 import '../rank_tier_style.dart';

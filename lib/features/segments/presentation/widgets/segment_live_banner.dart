@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
-import '../../../recording/recording.dart'
-    show secondTickerProvider;
+import '../../../../core/ui/ui.dart';
+import '../../../recording/recording.dart' show secondTickerProvider;
+import '../../application/extension_points.dart';
 import '../../application/segment_detection_providers.dart';
 
-/// Banner compacto que aparece sobre el mapa mientras el ciclista está
-/// dentro de un segmento vigilado (Fase C). La pantalla de segmento
-/// completa y editable llega en la Fase D -- esto es lo mínimo para
-/// probar la detección en campo: nombre, barra de progreso, cuánto
-/// falta, tu tiempo y (si hay mejor marca con splits) el delta contra
-/// el fantasma.
+/// Lo que se ve sobre el mapa mientras el ciclista está dentro de un
+/// segmento y tiene el panel recogido: UNA tarjeta, no dos.
+///
+/// Arriba, el tramo (nombre, tiempo, avance, cuánto falta y la
+/// diferencia con la mejor marca); abajo, en la misma tarjeta, la franja
+/// del coach (punto de extensión `segmentLiveNoticeProvider`). Antes eran
+/// dos tarjetas apiladas que tapaban medio mapa.
 class SegmentLiveBanner extends ConsumerWidget {
   const SegmentLiveBanner({super.key});
 
@@ -22,14 +23,18 @@ class SegmentLiveBanner extends ConsumerWidget {
 
     // Refresca el tiempo/delta cada segundo aunque no llegue un punto GPS.
     ref.watch(secondTickerProvider);
+    final notice = ref.watch(segmentLiveNoticeProvider);
 
     final delta = active.deltaVsGhost();
+    final km = (active.remainingMeters / 1000)
+        .toStringAsFixed(active.remainingMeters >= 1000 ? 1 : 2)
+        .replaceAll('.', ',');
 
     return Material(
-      color: CcColors.glass,
-      borderRadius: BorderRadius.circular(18),
+      color: CcColors.glassDeep,
+      borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,81 +43,58 @@ class SegmentLiveBanner extends ConsumerWidget {
               children: [
                 const Icon(
                   Icons.flag,
-                  color: AppColors.segmentActiveTrack,
-                  size: 18,
+                  color: CcColors.segmentActiveTrack,
+                  size: 16,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     active.segment.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimaryOnPanel,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                    style: CcType.label(size: 13, color: CcColors.ink),
                   ),
                 ),
                 Text(
-                  formatElapsedShort(active.elapsedNow()),
-                  style: const TextStyle(
-                    color: AppColors.textPrimaryOnPanel,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
+                  '$km km',
+                  style: CcType.displayStyle(size: 15, weight: FontWeight.w800),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: active.progressFraction,
-                minHeight: 6,
-                backgroundColor: Colors.white.withValues(alpha: 0.12),
-                valueColor: const AlwaysStoppedAnimation(
-                  AppColors.segmentActiveTrack,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  'Faltan ${formatDistanceKm(active.remainingMeters)} km',
-                  style: const TextStyle(
-                    color: AppColors.textSecondaryOnPanel,
-                    fontSize: 12,
-                  ),
-                ),
-                const Spacer(),
+                const SizedBox(width: 10),
                 if (delta != null)
                   Text(
                     delta.inSeconds == 0
-                        ? 'igual que tu PR'
-                        : '${formatSignedDuration(delta)} vs PR',
-                    style: TextStyle(
-                      color: delta.isNegative
-                          ? AppColors.ghostAhead
-                          : (delta.inSeconds == 0
-                                ? AppColors.textSecondaryOnPanel
-                                : AppColors.ghostBehind),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                        ? '= PR'
+                        : '${formatSignedDuration(delta)} PR',
+                    style: CcType.label(
+                      size: 12,
+                      weight: FontWeight.w700,
+                      color: delta.inSeconds == 0
+                          ? CcColors.inkDim
+                          : (delta.isNegative
+                                ? CcColors.ghostAhead
+                                : CcColors.ghostBehind),
                     ),
                   )
-                else if (active.bestEffort == null)
-                  const Text(
-                    'primer intento',
-                    style: TextStyle(
-                      color: AppColors.textSecondaryOnPanel,
-                      fontSize: 12,
-                    ),
+                else
+                  Text(
+                    formatElapsedShort(active.elapsedNow()),
+                    style: CcType.label(size: 12, color: CcColors.inkDim),
                   ),
               ],
             ),
+            const SizedBox(height: 7),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: active.progressFraction,
+                minHeight: 4,
+                backgroundColor: CcColors.line,
+                valueColor: const AlwaysStoppedAnimation(
+                  CcColors.segmentActiveTrack,
+                ),
+              ),
+            ),
+            if (notice != null) ...[const SizedBox(height: 8), notice],
           ],
         ),
       ),

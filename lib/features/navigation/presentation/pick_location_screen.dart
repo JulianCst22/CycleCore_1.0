@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/platform/platform.dart' show CachedTileProvider;
 
 /// Pantalla para marcar un punto exacto en el mapa -- para guardar una
 /// ubicación que no está en el grafo vial (la casa del usuario en una
@@ -63,6 +64,8 @@ class _PickLocationScreenState extends State<PickLocationScreen> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.cyclecore_app',
+                // Guardados en el teléfono: sin internet se ve lo ya visto.
+                tileProvider: CachedTileProvider.instance,
               ),
             ],
           ),

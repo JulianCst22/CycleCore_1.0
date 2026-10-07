@@ -20,9 +20,30 @@ class HeartRateSensorController extends BleSensorController<HeartRateReading> {
   HeartRateSensorController(BleSensorService<HeartRateReading> service, Ref ref)
     : super(kind: SensorKind.heartRate, service: service, ref: ref);
 
+  /// Las bandas mandan una vez por segundo; si se callan más que esto,
+  /// el pulso deja de conocerse en vez de quedarse congelado.
+  static const silenceAfter = Duration(seconds: 5);
+
+  bool _silent = false;
+
   @override
   void handleReading(HeartRateReading reading) {
-    ref.read(heartRateBpmProvider.notifier).state = reading.bpm;
+    _silent = false;
+    // Sin contacto con la piel (banda seca o floja) la banda manda 0 o
+    // un valor de relleno: mejor "sin dato" que un pulso inventado.
+    final plausible = reading.bpm >= 25 && reading.bpm <= 250;
+    ref.read(heartRateBpmProvider.notifier).state =
+        reading.sensorContactDetected && plausible ? reading.bpm : null;
+  }
+
+  @override
+  void onTick(DateTime now) {
+    final last = lastReadingAt;
+    if (_silent || last == null || now.difference(last) <= silenceAfter) {
+      return;
+    }
+    _silent = true;
+    ref.read(heartRateBpmProvider.notifier).state = null;
   }
 
   @override

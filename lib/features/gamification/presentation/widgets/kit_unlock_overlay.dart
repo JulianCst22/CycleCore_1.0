@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 import '../../domain/cyclist_kit.dart';
 
 /// El festejo de "¡Desbloqueaste una pieza!" -- foco cenital + la pieza

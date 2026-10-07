@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 import '../../../stats/stats.dart';
 import '../profile_stats_screen.dart';
 

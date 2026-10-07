@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../../core/ui/ui.dart';
+import '../../../../core/geo/geo.dart';
 
 /// Huella del trazado de un segmento en un cuadro pequeño (la lista de
 /// segmentos). No usa tiles de mapa a propósito -- cargar un

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/segment_cockpit_field.dart';
 
 /// Valor ya formateado (ícono, color, etiqueta, valor, unidad) de un
@@ -56,7 +56,9 @@ extension SegmentCockpitFieldX on SegmentCockpitField {
       case SegmentCockpitField.velocidadMediaSegmento:
         return 'VEL. MEDIA SEG.';
       case SegmentCockpitField.frecuenciaCardiaca:
-        return 'FRECUENCIA CARDÍACA';
+        // «Frecuencia cardíaca» no cabe en un recuadro chico y se corta;
+        // «pulso» es además como lo dice el coach.
+        return 'PULSO';
       case SegmentCockpitField.potencia:
         return 'POTENCIA';
       case SegmentCockpitField.cadencia:

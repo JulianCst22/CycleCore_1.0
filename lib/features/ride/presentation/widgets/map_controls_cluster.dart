@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 
 /// Modo de seguimiento/orientación del mapa -- un solo eje de estado
 /// para el control unificado.
@@ -24,7 +24,7 @@ enum MapFollowMode {
 /// Reemplaza los dos botones separados que había antes (`_CompassButton`
 /// arriba a la izquierda + `_RecenterButton` a la derecha). Hoy solo lo
 /// usa la pantalla de la salida; si otra pantalla con mapa en vivo lo
-/// necesita, sube al sistema de diseño (core_ui).
+/// necesita, sube al sistema de diseño (core/ui).
 ///
 /// - **free** → ícono de recentrar. Tap: recentra y empieza a seguir.
 /// - **followNorthUp** → ícono de ubicación. Tap: pasa a "rumbo arriba".

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
 import '../../elevation/elevation.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../core/geo/geo.dart';
 import '../application/activities_providers.dart';
 
 /// "Ajustar altimetría" -- vuelve a correr el aplanado de una actividad

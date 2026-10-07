@@ -225,41 +225,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
-  core_database:
-    dependency: "direct main"
-    description:
-      path: "packages/core/database"
-      relative: true
-    source: path
-    version: "1.0.0"
-  core_fuzzy_logic:
-    dependency: "direct main"
-    description:
-      path: "packages/core/fuzzy_logic"
-      relative: true
-    source: path
-    version: "1.0.0"
-  core_geo:
-    dependency: "direct main"
-    description:
-      path: "packages/core/geo"
-      relative: true
-    source: path
-    version: "1.0.0"
-  core_platform:
-    dependency: "direct main"
-    description:
-      path: "packages/core/platform"
-      relative: true
-    source: path
-    version: "1.0.0"
-  core_ui:
-    dependency: "direct main"
-    description:
-      path: "packages/core/ui"
-      relative: true
-    source: path
-    version: "1.0.0"
   cross_file:
     dependency: transitive
     description:

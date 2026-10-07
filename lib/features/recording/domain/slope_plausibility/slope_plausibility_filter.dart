@@ -1,4 +1,4 @@
-import 'package:core_fuzzy_logic/core_fuzzy_logic.dart';
+import '../../../../core/fuzzy_logic/fuzzy_logic.dart';
 
 /// CAPA 2 del modelo geoespacial: decide cuánto pesar una nueva lectura
 /// de pendiente cruda (ya calculada por LiveSlopeCalculator sobre una

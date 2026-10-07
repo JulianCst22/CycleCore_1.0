@@ -5,14 +5,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../domain/altitude_fusion/altitude_fusion_filter.dart';
 import '../domain/altitude_fusion/altitude_source_reading.dart';
 import '../domain/slope_plausibility/slope_plausibility_filter.dart';
 import '../data/altitude_debug_logger.dart';
 import '../domain/altitude_fusion/altitude_fusion_service.dart';
 import '../data/barometer_service.dart';
-import 'package:core_platform/core_platform.dart';
+import '../../../core/platform/platform.dart';
 import '../../elevation/elevation.dart';
 import '../../sensors/sensors.dart';
 import '../data/recording_journal.dart';
@@ -307,6 +307,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   Future<void> _prepareToRecord() async {
     await _locationService.ensureLocationReady();
     await _locationService.ensureBackgroundLocationReady();
+    await _locationService.ensureUnrestrictedBattery();
     await _elevation.preload();
 
     _altitudeFusion.reset();

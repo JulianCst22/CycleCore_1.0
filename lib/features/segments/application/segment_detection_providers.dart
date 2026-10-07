@@ -1,11 +1,11 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../../recording/recording.dart';
 import '../../voice/voice.dart';
 import '../domain/segment_detector.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../core/geo/geo.dart';
 import '../domain/segment_splits.dart';
 import 'segments_providers.dart';
 import '../domain/segment_profile_access.dart';

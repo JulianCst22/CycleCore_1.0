@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/navigation_route.dart';
 import 'end_navigation_confirm.dart';
 import '../application/navigation_providers.dart';
@@ -85,7 +85,7 @@ class _BannerContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Material(
-      color: CcColors.glass,
+      color: CcColors.glassDeep,
       borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

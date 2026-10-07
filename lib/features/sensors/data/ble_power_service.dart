@@ -26,28 +26,13 @@ class BleCyclingPowerService implements BleSensorService<CyclingPowerReading> {
 
   @override
   Future<SensorLink<CyclingPowerReading>> connect(String deviceId) =>
-      fbpConnect(deviceId, _watch);
-
-  Stream<CyclingPowerReading> _watch(BluetoothDevice device) async* {
-    final services = await device.discoverServices();
-
-    final powerService = services.firstWhere(
-      (s) => s.uuid == _serviceUuid,
-      orElse: () => throw StateError(
-        'Este dispositivo no expone el servicio estándar de potencia '
-        '(0x1818).',
-      ),
-    );
-
-    final measurementCharacteristic = powerService.characteristics.firstWhere(
-      (c) => c.uuid == _measurementCharUuid,
-    );
-
-    await measurementCharacteristic.setNotifyValue(true);
-
-    await for (final rawData in measurementCharacteristic.lastValueStream) {
-      if (rawData.isEmpty) continue;
-      yield parseCyclingPowerMeasurement(rawData);
-    }
-  }
+      fbpConnect(
+        deviceId,
+        serviceUuid: _serviceUuid,
+        characteristicUuid: _measurementCharUuid,
+        parse: parseCyclingPowerMeasurement,
+        missingServiceMessage:
+            'Este dispositivo no expone el servicio estándar de potencia '
+            '(0x1818).',
+      );
 }

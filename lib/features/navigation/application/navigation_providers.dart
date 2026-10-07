@@ -1,25 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import 'package:core_database/core_database.dart';
-import '../domain/road_region_id.dart';
-import 'package:core_platform/core_platform.dart';
+import '../../../core/database/database.dart';
+import '../../../core/platform/platform.dart';
 import '../../elevation/elevation.dart';
 import '../data/geocoding_service.dart';
 import '../data/recent_destinations_store.dart';
-import '../data/road_region_repository.dart';
+import '../data/route_worker.dart' show OutsideMapException;
 import '../data/saved_places_repository.dart';
-import '../domain/ch_router.dart';
 import '../domain/climb_detection.dart';
 import '../domain/navigation_route.dart';
 import '../domain/navigation_target.dart';
 import '../domain/route_preview.dart';
-import '../domain/route_snapper.dart';
-import '../domain/turn_instruction_builder.dart';
+import 'road_region_providers.dart';
 
-final roadRegionRepositoryProvider = Provider<RoadRegionRepository>((ref) {
-  return RoadRegionRepository(ref.read(appDatabaseProvider));
-});
+export 'road_region_providers.dart';
 
 final geocodingServiceProvider = Provider<GeocodingService>((ref) {
   return GeocodingService();
@@ -54,20 +49,31 @@ final recentDestinationsProvider =
 
 // --- Región / grafo vial ---------------------------------------------
 
-/// Región del catálogo que cubre tu posición actual -- null si estás
-/// fuera de todas las zonas ya preprocesadas.
-final currentRoadRegionProvider = FutureProvider<RoadRegionId?>((ref) async {
+/// true si hay un mapa descargado que cubre tu posición -- esto es lo
+/// que muestra el botón de "Navegar" en el mapa. Un mapa que ya no está
+/// en el catálogo (el viejo de "Bogotá y Cundinamarca" en formato RGF1)
+/// no cuenta: hay que bajar el nuevo.
+final hasNavigationDataProvider = FutureProvider<bool>((ref) async {
+  final downloaded = await ref.watch(downloadedRegionsProvider.future);
+  if (downloaded.isEmpty) return false;
   final position = await ref.watch(currentPositionProvider.future);
-  return RoadRegionId.forPosition(position.latitude, position.longitude);
+  final snapshot = await ref.watch(regionCatalogProvider.future);
+  return snapshot.catalog.regionForRoute(
+        downloaded: downloaded.map((d) => d.regionId),
+        fromLat: position.latitude,
+        fromLng: position.longitude,
+      ) !=
+      null;
 });
 
-/// true si tu región actual ya tiene el grafo vial descargado -- esto
-/// es lo que gatea el botón de "Navegar" en el mapa.
-final hasNavigationDataProvider = FutureProvider<bool>((ref) async {
-  final region = await ref.watch(currentRoadRegionProvider.future);
-  if (region == null) return false;
-  return ref.read(roadRegionRepositoryProvider).isRegionDownloaded(region.id);
-});
+/// Por qué no se puede calcular una ruta, dicho para el ciclista.
+class RouteUnavailableException implements Exception {
+  final String message;
+  const RouteUnavailableException(this.message);
+
+  @override
+  String toString() => message;
+}
 
 /// Posición GPS en vivo mientras hay una navegación activa -- vive acá
 /// (no en `currentPositionProvider`, que es un solo fix) porque la
@@ -95,6 +101,26 @@ final activeNavigationTargetProvider = StateProvider<NavigationTarget?>(
 /// tarjeta "Confirmar la ruta". `null` cuando no hay ninguna esperando.
 final routePreviewProvider = StateProvider<RoutePreview?>((ref) => null);
 
+/// En qué va el cálculo de una ruta: es lo que cuenta la animación
+/// mientras tanto.
+enum RouteComputeStage {
+  /// Cargando el grafo de la región (solo la primera vez).
+  loadingMap,
+
+  /// Buscando la ruta por vías principales y pavimentadas.
+  routing,
+
+  /// Calculando la altimetría y si el destino es un alto.
+  profile,
+}
+
+/// Ruta que se está calculando: a dónde y en qué paso va. `null` si no
+/// se está calculando ninguna.
+final routeComputingProvider =
+    StateProvider<({NavigationTarget target, RouteComputeStage stage})?>(
+      (ref) => null,
+    );
+
 /// Índice de la próxima instrucción a mostrar/anunciar dentro de
 /// `activeNavigationRouteProvider.instructions`.
 final nextInstructionIndexProvider = StateProvider<int>((ref) => 0);
@@ -103,87 +129,157 @@ class NavigationController {
   final Ref ref;
   const NavigationController(this.ref);
 
-  /// Calcula la ruta más corta entre dos puntos usando el grafo de la
-  /// región donde cae `fromLat/fromLng`. No la activa ni la deja en
-  /// preview -- solo la devuelve.
+  /// Cuál es el cálculo vigente. Si el ciclista cancela o pide otro
+  /// destino, el resultado del anterior llega igual (el isolate no se
+  /// puede interrumpir), pero se descarta.
+  static int _generation = 0;
+
+  /// Deja cargando el mapa de tu región para que la primera ruta salga
+  /// sin esperar. Se llama al abrir el buscador de destino.
+  Future<void> warmUp() async {
+    final position = await ref.read(currentPositionProvider.future);
+    final regionId = await _regionFor(position.latitude, position.longitude);
+    if (regionId == null) return;
+    await ref.read(roadRegionRepositoryProvider).warmUp(regionId);
+  }
+
+  Future<String?> _regionFor(
+    double fromLat,
+    double fromLng, [
+    double? toLat,
+    double? toLng,
+  ]) async {
+    final downloaded = await ref.read(downloadedRegionsProvider.future);
+    final snapshot = await ref.read(regionCatalogProvider.future);
+    return snapshot.catalog.regionForRoute(
+      downloaded: downloaded.map((d) => d.regionId),
+      fromLat: fromLat,
+      fromLng: fromLng,
+      toLat: toLat,
+      toLng: toLng,
+    );
+  }
+
+  /// Nombre del lugar donde cae un punto según el catálogo ("Boyacá").
+  Future<String?> _placeName(double lat, double lng) async {
+    final snapshot = await ref.read(regionCatalogProvider.future);
+    final found = snapshot.catalog.locate(lat, lng);
+    return found?.part?.name ?? found?.region.name;
+  }
+
+  /// Deja de esperar la ruta que se estaba calculando.
+  void cancelComputing() {
+    _generation++;
+    ref.read(routeComputingProvider.notifier).state = null;
+  }
+
+  /// Calcula la ruta entre dos puntos con el grafo de la región donde
+  /// cae `fromLat/fromLng`. No la activa ni la deja en preview -- solo
+  /// la devuelve.
   Future<NavigationRoute> _computeRoute({
     required double fromLat,
     required double fromLng,
     required double toLat,
     required double toLng,
+    required void Function(RouteComputeStage stage) onStage,
   }) async {
-    final region = RoadRegionId.forPosition(fromLat, fromLng);
-    if (region == null) {
-      throw Exception(
-        'No hay datos de navegación para tu zona actual. Descarga tu '
-        'región desde Ajustes > Navegación.',
+    final regionId = await _regionFor(fromLat, fromLng, toLat, toLng);
+    if (regionId == null) {
+      final here = await _placeName(fromLat, fromLng);
+      throw RouteUnavailableException(
+        'No tienes descargado el mapa de ${here ?? 'esta zona'}. '
+        'Descárgalo en Ajustes › Navegación.',
       );
     }
 
     final repo = ref.read(roadRegionRepositoryProvider);
-    final graph = await repo.loadGraph(region.id);
-    if (graph == null) {
-      throw Exception(
-        'Descarga primero el mapa de "${region.displayName}" desde '
-        'Ajustes > Navegación.',
-      );
-    }
-
-    final snapper = RouteSnapper(graph);
-    final startSnap = snapper.nearestNode(fromLat, fromLng);
-    final endSnap = snapper.nearestNode(toLat, toLng);
-
-    final router = ChRouter(graph);
-    final path = router.findPath(
-      startNodeIndex: startSnap.nodeIndex,
-      endNodeIndex: endSnap.nodeIndex,
+    if (!repo.isLoaded(regionId)) onStage(RouteComputeStage.loadingMap);
+    final route = repo.route(
+      regionId,
+      fromLat: fromLat,
+      fromLng: fromLng,
+      toLat: toLat,
+      toLng: toLng,
     );
-
-    if (path == null) {
-      throw Exception(
-        'No se encontró una ruta hacia ese destino dentro de la '
-        'región descargada.',
+    if (repo.isLoaded(regionId)) onStage(RouteComputeStage.routing);
+    final NavigationRoute? result;
+    try {
+      result = await route;
+    } on OutsideMapException catch (e) {
+      final place = e.destination
+          ? await _placeName(toLat, toLng)
+          : await _placeName(fromLat, fromLng);
+      throw RouteUnavailableException(
+        e.destination
+            ? 'El destino queda en ${place ?? 'otra región'}, por fuera del '
+                  'mapa que tienes. Descarga ese mapa en Ajustes › Navegación.'
+            : 'Estás en ${place ?? 'otra región'}: descarga ese mapa en '
+                  'Ajustes › Navegación.',
       );
     }
-
-    return TurnInstructionBuilder(graph).build(path);
+    if (result == null) {
+      throw const RouteUnavailableException(
+        'Descarga primero el mapa de tu zona en Ajustes › Navegación.',
+      );
+    }
+    return result;
   }
 
   /// Calcula la ruta hacia [target] y la deja en
   /// `routePreviewProvider` para que el usuario la confirme -- junto
   /// con el perfil de altimetría estimado y si el destino es un alto.
+  ///
+  /// Mientras tanto `routeComputingProvider` dice en qué va, para la
+  /// animación.
   Future<void> previewRoute({
     required NavigationTarget target,
     required double fromLat,
     required double fromLng,
   }) async {
-    final route = await _computeRoute(
-      fromLat: fromLat,
-      fromLng: fromLng,
-      toLat: target.lat,
-      toLng: target.lng,
-    );
+    final generation = ++_generation;
+    final computing = ref.read(routeComputingProvider.notifier);
+    bool current() => generation == _generation;
+    void stage(RouteComputeStage s) {
+      if (current()) computing.state = (target: target, stage: s);
+    }
 
-    final resolver = ref.read(elevationResolverProvider);
-    await resolver.preload();
+    ref.read(routePreviewProvider.notifier).state = null;
+    stage(RouteComputeStage.routing);
+    try {
+      final route = await _computeRoute(
+        fromLat: fromLat,
+        fromLng: fromLng,
+        toLat: target.lat,
+        toLng: target.lng,
+        onStage: stage,
+      );
+      if (!current()) return;
 
-    final samples = _sampleElevation(route, resolver);
-    final gain = _positiveGain(samples);
-    final originAlt = resolver.resolve(fromLat, fromLng).altitudeMeters;
-    final destAlt = resolver.resolve(target.lat, target.lng).altitudeMeters;
+      stage(RouteComputeStage.profile);
+      final resolver = ref.read(elevationResolverProvider);
+      await resolver.preload();
+      if (!current()) return;
 
-    ref.read(routePreviewProvider.notifier).state = RoutePreview(
-      target: target,
-      route: route,
-      elevationSamples: samples,
-      elevationGainMeters: gain,
-      destinationAltitudeMeters: destAlt,
-      isClimb: looksLikeClimb(
-        target.name,
+      final samples = _sampleElevation(route, resolver);
+      final gain = _positiveGain(samples);
+      final originAlt = resolver.resolve(fromLat, fromLng).altitudeMeters;
+      final destAlt = resolver.resolve(target.lat, target.lng).altitudeMeters;
+
+      ref.read(routePreviewProvider.notifier).state = RoutePreview(
+        target: target,
+        route: route,
+        elevationSamples: samples,
+        elevationGainMeters: gain,
         destinationAltitudeMeters: destAlt,
-        originAltitudeMeters: originAlt,
-      ),
-    );
+        isClimb: looksLikeClimb(
+          target.name,
+          destinationAltitudeMeters: destAlt,
+          originAltitudeMeters: originAlt,
+        ),
+      );
+    } finally {
+      if (current()) computing.state = null;
+    }
   }
 
   /// Activa la ruta que estaba en preview y la registra como destino
@@ -206,6 +302,7 @@ class NavigationController {
   }
 
   void cancelNavigation() {
+    cancelComputing();
     ref.read(activeNavigationRouteProvider.notifier).state = null;
     ref.read(activeNavigationTargetProvider.notifier).state = null;
     ref.read(routePreviewProvider.notifier).state = null;

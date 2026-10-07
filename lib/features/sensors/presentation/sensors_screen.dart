@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/heart_rate_provider.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/discovered_device.dart';
 import '../domain/sensor_kind.dart';
 import '../application/cadence_providers.dart';
 import '../application/power_providers.dart';
 import '../application/sensors_providers.dart';
 import '../application/speed_providers.dart';
+import 'cadence_source_dialog.dart';
 import 'wheel_size_dialog.dart';
 
 /// Pantalla de sensores BLE: un resumen arriba ("N de 4 listos") y un
@@ -68,10 +69,19 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
     }
   }
 
-  Future<void> _connect(SensorKind kind, DiscoveredDevice device) => _guard(
-    _controllerFor(kind).connectTo(device),
-    prefix: 'No se pudo conectar',
-  );
+  Future<void> _connect(SensorKind kind, DiscoveredDevice device) async {
+    await _guard(
+      _controllerFor(kind).connectTo(device),
+      prefix: 'No se pudo conectar',
+    );
+    // Si ya había otro sensor que mide la cadencia (p. ej. el de
+    // cadencia y ahora llega el potenciómetro), se pregunta de cuál
+    // tomarla.
+    if (!mounted || !ref.read(_providerFor(kind)).isConnected) return;
+    if (kind == SensorKind.power || kind == SensorKind.cadence) {
+      await askCadenceSource(context, ref);
+    }
+  }
 
   Future<void> _guard(Future<void> action, {String? prefix}) async {
     try {
@@ -170,14 +180,17 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
                   ? () => showWheelSizeDialog(context)
                   : null,
               onToggleCombo: kind == SensorKind.speed
-                  ? (v) =>
-                        (_controllerFor(SensorKind.speed)
-                                as SpeedSensorController)
-                            .setAlsoProvidesCadence(v)
+                  ? (v) {
+                      (_controllerFor(SensorKind.speed)
+                              as SpeedSensorController)
+                          .setAlsoProvidesCadence(v);
+                      if (v) askCadenceSource(context, ref);
+                    }
                   : null,
             ),
             const SizedBox(height: 12),
           ],
+          const CadenceSourceRow(),
         ],
       ),
     );

@@ -76,6 +76,17 @@ class VoiceSettingsNotifier extends StateNotifier<VoiceSettingsState> {
     await _engine.speakEvent(event);
   }
 
+  /// Dice un texto armado en el momento (los consejos del coach). No
+  /// hace nada si la voz está apagada.
+  Future<void> speakText(
+    String text, {
+    VoicePriority priority = VoicePriority.normal,
+    String? chime,
+  }) async {
+    if (!state.enabled) return;
+    await _engine.speakText(text, priority: priority, chime: chime);
+  }
+
   /// Reproduce una muestra de [persona] sin cambiar la selección
   /// actual — para el botón "Probar voz".
   Future<void> previewPersona(VoicePersona persona) async {

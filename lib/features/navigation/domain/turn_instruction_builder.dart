@@ -22,6 +22,12 @@ class TurnInstructionBuilder {
   /// solo el ruido normal de una calle que curva suavemente.
   static const double _straightThresholdDegrees = 15;
 
+  /// Hasta dónde (metros) se mira hacia atrás y hacia adelante para
+  /// medir el rumbo de entrada y de salida de un cruce. Con solo el
+  /// tramo inmediato, el último metro de una curva cambiaba la
+  /// instrucción.
+  static const double _bearingReachMeters = 25;
+
   NavigationRoute build(RoutePath path) {
     final polyline = path.nodeIndices.map((i) => graph.nodes[i]).toList();
     final instructions = <RouteInstruction>[];
@@ -34,13 +40,15 @@ class TurnInstructionBuilder {
       );
     }
 
-    instructions.add(RouteInstruction(
-      direction: TurnDirection.straight,
-      text: 'Comienza tu recorrido',
-      distanceFromStartMeters: 0,
-      lat: polyline.first.lat,
-      lng: polyline.first.lng,
-    ));
+    instructions.add(
+      RouteInstruction(
+        direction: TurnDirection.straight,
+        text: 'Comienza tu recorrido',
+        distanceFromStartMeters: 0,
+        lat: polyline.first.lat,
+        lng: polyline.first.lng,
+      ),
+    );
 
     double cumulativeDistance = 0;
 
@@ -49,19 +57,26 @@ class TurnInstructionBuilder {
       final isLastEdge = i == path.edgesUsed.length - 1;
 
       if (isLastEdge) {
-        instructions.add(RouteInstruction(
-          direction: TurnDirection.arrive,
-          text: 'Llegaste a tu destino',
-          distanceFromStartMeters: cumulativeDistance,
-          lat: polyline.last.lat,
-          lng: polyline.last.lng,
-        ));
+        instructions.add(
+          RouteInstruction(
+            direction: TurnDirection.arrive,
+            text: 'Llegaste a tu destino',
+            distanceFromStartMeters: cumulativeDistance,
+            lat: polyline.last.lat,
+            lng: polyline.last.lng,
+          ),
+        );
         break;
       }
 
-      final prevNode = polyline[i];
+      // Solo hay algo que decir donde se cruzan vías. En una vía de
+      // montaña cada curva es un nodo, y antes cada curva sonaba como
+      // «gira a la derecha»: en una subida eso es ruido puro.
+      if (graph.degreeOf(path.nodeIndices[i + 1]) < 3) continue;
+
       final atNode = polyline[i + 1];
-      final nextNode = polyline[i + 2];
+      final prevNode = polyline[_reachBack(path, i + 1)];
+      final nextNode = polyline[_reachAhead(path, i + 1)];
 
       final bearingIn = _bearing(prevNode, atNode);
       final bearingOut = _bearing(atNode, nextNode);
@@ -69,13 +84,15 @@ class TurnInstructionBuilder {
       final direction = _classifyTurn(turnAngle);
 
       if (direction != TurnDirection.straight) {
-        instructions.add(RouteInstruction(
-          direction: direction,
-          text: _textFor(direction),
-          distanceFromStartMeters: cumulativeDistance,
-          lat: atNode.lat,
-          lng: atNode.lng,
-        ));
+        instructions.add(
+          RouteInstruction(
+            direction: direction,
+            text: _textFor(direction),
+            distanceFromStartMeters: cumulativeDistance,
+            lat: atNode.lat,
+            lng: atNode.lng,
+          ),
+        );
       }
     }
 
@@ -86,12 +103,37 @@ class TurnInstructionBuilder {
     );
   }
 
+  /// Índice del punto de la ruta unos [_bearingReachMeters] antes de
+  /// [at] (o el primero).
+  int _reachBack(RoutePath path, int at) {
+    var meters = 0.0;
+    var k = at;
+    while (k > 0 && meters < _bearingReachMeters) {
+      meters += path.edgesUsed[k - 1].distanceMeters;
+      k--;
+    }
+    return k;
+  }
+
+  /// Índice del punto de la ruta unos [_bearingReachMeters] después de
+  /// [at] (o el último).
+  int _reachAhead(RoutePath path, int at) {
+    var meters = 0.0;
+    var k = at;
+    while (k < path.edgesUsed.length && meters < _bearingReachMeters) {
+      meters += path.edgesUsed[k].distanceMeters;
+      k++;
+    }
+    return k;
+  }
+
   double _bearing(RoadNode from, RoadNode to) {
     final lat1 = _degToRad(from.lat);
     final lat2 = _degToRad(to.lat);
     final dLng = _degToRad(to.lng - from.lng);
     final y = math.sin(dLng) * math.cos(lat2);
-    final x = math.cos(lat1) * math.sin(lat2) -
+    final x =
+        math.cos(lat1) * math.sin(lat2) -
         math.sin(lat1) * math.cos(lat2) * math.cos(dLng);
     return (_radToDeg(math.atan2(y, x)) + 360) % 360;
   }

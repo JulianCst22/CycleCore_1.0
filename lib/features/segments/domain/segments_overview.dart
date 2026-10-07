@@ -1,4 +1,4 @@
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 
 /// Un segmento con su marca y su actividad reciente resumidas -- lo que
 /// necesita cada tarjeta de la lista de segmentos.

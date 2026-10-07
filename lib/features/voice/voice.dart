@@ -5,6 +5,7 @@
 library;
 
 export 'application/voice_providers.dart';
+export 'data/voice_engine.dart' show VoicePriority;
 export 'domain/voice_event.dart';
 export 'presentation/voice_gamification_extension_points.dart';
 export 'presentation/voice_selection_screen.dart';

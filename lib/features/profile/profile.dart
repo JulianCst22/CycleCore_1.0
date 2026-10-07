@@ -15,4 +15,5 @@ export 'presentation/profile_edit_screen.dart';
 export 'presentation/profile_screen.dart';
 export 'presentation/training_zones_screen.dart';
 export 'presentation/widgets/birth_date_field.dart';
+export 'presentation/widgets/rider_level_picker.dart';
 export 'presentation/widgets/zones_editor.dart';

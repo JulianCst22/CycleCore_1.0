@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
-import 'package:core_platform/core_platform.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/platform/platform.dart';
 import '../data/geocoding_service.dart';
 import '../domain/climb_detection.dart';
 import '../domain/navigation_target.dart';

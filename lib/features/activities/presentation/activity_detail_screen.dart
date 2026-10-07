@@ -7,10 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
 import '../../profile/profile.dart';
 import '../../segments/segments.dart';
+import '../../stats/stats.dart';
 import '../domain/activity_calories.dart';
 import 'activity_colors.dart';
 import '../domain/activity_records.dart';
@@ -19,8 +20,11 @@ import 'activity_charts.dart';
 import 'adjust_altitude_screen.dart';
 import 'save_activity_screen.dart';
 import 'share_activity_screen.dart';
+import 'widgets/activity_curve_section.dart';
 import 'widgets/activity_xp_row.dart';
+import 'widgets/activity_zones_section.dart';
 import 'widgets/photo_viewer_screen.dart';
+import '../../../core/platform/platform.dart' show CachedTileProvider;
 
 class ActivityDetailScreen extends ConsumerStatefulWidget {
   final int activityId;
@@ -150,6 +154,12 @@ class _ActivityDetailBody extends ConsumerWidget {
     final photoPaths = activity.photoPaths;
     final derived = _DerivedStats.fromPoints(routePoints);
     final hasRoute = routePoints.length > 1;
+    final series = ActivitySeries.fromRoutePoints(
+      routePoints,
+      movingSeconds: activity.durationSeconds,
+    );
+    final hasPowerSeries = series.powerSeconds > 0;
+    final hasHeartRateSeries = series.heartRateSeconds > 0;
     final dateLabel = DateFormat(
       "EEE d MMM y · HH:mm",
       'es',
@@ -295,6 +305,19 @@ class _ActivityDetailBody extends ConsumerWidget {
               if (hasRoute) ...[
                 const SizedBox(height: 26),
                 ActivityChartsCard(points: routePoints),
+              ],
+
+              // --- Tiempo en zonas y curva de la salida contra la mejor
+              // marca: solo con lo que la salida tenga (potencia, FC). ---
+              if (hasPowerSeries || hasHeartRateSeries) ...[
+                const SizedBox(height: 26),
+                ActivityZonesSection(series: series),
+                const SizedBox(height: 26),
+                ActivityCurveSection(
+                  activityId: activity.id,
+                  hasPower: hasPowerSeries,
+                  hasHeartRate: hasHeartRateSeries,
+                ),
               ],
 
               // --- Todos los datos: filas agrupadas (prom + máx del
@@ -799,6 +822,8 @@ class _RouteMap extends StatelessWidget {
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.example.cyclecore_app',
+          // Guardados en el teléfono: sin internet se ve lo ya visto.
+          tileProvider: CachedTileProvider.instance,
         ),
         // Halo oscuro debajo de la ruta -- le da profundidad y
         // disimula cualquier unión imperfecta entre tramos de color,

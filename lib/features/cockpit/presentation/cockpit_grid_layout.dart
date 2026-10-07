@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
+import '../application/extension_points.dart';
 import '../domain/cockpit_tile_config.dart';
 import '../domain/cockpit_tile_packing.dart';
 import 'cockpit_field_ui.dart';
@@ -117,6 +118,12 @@ class _CockpitTile extends ConsumerWidget {
         ? gaugeValueFor(config.field, liveData).color
         : display.color;
 
+    // Si el coach acaba de nombrar esta variable, el recuadro se resalta
+    // unos segundos: la voz y la pantalla apuntan al mismo dato (ADR-6).
+    final isMentioned = ref
+        .watch(mentionedFieldsProvider)
+        .contains(config.field);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Proporciones relativas al alto real del tile -- clamps para
@@ -131,22 +138,38 @@ class _CockpitTile extends ConsumerWidget {
         return Container(
           padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
+            // Fondo del sistema, no un velo blanco: estos recuadros van
+            // encima del mapa y con el mapa claro debajo un translúcido
+            // se lava y los números dejan de leerse al sol.
             gradient: isTracked
                 ? LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      accentColor.withValues(alpha: 0.18),
-                      Colors.white.withValues(alpha: 0.05),
+                      Color.alphaBlend(
+                        accentColor.withValues(alpha: 0.18),
+                        CcColors.glassDeep,
+                      ),
+                      CcColors.glassDeep,
                     ],
                   )
                 : null,
-            color: isTracked ? null : Colors.white.withValues(alpha: 0.05),
+            color: isTracked ? null : CcColors.glassDeep,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: accentColor.withValues(alpha: 0.28),
-              width: 1.2,
+              color: isMentioned
+                  ? CcColors.orange
+                  : accentColor.withValues(alpha: 0.28),
+              width: isMentioned ? 2 : 1.2,
             ),
+            boxShadow: isMentioned
+                ? [
+                    BoxShadow(
+                      color: CcColors.orange.withValues(alpha: 0.35),
+                      blurRadius: 14,
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

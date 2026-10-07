@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 import '../../../gamification/gamification.dart';
 
 /// Fila de XP en el detalle de la actividad: cuánta experiencia aportó

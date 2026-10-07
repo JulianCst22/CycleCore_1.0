@@ -1,17 +1,12 @@
+import 'dart:collection';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 /// Tipo de vía -- se usa para generar mejores instrucciones ("gira en
 /// la calle principal") y para penalizar/preferir ciertos tipos de
 /// vía al calcular la ruta (ej. preferir cycleway sobre residencial).
-enum RoadType {
-  unknown,
-  primary,
-  secondary,
-  residential,
-  cycleway,
-  path,
-}
+enum RoadType { unknown, primary, secondary, residential, cycleway, path }
 
 class RoadNode {
   final double lat;
@@ -37,18 +32,14 @@ class RoadEdge {
   final bool oneWay;
 
   /// Costo ponderado por tipo de vía, usado SOLO por `ChRouter` para
-  /// decidir qué camino tomar (prioriza principales/ciclovías sin
-  /// dejar de ser un algoritmo de costo mínimo correcto). No afecta
-  /// `distanceMeters`, que sigue siendo la distancia real -- todo lo
-  /// que ya usa `distanceMeters` (instrucciones, distancia total)
-  /// sigue funcionando exactamente igual que antes.
+  /// decidir qué camino tomar (prioriza principales sin dejar de ser un
+  /// algoritmo de costo mínimo correcto). No afecta `distanceMeters`,
+  /// que sigue siendo la distancia real.
   final double chCost;
 
   /// true si esta arista es un "atajo" (shortcut) generado en el
-  /// preprocesamiento CH y no una vía real de OSM. `ChRouter` la usa
-  /// internamente y la desenrolla antes de devolver el `RoutePath`
-  /// final, así que en la práctica nunca vas a ver `isShortcut: true`
-  /// en una arista dentro de un `RoutePath` ya construido.
+  /// preprocesamiento CH y no una vía real de OSM. `ChRouter` la
+  /// desenrolla antes de devolver el `RoutePath` final.
   final bool isShortcut;
 
   /// Si `isShortcut` es true, índices (en `RoadGraph.edges`) de las 2
@@ -70,233 +61,330 @@ class RoadEdge {
 }
 
 /// Grafo vial de una región, cargado desde un archivo `.roadgraph`
-/// binario propio -- ver `tools/preprocess_osm_to_roadgraph.py` para
-/// cómo se genera a partir de un extracto OSM (`.osm.pbf`).
+/// binario propio -- ver `tools/preprocess_osm_to_roadgraph.py` (vías y
+/// pesos) y `tool/road_graph_ch.dart` (jerarquía).
 ///
 /// Soporta 2 versiones de archivo:
 ///   RGF1 -- formato original (solo distancia real, sin CH). Sigue
-///           funcionando: `chLevel`/`chCost` quedan en 0/distancia,
-///           y `ChRouter` sobre un grafo RGF1 se comporta como
-///           Dijkstra plano (sin restricción de jerarquía real).
-///   RGF2 -- formato con Contraction Hierarchies precalculadas, lo
-///           que hace que `ChRouter` corra en su modo rápido real.
+///           funcionando como Dijkstra plano por distancia.
+///   RGF2 -- costo ponderado por tipo de vía + jerarquía de contracción
+///           (niveles y atajos).
 ///
-/// Formato binario RGF2 (little-endian):
-/// ```
-///   4 bytes  magic "RGF2"
-///   int32    cantidad de nodos (N)
-///   N * (float64 lat, float64 lng, int32 chLevel)
-///   int32    cantidad de aristas (E)
-///   E * (int32 from, int32 to, float32 chCost,
-///        uint8 roadType, uint8 oneWay, uint8 isShortcut,
-///        int32 viaEdgeA, int32 viaEdgeB, float32 distanceMeters)
-/// ```
-/// El índice de cada nodo en la lista ES su id -- no hace falta
-/// guardar un id explícito por nodo.
+/// Se guarda en arreglos compactos (`Float64List`, `Int32List`...) y no
+/// como millones de objetos: el grafo de Cundinamarca tiene ~1 millón de
+/// nodos, y como objetos sueltos pesaba cientos de MB y tardaba varios
+/// segundos en armarse. Las listas [nodes], [edges] y de adyacencia son
+/// vistas que crean el objeto al pedirlo, así que el resto del código
+/// las usa igual que antes.
 class RoadGraph {
-  final List<RoadNode> nodes;
-  final List<RoadEdge> edges;
+  final Float64List _lat;
+  final Float64List _lng;
+  final Int32List _level;
+  final Int32List _from;
+  final Int32List _to;
+  final Float32List _cost;
+  final Float32List _dist;
+  final Uint8List _type;
 
-  /// adjacency[i] = índices (en `edges`) de las aristas que salen del
-  /// nodo i -- se construye una sola vez al parsear, así `neighborsOf`
-  /// es O(grado del nodo) en vez de recorrer todas las aristas. Se
-  /// mantiene sin cambios respecto a la versión v1 -- lo sigue usando
-  /// `AStarRouter` si todavía convive con `ChRouter` en el proyecto.
-  final List<List<int>> adjacency;
+  /// bit 0: sentido único; bit 1: atajo.
+  final Uint8List _flags;
+  final Int32List _viaA;
+  final Int32List _viaB;
 
-  /// outAdjacency[i] = aristas que SALEN de i, respetando oneWay.
-  /// inAdjacency[i]  = aristas que LLEGAN a i, respetando oneWay.
-  /// `ChRouter` necesita esta separación direccional para la búsqueda
-  /// bidireccional (la búsqueda hacia atrás desde el destino tiene
-  /// que caminar las aristas "al revés"). `adjacency` (arriba) no
-  /// distingue dirección de recorrido, por eso se agregan estas dos
-  /// listas nuevas en vez de reutilizarla.
-  final List<List<int>> outAdjacency;
-  final List<List<int>> inAdjacency;
+  /// Adyacencia en formato CSR: las aristas que salen del nodo `i` son
+  /// `_outEdges[_outStart[i] .. _outStart[i + 1]]`. Las de doble
+  /// sentido aparecen en los dos extremos.
+  final Int32List _outStart;
+  final Int32List _outEdges;
+  final Int32List _inStart;
+  final Int32List _inEdges;
 
-  RoadGraph._({
-    required this.nodes,
-    required this.edges,
-    required this.adjacency,
-    required this.outAdjacency,
-    required this.inAdjacency,
-  });
+  /// Cuántas vías reales (no atajos) tocan cada nodo, con tope en 255.
+  /// Con 3 o más es una intersección; con 2, la vía solo sigue.
+  final Uint8List _degree;
 
-  static Future<RoadGraph> loadFromFile(String path) async {
-    final bytes = await File(path).readAsBytes();
-    return parse(bytes);
+  RoadGraph._(
+    this._lat,
+    this._lng,
+    this._level,
+    this._from,
+    this._to,
+    this._cost,
+    this._dist,
+    this._type,
+    this._flags,
+    this._viaA,
+    this._viaB,
+    this._outStart,
+    this._outEdges,
+    this._inStart,
+    this._inEdges,
+    this._degree,
+  );
+
+  int get nodeCount => _lat.length;
+  int get edgeCount => _from.length;
+
+  double latOf(int node) => _lat[node];
+  double lngOf(int node) => _lng[node];
+  int levelOf(int node) => _level[node];
+
+  /// Vías reales que se cruzan en [node].
+  int degreeOf(int node) => _degree[node];
+
+  int edgeFrom(int edge) => _from[edge];
+  int edgeTo(int edge) => _to[edge];
+  double edgeCost(int edge) => _cost[edge];
+  double edgeDistance(int edge) => _dist[edge];
+  bool isOneWay(int edge) => _flags[edge] & 1 != 0;
+  bool isShortcut(int edge) => _flags[edge] & 2 != 0;
+  int viaA(int edge) => _viaA[edge];
+  int viaB(int edge) => _viaB[edge];
+
+  /// El otro extremo de [edge] visto desde [node].
+  int otherEnd(int edge, int node) =>
+      _from[edge] == node ? _to[edge] : _from[edge];
+
+  /// Aristas por las que se sale de [node] (sin copiar).
+  Int32List outEdgesOf(int node) =>
+      Int32List.sublistView(_outEdges, _outStart[node], _outStart[node + 1]);
+
+  /// Aristas por las que se llega a [node] (sin copiar).
+  Int32List inEdgesOf(int node) =>
+      Int32List.sublistView(_inEdges, _inStart[node], _inStart[node + 1]);
+
+  // --- Vistas compatibles con el código que usaba objetos ------------
+
+  late final List<RoadNode> nodes = _NodeView(this);
+  late final List<RoadEdge> edges = _EdgeView(this);
+  late final List<List<int>> outAdjacency = _AdjacencyView(
+    _outStart,
+    _outEdges,
+  );
+  late final List<List<int>> inAdjacency = _AdjacencyView(_inStart, _inEdges);
+
+  /// Igual que [outAdjacency]: las de doble sentido ya están en los dos
+  /// extremos.
+  List<List<int>> get adjacency => outAdjacency;
+
+  RoadNode nodeAt(int i) =>
+      RoadNode(lat: _lat[i], lng: _lng[i], chLevel: _level[i]);
+
+  RoadEdge edgeAt(int e) => RoadEdge(
+    fromIndex: _from[e],
+    toIndex: _to[e],
+    distanceMeters: _dist[e],
+    roadType: _safeRoadType(_type[e]),
+    oneWay: isOneWay(e),
+    chCost: _cost[e],
+    isShortcut: isShortcut(e),
+    viaEdgeA: _viaA[e],
+    viaEdgeB: _viaB[e],
+  );
+
+  /// Vecinos accesibles desde `nodeIndex` -- para cada arista que sale,
+  /// el nodo del otro extremo y la arista usada.
+  Iterable<(int neighborIndex, RoadEdge edge)> neighborsOf(
+    int nodeIndex,
+  ) sync* {
+    for (final edgeIndex in outEdgesOf(nodeIndex)) {
+      yield (otherEnd(edgeIndex, nodeIndex), edgeAt(edgeIndex));
+    }
   }
+
+  // --- Carga ---------------------------------------------------------
+
+  /// Lee y arma el grafo en un isolate aparte: son decenas de MB y la
+  /// pantalla no se puede quedar congelada mientras tanto. Los arreglos
+  /// vuelven al isolate principal sin copiarse.
+  static Future<RoadGraph> loadFromFile(String path) =>
+      Isolate.run(() => parse(File(path).readAsBytesSync()));
+
+  /// Lee y arma el grafo en el isolate actual: lo usa el isolate de
+  /// ruteo (`RouteWorker`), que ya corre aparte de la interfaz.
+  static Future<RoadGraph> loadFromFileHere(String path) async =>
+      parse(await File(path).readAsBytes());
 
   static RoadGraph parse(Uint8List bytes) {
     final magic = String.fromCharCodes(bytes.sublist(0, 4));
-    if (magic == 'RGF1') {
-      return _parseV1(bytes);
-    }
-    if (magic == 'RGF2') {
-      return _parseV2(bytes);
-    }
+    if (magic == 'RGF1') return _parse(bytes, version: 1);
+    if (magic == 'RGF2') return _parse(bytes, version: 2);
     throw FormatException(
       'Archivo .roadgraph inválido: magic esperado "RGF1" o "RGF2", '
       'encontrado "$magic".',
     );
   }
 
-  static RoadGraph _parseV1(Uint8List bytes) {
+  static RoadGraph _parse(Uint8List bytes, {required int version}) {
     final data = ByteData.sublistView(bytes);
-    int offset = 4; // magic ya verificado
-
+    var offset = 4;
     final nodeCount = data.getInt32(offset, Endian.little);
     offset += 4;
 
-    final nodes = List<RoadNode>.filled(
-      nodeCount,
-      const RoadNode(lat: 0, lng: 0),
-      growable: false,
-    );
-    for (int i = 0; i < nodeCount; i++) {
-      final lat = data.getFloat64(offset, Endian.little);
-      offset += 8;
-      final lng = data.getFloat64(offset, Endian.little);
-      offset += 8;
-      nodes[i] = RoadNode(lat: lat, lng: lng); // chLevel queda en 0
+    final lat = Float64List(nodeCount);
+    final lng = Float64List(nodeCount);
+    final level = Int32List(nodeCount);
+    for (var i = 0; i < nodeCount; i++) {
+      lat[i] = data.getFloat64(offset, Endian.little);
+      lng[i] = data.getFloat64(offset + 8, Endian.little);
+      if (version == 2) {
+        level[i] = data.getInt32(offset + 16, Endian.little);
+        offset += 20;
+      } else {
+        offset += 16;
+      }
     }
 
     final edgeCount = data.getInt32(offset, Endian.little);
     offset += 4;
-
-    final edges = <RoadEdge>[];
-    for (int i = 0; i < edgeCount; i++) {
-      final from = data.getInt32(offset, Endian.little);
-      offset += 4;
-      final to = data.getInt32(offset, Endian.little);
-      offset += 4;
-      final distance = data.getFloat32(offset, Endian.little);
-      offset += 4;
-      final roadTypeRaw = data.getUint8(offset);
-      offset += 1;
-      final oneWay = data.getUint8(offset) == 1;
-      offset += 1;
-
-      edges.add(RoadEdge(
-        fromIndex: from,
-        toIndex: to,
-        distanceMeters: distance,
-        roadType: _safeRoadType(roadTypeRaw),
-        oneWay: oneWay,
-        // sin CH: chCost = distanceMeters (comportamiento Dijkstra puro)
-      ));
+    final from = Int32List(edgeCount);
+    final to = Int32List(edgeCount);
+    final cost = Float32List(edgeCount);
+    final dist = Float32List(edgeCount);
+    final type = Uint8List(edgeCount);
+    final flags = Uint8List(edgeCount);
+    final viaA = Int32List(edgeCount);
+    final viaB = Int32List(edgeCount);
+    for (var e = 0; e < edgeCount; e++) {
+      from[e] = data.getInt32(offset, Endian.little);
+      to[e] = data.getInt32(offset + 4, Endian.little);
+      if (version == 2) {
+        cost[e] = data.getFloat32(offset + 8, Endian.little);
+        type[e] = data.getUint8(offset + 12);
+        final oneWay = data.getUint8(offset + 13) == 1;
+        final shortcut = data.getUint8(offset + 14) == 1;
+        flags[e] = (oneWay ? 1 : 0) | (shortcut ? 2 : 0);
+        viaA[e] = data.getInt32(offset + 15, Endian.little);
+        viaB[e] = data.getInt32(offset + 19, Endian.little);
+        dist[e] = data.getFloat32(offset + 23, Endian.little);
+        offset += 27;
+      } else {
+        // RGF1: sin jerarquía; el costo es la distancia.
+        final d = data.getFloat32(offset + 8, Endian.little);
+        dist[e] = d;
+        cost[e] = d;
+        type[e] = data.getUint8(offset + 12);
+        flags[e] = data.getUint8(offset + 13) == 1 ? 1 : 0;
+        viaA[e] = -1;
+        viaB[e] = -1;
+        offset += 14;
+      }
     }
 
-    return _buildAdjacency(nodes, edges);
-  }
-
-  static RoadGraph _parseV2(Uint8List bytes) {
-    final data = ByteData.sublistView(bytes);
-    int offset = 4; // magic ya verificado
-
-    final nodeCount = data.getInt32(offset, Endian.little);
-    offset += 4;
-
-    final nodes = List<RoadNode>.filled(
-      nodeCount,
-      const RoadNode(lat: 0, lng: 0),
-      growable: false,
-    );
-    for (int i = 0; i < nodeCount; i++) {
-      final lat = data.getFloat64(offset, Endian.little);
-      offset += 8;
-      final lng = data.getFloat64(offset, Endian.little);
-      offset += 8;
-      final level = data.getInt32(offset, Endian.little);
-      offset += 4;
-      nodes[i] = RoadNode(lat: lat, lng: lng, chLevel: level);
+    // Adyacencia CSR: primero se cuenta, después se llena.
+    final outStart = Int32List(nodeCount + 1);
+    final inStart = Int32List(nodeCount + 1);
+    final degree = Uint8List(nodeCount);
+    for (var e = 0; e < edgeCount; e++) {
+      final a = from[e], b = to[e];
+      outStart[a + 1]++;
+      inStart[b + 1]++;
+      if (flags[e] & 1 == 0) {
+        outStart[b + 1]++;
+        inStart[a + 1]++;
+      }
+      if (flags[e] & 2 == 0) {
+        if (degree[a] < 255) degree[a]++;
+        if (degree[b] < 255) degree[b]++;
+      }
     }
-
-    final edgeCount = data.getInt32(offset, Endian.little);
-    offset += 4;
-
-    final edges = <RoadEdge>[];
-    for (int i = 0; i < edgeCount; i++) {
-      final from = data.getInt32(offset, Endian.little);
-      offset += 4;
-      final to = data.getInt32(offset, Endian.little);
-      offset += 4;
-      final chCost = data.getFloat32(offset, Endian.little);
-      offset += 4;
-      final roadTypeRaw = data.getUint8(offset);
-      offset += 1;
-      final oneWay = data.getUint8(offset) == 1;
-      offset += 1;
-      final isShortcut = data.getUint8(offset) == 1;
-      offset += 1;
-      final viaA = data.getInt32(offset, Endian.little);
-      offset += 4;
-      final viaB = data.getInt32(offset, Endian.little);
-      offset += 4;
-      final realDistance = data.getFloat32(offset, Endian.little);
-      offset += 4;
-
-      edges.add(RoadEdge(
-        fromIndex: from,
-        toIndex: to,
-        distanceMeters: realDistance,
-        roadType: _safeRoadType(roadTypeRaw),
-        oneWay: oneWay,
-        chCost: chCost,
-        isShortcut: isShortcut,
-        viaEdgeA: viaA,
-        viaEdgeB: viaB,
-      ));
+    for (var i = 0; i < nodeCount; i++) {
+      outStart[i + 1] += outStart[i];
+      inStart[i + 1] += inStart[i];
     }
-
-    return _buildAdjacency(nodes, edges);
-  }
-
-  static RoadType _safeRoadType(int raw) {
-    return raw < RoadType.values.length ? RoadType.values[raw] : RoadType.unknown;
-  }
-
-  static RoadGraph _buildAdjacency(List<RoadNode> nodes, List<RoadEdge> edges) {
-    final nodeCount = nodes.length;
-    final adjacency = List.generate(nodeCount, (_) => <int>[]);
-    final outAdjacency = List.generate(nodeCount, (_) => <int>[]);
-    final inAdjacency = List.generate(nodeCount, (_) => <int>[]);
-
-    for (int edgeIndex = 0; edgeIndex < edges.length; edgeIndex++) {
-      final edge = edges[edgeIndex];
-
-      adjacency[edge.fromIndex].add(edgeIndex);
-      outAdjacency[edge.fromIndex].add(edgeIndex);
-      inAdjacency[edge.toIndex].add(edgeIndex);
-
-      if (!edge.oneWay) {
-        adjacency[edge.toIndex].add(edgeIndex);
-        outAdjacency[edge.toIndex].add(edgeIndex);
-        inAdjacency[edge.fromIndex].add(edgeIndex);
+    final outEdges = Int32List(outStart[nodeCount]);
+    final inEdges = Int32List(inStart[nodeCount]);
+    final outFill = Int32List.fromList(outStart);
+    final inFill = Int32List.fromList(inStart);
+    for (var e = 0; e < edgeCount; e++) {
+      final a = from[e], b = to[e];
+      outEdges[outFill[a]++] = e;
+      inEdges[inFill[b]++] = e;
+      if (flags[e] & 1 == 0) {
+        outEdges[outFill[b]++] = e;
+        inEdges[inFill[a]++] = e;
       }
     }
 
     return RoadGraph._(
-      nodes: nodes,
-      edges: edges,
-      adjacency: adjacency,
-      outAdjacency: outAdjacency,
-      inAdjacency: inAdjacency,
+      lat,
+      lng,
+      level,
+      from,
+      to,
+      cost,
+      dist,
+      type,
+      flags,
+      viaA,
+      viaB,
+      outStart,
+      outEdges,
+      inStart,
+      inEdges,
+      degree,
     );
   }
 
-  /// Vecinos accesibles desde `nodeIndex` (comportamiento original,
-  /// sin cambios) -- para cada arista adyacente, el índice del nodo
-  /// del otro extremo y la arista usada. Se mantiene tal cual la
-  /// necesita `AStarRouter` si sigue existiendo en el proyecto.
-  Iterable<(int neighborIndex, RoadEdge edge)> neighborsOf(
-    int nodeIndex,
-  ) sync* {
-    for (final edgeIndex in adjacency[nodeIndex]) {
-      final edge = edges[edgeIndex];
-      final neighbor =
-          edge.fromIndex == nodeIndex ? edge.toIndex : edge.fromIndex;
-      yield (neighbor, edge);
-    }
+  static RoadType _safeRoadType(int raw) {
+    return raw < RoadType.values.length
+        ? RoadType.values[raw]
+        : RoadType.unknown;
   }
+}
+
+class _NodeView extends ListBase<RoadNode> {
+  final RoadGraph _graph;
+  _NodeView(this._graph);
+
+  @override
+  int get length => _graph.nodeCount;
+
+  @override
+  set length(int value) => throw UnsupportedError('Grafo de solo lectura');
+
+  @override
+  RoadNode operator [](int index) => _graph.nodeAt(index);
+
+  @override
+  void operator []=(int index, RoadNode value) =>
+      throw UnsupportedError('Grafo de solo lectura');
+}
+
+class _EdgeView extends ListBase<RoadEdge> {
+  final RoadGraph _graph;
+  _EdgeView(this._graph);
+
+  @override
+  int get length => _graph.edgeCount;
+
+  @override
+  set length(int value) => throw UnsupportedError('Grafo de solo lectura');
+
+  @override
+  RoadEdge operator [](int index) => _graph.edgeAt(index);
+
+  @override
+  void operator []=(int index, RoadEdge value) =>
+      throw UnsupportedError('Grafo de solo lectura');
+}
+
+class _AdjacencyView extends ListBase<List<int>> {
+  final Int32List _start;
+  final Int32List _edges;
+  _AdjacencyView(this._start, this._edges);
+
+  @override
+  int get length => _start.length - 1;
+
+  @override
+  set length(int value) => throw UnsupportedError('Grafo de solo lectura');
+
+  @override
+  List<int> operator [](int index) =>
+      Int32List.sublistView(_edges, _start[index], _start[index + 1]);
+
+  @override
+  void operator []=(int index, List<int> value) =>
+      throw UnsupportedError('Grafo de solo lectura');
 }

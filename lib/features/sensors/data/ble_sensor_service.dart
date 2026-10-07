@@ -30,7 +30,9 @@ abstract interface class SensorLink<R> {
   /// Cambios de conexión del enlace.
   Stream<SensorLinkState> connectionState();
 
-  /// Intenta re-establecer el enlace tras una caída.
+  /// Intenta re-establecer el enlace tras una caída. Termina cuando el
+  /// sensor volvió y ya está mandando lecturas otra vez; lanza si no se
+  /// pudo (el controlador reintenta).
   Future<void> reconnect();
 
   /// Cierra el enlace.

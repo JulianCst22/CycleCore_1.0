@@ -1,4 +1,4 @@
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 
 /// Métricas de "toda la actividad" que pueden ser récord personal.
 ///
