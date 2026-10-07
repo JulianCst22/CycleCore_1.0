@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart' show Value;
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../domain/navigation_target.dart';
 
 /// CRUD de las ubicaciones guardadas del usuario (Casa, un alto que hace

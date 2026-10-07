@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../domain/level_info.dart';
 import '../domain/xp_calculator.dart';
 import 'xp_debug_provider.dart';

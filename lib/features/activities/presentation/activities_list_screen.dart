@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
 import '../../profile/profile.dart';
 import '../domain/activity_records.dart';
 import '../application/activities_providers.dart';
@@ -113,7 +113,7 @@ class _Header extends StatelessWidget {
         children: [
           if (name == null || name.isEmpty)
             const Text(
-              '¡Hola! 👋',
+              '¡Hola!',
               style: TextStyle(
                 color: CcColors.inkDim,
                 fontSize: 14.5,
@@ -137,7 +137,6 @@ class _Header extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const TextSpan(text: ' 👋'),
                 ],
               ),
             ),

@@ -1,4 +1,4 @@
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 
 import 'route_point.dart';
 
@@ -41,6 +41,11 @@ class RecordingSnapshot {
   /// cuando la app se cerró.
   final DateTime? endedAt;
 
+  /// Última escritura al diario: hasta aquí se sabe que la app seguía
+  /// grabando, aunque estuviera quieta (en pausa automática no se graban
+  /// puntos, pero el diario se sigue escribiendo).
+  final DateTime? updatedAt;
+
   final List<JournalPoint> points;
   final List<HeartRateSample> heartRate;
   final List<PowerSample> power;
@@ -53,6 +58,7 @@ class RecordingSnapshot {
     required this.isPaused,
     required this.points,
     this.endedAt,
+    this.updatedAt,
     this.heartRate = const [],
     this.power = const [],
     this.cadence = const [],
@@ -66,8 +72,15 @@ class RecordingSnapshot {
 
   /// Momento del último dato conocido -- el fin de la actividad cuando se
   /// termina una sesión que nunca llegó a "Terminar".
-  DateTime get lastDataAt =>
-      endedAt ?? (points.isEmpty ? startedAt : points.last.point.timestamp);
+  DateTime get lastDataAt {
+    final ended = endedAt;
+    if (ended != null) return ended;
+    var last = updatedAt ?? startedAt;
+    if (points.isNotEmpty && points.last.point.timestamp.isAfter(last)) {
+      last = points.last.point.timestamp;
+    }
+    return last;
+  }
 
   double get maxSpeedKmh =>
       points.fold(0, (max, p) => p.speedKmh > max ? p.speedKmh : max);

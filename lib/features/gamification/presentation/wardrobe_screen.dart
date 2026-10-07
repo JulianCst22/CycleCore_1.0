@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/cyclist_kit.dart';
 import '../domain/kit_catalog.dart';
 import '../domain/kit_unlocks.dart';

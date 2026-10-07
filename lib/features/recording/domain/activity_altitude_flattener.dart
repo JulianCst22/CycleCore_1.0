@@ -1,4 +1,4 @@
-import 'package:core_geo/core_geo.dart';
+import '../../../core/geo/geo.dart';
 import '../../elevation/elevation.dart';
 import 'route_point.dart';
 

@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
+import '../../bikes/bikes.dart';
 import '../../gamification/gamification.dart';
 import '../application/activities_providers.dart';
 
@@ -46,10 +47,10 @@ class SaveActivityScreen extends ConsumerStatefulWidget {
     this.onActivitySaved,
     this.onRecordingDiscarded,
   }) : assert(
-        summary != null || existingActivity != null,
-        'SaveActivityScreen necesita summary (nueva grabación) o '
-        'existingActivity (editar una ya guardada).',
-      );
+         summary != null || existingActivity != null,
+         'SaveActivityScreen necesita summary (nueva grabación) o '
+         'existingActivity (editar una ya guardada).',
+       );
 
   bool get isEditing => existingActivity != null;
 
@@ -72,12 +73,38 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
 
   bool _saving = false;
 
+  /// Bicicleta elegida. Si el ciclista tiene registradas, se propone la
+  /// predeterminada; si no tiene ninguna, queda el texto libre de
+  /// siempre para no obligarlo a crear una antes de guardar.
+  int? _bikeId;
+
+  /// Si ya se eligió (o se heredó de la actividad que se edita): evita
+  /// pisar la elección del ciclista cuando llega la lista de bicis.
+  bool _bikePicked = false;
+
   @override
   void initState() {
     super.initState();
     final existing = widget.existingActivity;
     _titleCtrl.text = existing?.title ?? 'Actividad sin título';
     _bikeCtrl.text = existing?.bikeName ?? 'Mi bicicleta';
+    _bikeId = existing?.bikeId;
+    _bikePicked = existing != null;
+
+    // Cuando llegan las bicicletas, se propone la predeterminada.
+    ref.listenManual(bikesProvider, (_, next) {
+      final bikes = next.valueOrNull;
+      if (_bikePicked || bikes == null || bikes.isEmpty || !mounted) return;
+      final preferred = bikes.firstWhere(
+        (b) => b.isDefault,
+        orElse: () => bikes.first,
+      );
+      setState(() {
+        _bikeId = preferred.id;
+        _bikeCtrl.text = preferred.name;
+        _bikePicked = true;
+      });
+    }, fireImmediately: true);
     _notesCtrl.text = existing?.notes ?? '';
     if (existing != null) {
       _kind = existing.activityType == 'race'
@@ -138,6 +165,7 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
         title: title,
         activityType: activityType,
         bikeName: bikeName,
+        bikeId: _bikeId,
         notes: notes,
         photoPaths: [..._existingPhotoPaths, ...newTempPaths],
         newTemporaryPhotoPaths: newTempPaths,
@@ -161,6 +189,7 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
         title: title,
         activityType: activityType,
         bikeName: bikeName,
+        bikeId: _bikeId,
         notes: notes,
         temporaryPhotoPaths: _newPhotos.map((f) => f.path).toList(),
       );
@@ -369,11 +398,17 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
           ),
           const SizedBox(height: 16),
 
-          // --- Bicicleta (texto libre por ahora; gestión completa luego) ---
-          _BoxedField(
-            label: 'BICICLETA',
-            icon: Icons.pedal_bike,
+          // --- Bicicleta: se elige entre las registradas; si no hay
+          // ninguna, sigue siendo texto libre. ---
+          _BikeField(
+            bikes: ref.watch(bikesProvider).valueOrNull ?? const [],
+            selectedId: _bikeId,
             controller: _bikeCtrl,
+            onSelected: (bike) => setState(() {
+              _bikeId = bike.id;
+              _bikeCtrl.text = bike.name;
+              _bikePicked = true;
+            }),
           ),
           const SizedBox(height: 24),
 
@@ -694,6 +729,98 @@ class _KindChip extends StatelessWidget {
 /// Campo de texto en caja hundida, al estilo del resto de la app.
 /// Con [label] muestra una etiqueta en versalitas dentro de la caja
 /// (bici); sin ella, solo el ícono y el texto (notas).
+/// La bicicleta de la salida.
+///
+/// Con bicicletas registradas se elige entre ellas —viene marcada la
+/// predeterminada— y así la actividad queda enlazada y suma a sus
+/// totales. Sin ninguna registrada se escribe el nombre a mano, como
+/// siempre: nadie debería tener que crear una ficha para poder guardar
+/// lo que acaba de rodar.
+class _BikeField extends StatelessWidget {
+  final List<Bike> bikes;
+  final int? selectedId;
+  final TextEditingController controller;
+  final ValueChanged<Bike> onSelected;
+
+  const _BikeField({
+    required this.bikes,
+    required this.selectedId,
+    required this.controller,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (bikes.isEmpty) {
+      return _BoxedField(
+        label: 'BICICLETA',
+        icon: Icons.pedal_bike,
+        controller: controller,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'BICICLETA',
+          style: CcType.label(size: 10).copyWith(letterSpacing: 0.6),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final bike in bikes)
+              GestureDetector(
+                onTap: () => onSelected(bike),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: bike.id == selectedId
+                        ? CcColors.orange.withValues(alpha: 0.16)
+                        : CcColors.surface,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: bike.id == selectedId
+                          ? CcColors.orange
+                          : CcColors.line,
+                      width: bike.id == selectedId ? 1.6 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.pedal_bike,
+                        size: 15,
+                        color: bike.id == selectedId
+                            ? CcColors.orangeText
+                            : CcColors.inkDim,
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        bike.name,
+                        style: CcType.label(
+                          size: 12.5,
+                          color: bike.id == selectedId
+                              ? CcColors.orangeText
+                              : CcColors.inkDim,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _BoxedField extends StatelessWidget {
   final String? label;
   final String? hintText;

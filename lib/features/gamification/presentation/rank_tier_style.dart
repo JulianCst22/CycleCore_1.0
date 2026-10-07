@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../domain/level_info.dart';
 import '../domain/rank_tier.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 
 /// Lo visual de cada rango -- color e ícono --, separado de
 /// [RankTierInfo] (dominio) para que las reglas de niveles no dependan

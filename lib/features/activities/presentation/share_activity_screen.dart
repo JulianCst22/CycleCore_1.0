@@ -8,12 +8,12 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
 import '../../profile/profile.dart';
 import '../domain/activity_calories.dart';
 import '../domain/activity_records.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../core/geo/geo.dart';
 import '../application/activities_providers.dart';
 import 'widgets/share_route_art.dart';
 import 'record_type_ui.dart';

@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 import 'package:share_plus/share_plus.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../../sensors/sensors.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import 'widgets/map_controls_cluster.dart';
 import 'widgets/stat_tile.dart';
 import '../../recording/recording.dart';
@@ -17,8 +17,9 @@ import '../../activities/activities.dart';
 import '../../navigation/navigation.dart';
 import '../../segments/segments.dart';
 import '../../voice/voice.dart';
+import '../../coaching/coaching.dart';
 import '../../cockpit/cockpit.dart';
-import 'package:core_platform/core_platform.dart';
+import '../../../core/platform/platform.dart';
 
 class RideScreen extends ConsumerStatefulWidget {
   const RideScreen({super.key});
@@ -109,6 +110,9 @@ class _RideScreenState extends ConsumerState<RideScreen>
   )..addListener(_onCompassAnimationTick);
 
   Animation<double>? _compassRotationAnim;
+
+  /// Dónde abre el mapa si el teléfono nunca se ha ubicado.
+  static const _fallbackCenter = latlng.LatLng(4.6097, -74.0817);
 
   /// true mientras el diálogo de recuperación está abierto -- evita
   /// mostrarlo dos veces (al abrir la pantalla y al tocar "grabar").
@@ -261,7 +265,12 @@ class _RideScreenState extends ConsumerState<RideScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentPositionAsync = ref.watch(currentPositionProvider);
+    // El mapa abre con la última ubicación conocida y no espera al GPS:
+    // en modo avión el primer fix puede tardar mucho, o no llegar bajo
+    // techo, y antes la app se quedaba cargando sin mostrar nada.
+    final fixAsync = ref.watch(currentPositionProvider);
+    final fix = fixAsync.valueOrNull;
+    final lastKnownAsync = ref.watch(lastKnownPositionProvider);
     final recordingState = ref.watch(routeRecordingProvider);
     final recordingController = ref.read(routeRecordingProvider.notifier);
     final heartRate = ref.watch(heartRateBpmProvider);
@@ -277,6 +286,10 @@ class _RideScreenState extends ConsumerState<RideScreen>
     final activeNavigationRoute = ref.watch(activeNavigationRouteProvider);
     final activeNavigationTarget = ref.watch(activeNavigationTargetProvider);
     final routePreview = ref.watch(routePreviewProvider);
+    final routeComputing = ref.watch(routeComputingProvider);
+    // Mientras se calcula o se confirma una ruta, la tarjeta de abajo
+    // tapa los controles del mapa.
+    final routeCardShown = routePreview != null || routeComputing != null;
     final savedPlaces = ref.watch(savedPlacesProvider).valueOrNull ?? const [];
 
     // Coordenada del destino a marcar con montañita, si vamos hacia un
@@ -298,6 +311,12 @@ class _RideScreenState extends ConsumerState<RideScreen>
 
     ref.watch(secondTickerProvider);
 
+    // El coach tiene que existir mientras dure la salida, no mientras se
+    // vea su banner: al entrar a un segmento el panel se expande solo y
+    // el banner del mapa desaparece, que es justo cuando el coach tiene
+    // que estar trabajando. Acá se lo mantiene vivo.
+    ref.watch(coachingControllerProvider);
+
     // Al entrar a un segmento el panel se expande solo para mostrar la
     // pantalla de segmento; al salir, vuelve a colapsarse. Si el usuario
     // lo mueve a mano mientras tanto, no se le pelea (solo reacciona a
@@ -309,6 +328,42 @@ class _RideScreenState extends ConsumerState<RideScreen>
         _slidingPanelKey.currentState?.expand();
       } else if (was && !now) {
         _slidingPanelKey.currentState?.collapse();
+      }
+    });
+
+    // Cuando llega la ruta calculada, el mapa la encuadra completa por
+    // encima de la tarjeta de confirmar.
+    ref.listen(routePreviewProvider, (previous, next) {
+      if (next == null || next.route.polyline.length < 2) return;
+      setState(() => _followMe = false);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints([
+            for (final n in next.route.polyline) latlng.LatLng(n.lat, n.lng),
+          ]),
+          padding: EdgeInsets.fromLTRB(
+            48,
+            MediaQuery.of(context).padding.top + 80,
+            48,
+            MediaQuery.of(context).padding.bottom + 380,
+          ),
+        ),
+      );
+    });
+
+    // Cuando por fin llega el GPS, el mapa va a donde estás (si lo estás
+    // siguiendo y no hay una grabación moviéndolo ya).
+    ref.listen(currentPositionProvider, (previous, next) {
+      final position = next.valueOrNull;
+      if (position == null || previous?.valueOrNull != null) return;
+      if (!_followMe || ref.read(routeRecordingProvider).isRecording) return;
+      try {
+        _mapController.move(
+          latlng.LatLng(position.latitude, position.longitude),
+          _mapController.camera.zoom,
+        );
+      } catch (_) {
+        // El mapa todavía no existe: abrirá directamente ahí.
       }
     });
 
@@ -364,23 +419,20 @@ class _RideScreenState extends ConsumerState<RideScreen>
     return NavigationVoiceBridge(
       child: Scaffold(
         backgroundColor: CcColors.bg,
-        body: currentPositionAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'No se pudo obtener tu ubicación:\n$error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textPrimaryOnPanel),
-              ),
-            ),
-          ),
-          data: (position) {
-            final initialCenter = latlng.LatLng(
-              position.latitude,
-              position.longitude,
-            );
+        body: Builder(
+          builder: (_) {
+            // Solo se espera la última ubicación conocida, que es
+            // instantánea.
+            if (lastKnownAsync.isLoading && fix == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final known = fix ?? lastKnownAsync.valueOrNull;
+            // Sin ninguna ubicación (teléfono que nunca se ha ubicado), el
+            // mapa abre en Bogotá y sin el marcador.
+            final hasLocation = known != null;
+            final initialCenter = known == null
+                ? _fallbackCenter
+                : latlng.LatLng(known.latitude, known.longitude);
 
             final recordedLatLngs = recordingState.points
                 .map((p) => latlng.LatLng(p.latitude, p.longitude))
@@ -417,6 +469,8 @@ class _RideScreenState extends ConsumerState<RideScreen>
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.cyclecore_app',
+                      // Guardados en el teléfono: sin internet se ve lo ya visto.
+                      tileProvider: CachedTileProvider.instance,
                     ),
                     if (recordedLatLngs.length > 1)
                       PolylineLayer(
@@ -493,35 +547,41 @@ class _RideScreenState extends ConsumerState<RideScreen>
                     ),
                     MarkerLayer(
                       markers: [
-                        Marker(
-                          point: markerPosition,
-                          width: 44,
-                          height: 44,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 6,
-                                  offset: Offset(0, 2),
+                        if (hasLocation ||
+                            recordedLatLngs.isNotEmpty ||
+                            _animatedPosition != null)
+                          Marker(
+                            point: markerPosition,
+                            width: 44,
+                            height: 44,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
                                 ),
-                              ],
-                            ),
-                            child: Transform.rotate(
-                              angle:
-                                  recordingState.currentBearingDegrees *
-                                  (3.14159265 / 180),
-                              child: const Icon(
-                                Icons.navigation,
-                                color: Colors.white,
-                                size: 22,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Transform.rotate(
+                                angle:
+                                    recordingState.currentBearingDegrees *
+                                    (3.14159265 / 180),
+                                child: const Icon(
+                                  Icons.navigation,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],
@@ -550,6 +610,11 @@ class _RideScreenState extends ConsumerState<RideScreen>
                               isRecording: recordingState.isRecording,
                               isPaused: recordingState.isPaused,
                               isAutoPaused: recordingState.isAutoPaused,
+                              gpsNote: fix != null
+                                  ? null
+                                  : fixAsync.hasError
+                                  ? 'Sin GPS'
+                                  : 'Buscando GPS',
                               isApproximate:
                                   recordingState.isApproximateElevation,
                             ),
@@ -578,11 +643,11 @@ class _RideScreenState extends ConsumerState<RideScreen>
                           const SizedBox(height: 10),
                           const TurnInstructionBanner(),
                         ],
-                        // --- Banner de segmento en vivo -- se auto-oculta
-                        // si no estás dentro de un segmento vigilado (ver
-                        // SegmentLiveBanner). Solo se ve cuando el panel
-                        // de segmento está colapsado: si está expandido,
-                        // esa pantalla ya muestra todo esto y más. ---
+                        // --- Segmento en vivo, con el panel recogido: una
+                        // sola tarjeta con el avance y, adentro, la franja
+                        // del coach (ver SegmentLiveBanner). Con el panel
+                        // expandido no hace falta: esa pantalla ya muestra
+                        // todo esto y más. ---
                         if (segmentLive != null && !_isCockpitExpanded) ...[
                           const SizedBox(height: 10),
                           const SegmentLiveBanner(),
@@ -620,8 +685,16 @@ class _RideScreenState extends ConsumerState<RideScreen>
                         // salió de "Guardar actividad" con atrás), primero
                         // se ofrece recuperarla.
                         if (await _offerRecordingRecovery()) return;
+                        // Lo que el coach recomienda para hoy (sensores,
+                        // modo, cada cuánto habla), para ajustarlo antes
+                        // de arrancar. Cerrarla sin «Grabar» no graba.
+                        if (!context.mounted) return;
+                        if (!await confirmCoachSetup(context, ref)) return;
                         try {
-                          final missingTiles = await ref.read(
+                          // Se recalcula ahora: lo descargado (o la
+                          // posición) pudo cambiar desde que se abrió la
+                          // app.
+                          final missingTiles = await ref.refresh(
                             missingElevationTilesProvider.future,
                           );
                           if (missingTiles.isNotEmpty && context.mounted) {
@@ -724,9 +797,7 @@ class _RideScreenState extends ConsumerState<RideScreen>
                 // mostrarlo porque no hay con qué calcular la ruta.
                 // Se ubica arriba del botón de recentrar, mismo margen
                 // derecho para quedar alineados.
-                if (hasNavigationData &&
-                    segmentLive == null &&
-                    routePreview == null)
+                if (hasNavigationData && segmentLive == null && !routeCardShown)
                   Positioned(
                     right: _sideRightMargin,
                     bottom: 230 + MediaQuery.of(context).padding.bottom,
@@ -747,29 +818,55 @@ class _RideScreenState extends ConsumerState<RideScreen>
                     ),
                   ),
 
-                // --- Tarjeta "Confirmar la ruta" -- aparece cuando hay
-                // una ruta calculada esperando el "Empezar". Cubre el
-                // cockpit compacto mientras decides.
-                if (routePreview != null)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: RouteConfirmCard(
-                      preview: routePreview,
-                      onChange: () {
-                        ref.read(navigationControllerProvider).clearPreview();
-                        _openDestinationSearch(markerPosition);
-                      },
+                // --- Tarjeta de abajo mientras hay una ruta en camino:
+                // primero "Trazando la ruta" (animada, mientras se
+                // calcula) y luego "Confirmar la ruta", que la reemplaza
+                // deslizándose. Cubre el cockpit compacto mientras decides.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 380),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween(
+                          begin: const Offset(0, 0.25),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
                     ),
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [...previous, ?current],
+                    ),
+                    child: routePreview != null
+                        ? RouteConfirmCard(
+                            key: const ValueKey('confirmar'),
+                            preview: routePreview,
+                            onChange: () {
+                              ref
+                                  .read(navigationControllerProvider)
+                                  .clearPreview();
+                              _openDestinationSearch(markerPosition);
+                            },
+                          )
+                        : routeComputing != null
+                        ? const RouteComputingCard(key: ValueKey('trazando'))
+                        : const SizedBox.shrink(key: ValueKey('nada')),
                   ),
+                ),
 
                 // Control unificado de mapa (recentrar + seguir +
                 // brújula), estilo Google Maps/Waze -- un solo botón.
                 // Se desvanece cuando el cockpit/segmento está en
                 // pantalla completa, o mientras confirmas una ruta (la
                 // tarjeta lo tapa).
-                if (routePreview == null)
+                if (!routeCardShown)
                   Positioned(
                     right: _sideRightMargin,
                     bottom: 170 + MediaQuery.of(context).padding.bottom,
@@ -781,7 +878,14 @@ class _RideScreenState extends ConsumerState<RideScreen>
                         child: MapControlsCluster(
                           mode: _followMode,
                           mapRotationDegrees: _currentMapRotationDegrees,
-                          onRecenter: () => _recenterAndFollow(markerPosition),
+                          onRecenter: () {
+                            // Si el GPS no había llegado (o se rindió), se
+                            // le pide otra vez.
+                            if (fix == null) {
+                              ref.invalidate(currentPositionProvider);
+                            }
+                            _recenterAndFollow(markerPosition);
+                          },
                           onToggleHeading: _toggleHeadingUp,
                           onResetNorthFollow: () =>
                               _resetNorthAndFollow(markerPosition),
@@ -885,9 +989,17 @@ class _RideScreenState extends ConsumerState<RideScreen>
     );
   }
 
+  /// Hasta cuánto después del cierre una grabación sigue sola al abrir
+  /// la app. Más tarde ya no es la misma salida: se pregunta.
+  static const _autoResumeWindow = Duration(minutes: 30);
+
   /// Si el diario de grabación tiene una sesión que no llegó al historial
-  /// (la app se cerró grabando, o ya en "Guardar actividad"), ofrece
-  /// seguir grabando, guardarla o descartarla.
+  /// (la app se cerró grabando, o ya en "Guardar actividad"), la retoma.
+  ///
+  /// Si se cerró grabando hace poco, sigue grabando sola y solo lo avisa:
+  /// es la misma salida y el ciclista espera encontrarla andando. Si pasó
+  /// más tiempo, o ya estaba terminada, pregunta: seguir grabando,
+  /// guardarla o descartarla.
   ///
   /// Devuelve true si la sesión quedó en uso (se reanudó, se va a guardar
   /// o el usuario dejó la decisión para después) -- quien iba a empezar
@@ -902,6 +1014,12 @@ class _RideScreenState extends ConsumerState<RideScreen>
       final journal = ref.read(recordingJournalProvider);
       final snapshot = await journal.loadRecoverable();
       if (snapshot == null || !mounted) return false;
+
+      final closedFor = DateTime.now().difference(snapshot.lastDataAt);
+      if (!snapshot.isFinished && closedFor <= _autoResumeWindow) {
+        await _resumeRecovered(snapshot, announce: true);
+        return true;
+      }
 
       final choice = await showRecordingRecoveryDialog(context, snapshot);
       switch (choice) {
@@ -921,10 +1039,28 @@ class _RideScreenState extends ConsumerState<RideScreen>
     }
   }
 
-  Future<void> _resumeRecovered(RecordingSnapshot snapshot) async {
+  Future<void> _resumeRecovered(
+    RecordingSnapshot snapshot, {
+    bool announce = false,
+  }) async {
     // La bitácora de sensores va primero: la detección de segmentos la
     // usa al ponerse al día con los puntos recuperados.
     ref.read(rideSensorLogProvider.notifier).restore(snapshot);
+    if (announce && mounted) {
+      final at = snapshot.lastDataAt.toLocal();
+      final clock =
+          '${at.hour.toString().padLeft(2, '0')}:'
+          '${at.minute.toString().padLeft(2, '0')}';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 6),
+          content: Text(
+            'La app se cerró a las $clock. Seguimos grabando tu salida '
+            'donde iba.',
+          ),
+        ),
+      );
+    }
     try {
       await ref.read(routeRecordingProvider.notifier).resumeFrom(snapshot);
       ref
@@ -965,6 +1101,9 @@ class _RideScreenState extends ConsumerState<RideScreen>
   /// Abre el buscador de destino; si el usuario elige uno, calcula la
   /// ruta y la deja en preview (la tarjeta "Confirmar la ruta").
   Future<void> _openDestinationSearch(latlng.LatLng from) async {
+    // Mientras el ciclista escribe el destino, el mapa de la región ya
+    // se va cargando aparte: la ruta sale enseguida.
+    unawaited(ref.read(navigationControllerProvider).warmUp());
     final target = await showNavigationSearchSheet(
       context,
       ref,
@@ -1006,7 +1145,7 @@ class _NavigateButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: CcColors.glass,
+      color: CcColors.glassDeep,
       shape: const CircleBorder(),
       elevation: 4,
       child: InkWell(
@@ -1036,7 +1175,7 @@ class _SavedPlaceMarker extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: CcColors.glass,
+          color: CcColors.glassDeep,
           shape: BoxShape.circle,
           border: Border.all(
             color: isHome ? CcColors.blue : CcColors.gold,
@@ -1068,7 +1207,7 @@ class _PeakMarker extends StatelessWidget {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: CcColors.glass,
+              color: CcColors.glassDeep,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(11),
                 topRight: Radius.circular(11),
@@ -1124,17 +1263,22 @@ class _StatusPill extends StatelessWidget {
   final bool isAutoPaused;
   final bool isApproximate;
 
+  /// «Buscando GPS» / «Sin GPS» mientras no hay un fix, fuera de una
+  /// grabación (grabando, eso ya lo dice el aviso de señal).
+  final String? gpsNote;
+
   const _StatusPill({
     required this.isRecording,
     required this.isPaused,
     required this.isAutoPaused,
     required this.isApproximate,
+    this.gpsNote,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: CcColors.glass,
+      color: CcColors.glassDeep,
       borderRadius: BorderRadius.circular(20),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1187,7 +1331,7 @@ class _StatusPill extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-            ] else
+            ] else ...[
               const Text(
                 'CycleCore',
                 style: TextStyle(
@@ -1196,6 +1340,23 @@ class _StatusPill extends StatelessWidget {
                   fontSize: 13,
                 ),
               ),
+              if (gpsNote != null) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.gps_not_fixed,
+                  color: AppColors.textSecondaryOnPanel,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  gpsNote!,
+                  style: const TextStyle(
+                    color: AppColors.textSecondaryOnPanel,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ],
             if (isRecording && isApproximate) ...[
               const SizedBox(width: 2),
               const ApproximateElevationBadge(),
@@ -1214,7 +1375,7 @@ class _ShareLogButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: CcColors.glass,
+      color: CcColors.glassDeep,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,

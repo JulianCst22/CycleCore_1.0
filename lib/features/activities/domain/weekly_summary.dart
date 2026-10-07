@@ -1,4 +1,4 @@
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 
 /// Resumen de la semana en curso, para el banner de la pantalla de
 /// actividades (la que apunta a ser el "home").

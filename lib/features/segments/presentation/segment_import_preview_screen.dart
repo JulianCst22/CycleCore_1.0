@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../data/gpx_segment_importer.dart';
 import '../application/segments_providers.dart';
 import 'widgets/segment_altitude_profile.dart';

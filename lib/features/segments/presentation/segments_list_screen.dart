@@ -5,10 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
 import '../data/gpx_segment_importer.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../core/geo/geo.dart';
 import '../domain/segment_source.dart';
 import '../domain/segments_overview.dart';
 import 'segment_catalog_screen.dart';

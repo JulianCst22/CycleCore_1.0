@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../sensors/sensors.dart';
 import 'route_recording_providers.dart'
     show recordingJournalProvider, routeRecordingProvider, RouteRecordingState;
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../data/recording_journal.dart';
 import '../domain/recording_snapshot.dart';
 

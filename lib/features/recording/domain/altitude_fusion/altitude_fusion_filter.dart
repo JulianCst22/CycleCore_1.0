@@ -1,4 +1,4 @@
-import 'package:core_fuzzy_logic/core_fuzzy_logic.dart';
+import '../../../../core/fuzzy_logic/fuzzy_logic.dart';
 import 'altitude_source_reading.dart';
 
 /// Resultado de fusionar las fuentes de altitud disponibles para un

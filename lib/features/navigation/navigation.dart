@@ -13,6 +13,7 @@ export 'presentation/navigation_polyline_layer.dart';
 export 'presentation/navigation_search_sheet.dart';
 export 'presentation/navigation_settings_screen.dart';
 export 'presentation/navigation_voice_bridge.dart';
+export 'presentation/route_computing_card.dart';
 export 'presentation/route_confirm_card.dart';
 export 'presentation/saved_places_screen.dart';
 export 'presentation/turn_instruction_banner.dart';

@@ -16,6 +16,21 @@ import '../domain/voice_persona.dart';
 /// y Android termina mostrando "la app no responde".
 const _kTtsCallTimeout = Duration(seconds: 6);
 
+/// Qué tan importante es lo que se va a decir. Lo que suena no se pisa
+/// con algo menos importante: un consejo del coach espera a que termine
+/// un giro de navegación, y un aviso urgente sí corta lo que esté
+/// sonando.
+enum VoicePriority {
+  /// Comentarios de acompañamiento (seguimientos del coach).
+  ambiente,
+
+  /// Eventos normales: actividad, segmentos, consejos del coach.
+  normal,
+
+  /// No puede esperar: giros de navegación y avisos urgentes.
+  urgente,
+}
+
 /// Motor de voz. Decide, para cada evento, si habla con el TTS del
 /// sistema o si reproduce un audio pre-grabado — y si el audio no
 /// existe todavía, cae automáticamente a TTS sin que se note un
@@ -30,6 +45,9 @@ class VoiceEngine {
 
   VoicePersona _current = kVoicePersonas.first;
   bool _initialized = false;
+
+  /// Prioridad de lo que se está diciendo ahora; `null` si hay silencio.
+  VoicePriority? _speaking;
 
   /// Voces reales del dispositivo en español, obtenidas una sola vez
   /// al iniciar. Se usa para repartir voces distintas entre
@@ -55,9 +73,12 @@ class VoiceEngine {
 
   /// Ejecuta una llamada al plugin con timeout, para que nunca
   /// vuelva a trabar la UI si el motor TTS del sistema no responde.
-  Future<T?> _safeCall<T>(Future<T> Function() call) async {
+  Future<T?> _safeCall<T>(
+    Future<T> Function() call, {
+    Duration timeout = _kTtsCallTimeout,
+  }) async {
     try {
-      return await call().timeout(_kTtsCallTimeout);
+      return await call().timeout(timeout);
     } on TimeoutException {
       // El motor TTS del sistema no respondió a tiempo. Preferimos
       // seguir sin esa configuración/voz antes que congelar la app.
@@ -103,7 +124,8 @@ class VoiceEngine {
     var index = 0;
     for (final persona in kVoicePersonas) {
       if (persona.preferredVoiceName != null) continue;
-      final voice = _availableSpanishVoices[index % _availableSpanishVoices.length];
+      final voice =
+          _availableSpanishVoices[index % _availableSpanishVoices.length];
       _autoVoiceAssignments[persona.id] = voice;
       index++;
     }
@@ -117,9 +139,7 @@ class VoiceEngine {
   }
 
   Future<void> _applyPersonaTtsConfig(VoicePersona persona) async {
-    await _safeCall(
-      () => _tts.setLanguage(persona.preferredLocale ?? 'es-ES'),
-    );
+    await _safeCall(() => _tts.setLanguage(persona.preferredLocale ?? 'es-ES'));
     await _safeCall(() => _tts.setPitch(persona.pitch));
     await _safeCall(() => _tts.setSpeechRate(persona.rate));
 
@@ -156,6 +176,59 @@ class VoiceEngine {
     }
     await _safeCall(() => _tts.stop());
     await _safeCall(() => _tts.speak(phrase));
+  }
+
+  /// Dice un texto armado en el momento (los consejos del coach, que no
+  /// son frases fijas del banco de eventos).
+  ///
+  /// [priority] decide si puede pisar lo que esté sonando. Con
+  /// [chime] suena antes un toque corto, si el audio existe
+  /// (`assets/voice_packs/chimes/<nombre>.mp3`): sirve para que el
+  /// ciclista sepa que viene una indicación sin tener que entenderla
+  /// toda.
+  Future<void> speakText(
+    String text, {
+    VoicePriority priority = VoicePriority.normal,
+    String? chime,
+  }) async {
+    if (text.trim().isEmpty) return;
+    await init();
+    final current = _speaking;
+    if (current != null && current.index >= priority.index) return;
+    _speaking = priority;
+    try {
+      if (chime != null) await _tryPlayChime(chime);
+      await _safeCall(() => _tts.stop());
+      // Con `awaitSpeakCompletion` el `speak` termina cuando termina la
+      // frase, y un momento clave dura hasta ~15 s: con el tope general
+      // de 6 s se daba por terminada a la mitad y cualquier otro aviso
+      // la cortaba. El tope crece con el largo de la frase.
+      await _safeCall(() => _tts.speak(text), timeout: _speakTimeoutFor(text));
+    } finally {
+      if (_speaking == priority) _speaking = null;
+    }
+  }
+
+  /// Cuánto puede tardar en decirse [text]: unas 2,5 palabras por
+  /// segundo a velocidad normal, con margen.
+  static Duration _speakTimeoutFor(String text) {
+    final words = text.trim().split(RegExp(r'\s+')).length;
+    return Duration(seconds: (4 + words ~/ 2).clamp(6, 40));
+  }
+
+  /// Prioridad de lo que está sonando ahora, si algo suena.
+  VoicePriority? get speakingPriority => _speaking;
+
+  Future<bool> _tryPlayChime(String name) async {
+    const path = 'assets/voice_packs/chimes/';
+    try {
+      await rootBundle.load('$path$name.mp3');
+    } catch (_) {
+      return false; // todavía no hay toques grabados: se habla y ya.
+    }
+    await _player.stop();
+    await _player.play(AssetSource('voice_packs/chimes/$name.mp3'));
+    return true;
   }
 
   /// Reproduce una muestra de [persona] sin cambiar la voz

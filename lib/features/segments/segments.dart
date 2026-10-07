@@ -5,6 +5,7 @@
 /// importar. Todo lo que no se exporta acá es detalle interno.
 library;
 
+export 'application/extension_points.dart';
 export 'application/segment_detection_providers.dart';
 export 'application/segments_providers.dart';
 export 'presentation/segment_creation_screen.dart';

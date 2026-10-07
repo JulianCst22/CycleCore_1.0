@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../domain/calendar_day_info.dart';
 import '../domain/featured_photo.dart';
 import '../domain/profile_stats.dart';
@@ -17,6 +17,27 @@ import '../domain/streak_calculator.dart';
 final statsPeriodProvider = StateProvider<StatsPeriod>(
   (ref) => StatsPeriod.month,
 );
+
+/// Cuántos periodos hacia atrás se está mirando: 0 es el que corre,
+/// −1 el anterior. Nunca es positivo —el futuro no tiene datos— y
+/// vuelve a cero al cambiar de periodo, que es lo que uno espera al
+/// pasar de «semana» a «mes».
+final statsPeriodOffsetProvider = StateProvider<int>((ref) {
+  ref.watch(statsPeriodProvider);
+  return 0;
+});
+
+/// Periodo y desplazamiento de la pantalla de rendimiento (FTP y
+/// curvas). Son propios: mirar la curva de hace tres meses no tiene por
+/// qué mover lo que se está viendo en estadísticas, y al revés.
+final curvesPeriodProvider = StateProvider<StatsPeriod>(
+  (ref) => StatsPeriod.all,
+);
+
+final curvesPeriodOffsetProvider = StateProvider<int>((ref) {
+  ref.watch(curvesPeriodProvider);
+  return 0;
+});
 
 /// Modo de vista del calendario de actividad: semanal o mensual.
 enum CalendarViewMode { week, month }
@@ -43,8 +64,10 @@ final profileStatsProvider = Provider<AsyncValue<ProfileStats>>((ref) {
 final profileStatsForPeriodProvider = Provider<AsyncValue<ProfileStats>>((ref) {
   final activitiesAsync = ref.watch(allActivitiesProvider);
   final period = ref.watch(statsPeriodProvider);
+  final offset = ref.watch(statsPeriodOffsetProvider);
   return activitiesAsync.whenData(
-    (activities) => ProfileStats.fromActivitiesInPeriod(activities, period),
+    (activities) =>
+        ProfileStats.fromActivitiesInPeriod(activities, period, offset: offset),
   );
 });
 
@@ -61,12 +84,14 @@ final statsTrendMetricProvider = StateProvider<StatsTrendMetric>(
 final statsTrendProvider = Provider<AsyncValue<List<StatsTrendBucket>>>((ref) {
   final activitiesAsync = ref.watch(allActivitiesProvider);
   final period = ref.watch(statsPeriodProvider);
+  final offset = ref.watch(statsPeriodOffsetProvider);
   final metric = ref.watch(statsTrendMetricProvider);
   return activitiesAsync.whenData(
     (activities) => computeStatsTrend(
       activities: activities,
       period: period,
       metric: metric,
+      now: statsReferenceFor(period, offset, DateTime.now()),
     ),
   );
 });
@@ -143,6 +168,38 @@ final featuredPhotosProvider = Provider<AsyncValue<List<FeaturedPhoto>>>((ref) {
     featured.sort((a, b) => b.startedAt.compareTo(a.startedAt));
     return featured;
   });
+});
+
+/// **Todas** las fotos del ciclista, de la más reciente a la más
+/// vieja, con la actividad de la que salieron.
+///
+/// El perfil las muestra todas, como Strava: la vitrina es el álbum de
+/// lo que ha rodado, no una selección. Las destacadas siguen existiendo
+/// para marcar cuáles fueron récord ([featuredPhotosProvider]).
+final allPhotosProvider = Provider<AsyncValue<List<FeaturedPhoto>>>((ref) {
+  final activitiesAsync = ref.watch(allActivitiesProvider);
+  return activitiesAsync.whenData((activities) {
+    final photos = <FeaturedPhoto>[
+      for (final activity in activities)
+        for (final path in activity.photoPaths)
+          FeaturedPhoto(
+            photoPath: path,
+            activityId: activity.id,
+            activityTitle: activity.title,
+            activityType: activity.activityType,
+            startedAt: activity.startedAt,
+          ),
+    ];
+    photos.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    return photos;
+  });
+});
+
+/// Rutas de las fotos que además fueron récord, para marcarlas con la
+/// medallita dentro del álbum completo.
+final recordPhotoPathsProvider = Provider<Set<String>>((ref) {
+  final featured = ref.watch(featuredPhotosProvider).valueOrNull ?? const [];
+  return {for (final photo in featured) photo.photoPath};
 });
 
 /// Días con actividad, agrupados por fecha (sin hora), con el total de

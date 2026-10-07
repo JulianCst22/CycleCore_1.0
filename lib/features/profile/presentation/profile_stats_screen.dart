@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../../stats/stats.dart';
-import 'widgets/ftp_level_card.dart';
+import 'performance_screen.dart';
 
 /// Pantalla de estadísticas completas. Rediseño "Resumen + tendencia":
 /// héroe de distancia + fila con filete (el mismo lenguaje del detalle
 /// de actividad), una tarjeta de tendencia con barras, la ficha de
-/// rendimiento (FTP · W/kg · nivel) y los récords del periodo.
+/// rendimiento (FTP · W/kg · nivel), las curvas de potencia y FC y los
+/// récords del periodo.
 class ProfileStatsScreen extends ConsumerWidget {
   const ProfileStatsScreen({super.key});
 
@@ -16,6 +17,7 @@ class ProfileStatsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(profileStatsForPeriodProvider);
     final period = ref.watch(statsPeriodProvider);
+    final offset = ref.watch(statsPeriodOffsetProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Estadísticas')),
@@ -39,7 +41,8 @@ class ProfileStatsScreen extends ConsumerWidget {
                   style: const TextStyle(color: CcColors.inkDim),
                 ),
               ),
-              data: (stats) => _StatsBody(stats: stats, period: period),
+              data: (stats) =>
+                  _StatsBody(stats: stats, period: period, offset: offset),
             ),
           ],
         ),
@@ -51,8 +54,13 @@ class ProfileStatsScreen extends ConsumerWidget {
 class _StatsBody extends StatelessWidget {
   final ProfileStats stats;
   final StatsPeriod period;
+  final int offset;
 
-  const _StatsBody({required this.stats, required this.period});
+  const _StatsBody({
+    required this.stats,
+    required this.period,
+    required this.offset,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +74,7 @@ class _StatsBody extends StatelessWidget {
       children: [
         const SizedBox(height: 18),
         ActivitySummaryHero(
-          label: 'Distancia · ${_periodLabel(period)}',
+          label: 'Distancia · ${_periodLabel(period, offset)}',
           value: formatDistanceKm(stats.totalDistanceMeters),
           unit: 'km',
         ),
@@ -99,7 +107,7 @@ class _StatsBody extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  _emptyMessage(period),
+                  _emptyMessage(period, offset),
                   style: const TextStyle(
                     color: CcColors.inkFaint,
                     fontSize: 12,
@@ -115,10 +123,10 @@ class _StatsBody extends StatelessWidget {
         const StatsTrendChart(),
 
         const SizedBox(height: 16),
-        const FtpLevelCard(),
+        const _PerformanceLink(),
 
         const SizedBox(height: 26),
-        ActivitySectionLabel('Récords ${_recordsLabel(period)}'),
+        ActivitySectionLabel('Récords ${_recordsLabel(period, offset)}'),
         const SizedBox(height: 12),
         _RecordsRow(stats: stats),
 
@@ -128,47 +136,70 @@ class _StatsBody extends StatelessWidget {
     );
   }
 
-  static String _periodLabel(StatsPeriod period) {
-    final now = DateTime.now();
-    return switch (period) {
-      StatsPeriod.week => 'esta semana',
-      StatsPeriod.month => _months[now.month - 1],
-      StatsPeriod.year => '${now.year}',
-      StatsPeriod.all => 'total',
-    };
-  }
+  /// El rótulo sale del propio periodo, desplazamiento incluido, para
+  /// que al moverse a la semana pasada el héroe no siga diciendo «esta
+  /// semana».
+  static String _periodLabel(StatsPeriod period, int offset) =>
+      statsPeriodLabel(period, offset, DateTime.now()).toLowerCase();
 
-  static String _recordsLabel(StatsPeriod period) {
-    final now = DateTime.now();
-    return switch (period) {
-      StatsPeriod.week => 'de la semana',
-      StatsPeriod.month => 'de ${_months[now.month - 1]}',
-      StatsPeriod.year => 'de ${now.year}',
-      StatsPeriod.all => 'de siempre',
-    };
-  }
+  static String _recordsLabel(StatsPeriod period, int offset) =>
+      period == StatsPeriod.all
+      ? 'de siempre'
+      : 'de ${_periodLabel(period, offset)}';
 
-  static String _emptyMessage(StatsPeriod period) => switch (period) {
-    StatsPeriod.week => 'Todavía no hay salidas esta semana.',
-    StatsPeriod.month => 'Todavía no hay salidas este mes.',
-    StatsPeriod.year => 'Todavía no hay salidas este año.',
-    StatsPeriod.all => 'Aún no has guardado ninguna actividad.',
-  };
+  static String _emptyMessage(StatsPeriod period, int offset) =>
+      period == StatsPeriod.all
+      ? 'Aún no has guardado ninguna actividad.'
+      : 'No hay salidas en ${_periodLabel(period, offset)}.';
+}
 
-  static const _months = [
-    'enero',
-    'febrero',
-    'marzo',
-    'abril',
-    'mayo',
-    'junio',
-    'julio',
-    'agosto',
-    'septiembre',
-    'octubre',
-    'noviembre',
-    'diciembre',
-  ];
+/// Acceso a Rendimiento (FTP, W/kg, nivel y curvas).
+///
+/// Antes esas dos tarjetas vivían acá abajo, y la pantalla terminaba
+/// siendo una lista larguísima de cifras de dos temas distintos. Ahora
+/// es un renglón: quien quiera ver su curva entra, y quien solo venía a
+/// ver cuánto rodó no tiene que pasarle por encima.
+class _PerformanceLink extends StatelessWidget {
+  const _PerformanceLink();
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: CcColors.surface,
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const PerformanceScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: CcColors.line),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.show_chart, size: 18, color: CcColors.mPower),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Rendimiento', style: CcType.displayStyle(size: 14.5)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'FTP, vatios por kilo, nivel y curvas de potencia',
+                    style: CcType.label(size: 11, color: CcColors.inkDim),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: CcColors.inkDim),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Tres récords del periodo elegido -- la salida más larga, la de más

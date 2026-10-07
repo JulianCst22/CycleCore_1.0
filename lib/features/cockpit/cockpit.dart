@@ -6,6 +6,7 @@
 library;
 
 export 'application/cockpit_layout_providers.dart';
+export 'application/extension_points.dart';
 export 'data/cockpit_layout_repository.dart';
 export 'domain/cockpit_field.dart';
 export 'domain/cockpit_tile_config.dart';

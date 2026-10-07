@@ -26,17 +26,21 @@ class RouteSnapper {
   const RouteSnapper(this.graph);
 
   SnapResult nearestNode(double lat, double lng) {
-    if (graph.nodes.isEmpty) {
+    final count = graph.nodeCount;
+    if (count == 0) {
       throw StateError('El grafo no tiene nodos cargados.');
     }
 
+    // Un grado de longitud mide menos que uno de latitud lejos del
+    // ecuador; sin corregirlo, el "más cercano" se sesga hacia el
+    // norte o el sur.
+    final lngScale = math.cos(lat * math.pi / 180);
     int bestIndex = 0;
     double bestDistSqDegrees = double.infinity;
 
-    for (int i = 0; i < graph.nodes.length; i++) {
-      final node = graph.nodes[i];
-      final dLat = node.lat - lat;
-      final dLng = node.lng - lng;
+    for (int i = 0; i < count; i++) {
+      final dLat = graph.latOf(i) - lat;
+      final dLng = (graph.lngOf(i) - lng) * lngScale;
       final distSq = dLat * dLat + dLng * dLng;
       if (distSq < bestDistSqDegrees) {
         bestDistSqDegrees = distSq;
@@ -45,8 +49,7 @@ class RouteSnapper {
     }
 
     // Conversión aproximada grados -> metros, solo para reportar qué
-    // tan lejos quedó el enganche (ej. para avisar "estás a 40m de la
-    // calle más cercana"). No afecta qué nodo se eligió arriba.
+    // tan lejos quedó el enganche. No afecta qué nodo se eligió arriba.
     const metersPerDegree = 111320;
     final approxMeters = math.sqrt(bestDistSqDegrees) * metersPerDegree;
 

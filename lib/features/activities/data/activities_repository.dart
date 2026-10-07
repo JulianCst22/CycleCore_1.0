@@ -5,7 +5,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../../elevation/elevation.dart';
 import '../../recording/recording.dart';
 
@@ -52,6 +52,7 @@ class ActivitiesRepository {
     required String title,
     required String activityType,
     required String bikeName,
+    int? bikeId,
     String? notes,
     List<String> temporaryPhotoPaths = const [],
   }) async {
@@ -61,6 +62,7 @@ class ActivitiesRepository {
       title: title,
       activityType: activityType,
       bikeName: bikeName,
+      bikeId: Value(bikeId),
       startedAt: summary.startedAt,
       endedAt: summary.endedAt,
       durationSeconds: summary.duration.inSeconds,
@@ -99,6 +101,7 @@ class ActivitiesRepository {
     required String title,
     required String activityType,
     required String bikeName,
+    int? bikeId,
     String? notes,
     required List<String> photoPaths,
     List<String> newTemporaryPhotoPaths = const [],
@@ -120,6 +123,7 @@ class ActivitiesRepository {
         title: Value(title),
         activityType: Value(activityType),
         bikeName: Value(bikeName),
+        bikeId: Value(bikeId),
         notes: Value(notes),
         photoPathsJson: Value(jsonEncode(finalPhotoPaths)),
       ),

@@ -1,0 +1,979 @@
+{
+  "version": 1,
+  "persona": "coach",
+  "covers": [
+    {
+      "state": "fundido",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "fundido",
+      "demand": "muro",
+      "phase": "remate"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "arranque"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "alLimite",
+      "demand": "muro",
+      "phase": "medio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "muro",
+      "phase": "remate"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "justo",
+      "demand": "muro",
+      "phase": "medio"
+    },
+    {
+      "state": "justo",
+      "demand": "repecho",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "comodo",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "comodo",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "comodo",
+      "demand": "repecho",
+      "phase": "medio"
+    },
+    {
+      "state": "sobrado",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "sobrado",
+      "demand": "repecho",
+      "phase": "medio"
+    }
+  ],
+  "pieces": [
+    {
+      "id": "coach.ap.1",
+      "slot": "apertura",
+      "text": "atención,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "coach.ap.2",
+      "slot": "apertura",
+      "text": "escúcheme,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "coach.ap.3",
+      "slot": "apertura",
+      "text": "firme,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "coach.ap.4",
+      "slot": "apertura",
+      "text": "cabeza fría,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "coach.ap.5",
+      "slot": "apertura",
+      "text": "con calma,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "coach.ap.6",
+      "slot": "apertura",
+      "text": "paciencia,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "coach.ap.7",
+      "slot": "apertura",
+      "text": "vamos,"
+    },
+    {
+      "id": "coach.es.limite.1",
+      "slot": "estado",
+      "text": "está al límite:",
+      "states": [
+        "alLimite"
+      ]
+    },
+    {
+      "id": "coach.es.limite.2",
+      "slot": "estado",
+      "text": "se pasó de revoluciones:",
+      "states": [
+        "alLimite"
+      ]
+    },
+    {
+      "id": "coach.es.limite.3",
+      "slot": "estado",
+      "text": "pulso en el techo:",
+      "states": [
+        "alLimite"
+      ],
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "coach.es.limite.4",
+      "slot": "estado",
+      "text": "pulso a {pulso}:",
+      "states": [
+        "alLimite"
+      ],
+      "values": [
+        "pulso"
+      ]
+    },
+    {
+      "id": "coach.es.fundido.1",
+      "slot": "estado",
+      "text": "se quedó sin reserva:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "coach.es.fundido.2",
+      "slot": "estado",
+      "text": "tanque vacío:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "coach.es.justo.1",
+      "slot": "estado",
+      "text": "va en el filo:",
+      "states": [
+        "justo"
+      ]
+    },
+    {
+      "id": "coach.es.justo.2",
+      "slot": "estado",
+      "text": "ritmo sostenible:",
+      "states": [
+        "justo"
+      ]
+    },
+    {
+      "id": "coach.es.justo.3",
+      "slot": "estado",
+      "text": "trabaja a {potenciaActual} vatios:",
+      "states": [
+        "justo"
+      ],
+      "values": [
+        "potenciaActual"
+      ]
+    },
+    {
+      "id": "coach.es.comodo.1",
+      "slot": "estado",
+      "text": "tiene margen:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "coach.es.comodo.2",
+      "slot": "estado",
+      "text": "va cómodo:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "coach.es.sobrado.1",
+      "slot": "estado",
+      "text": "esto no lo exige:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "coach.es.sobrado.2",
+      "slot": "estado",
+      "text": "va sobrado:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "coach.ac.soltarMucho.1",
+      "slot": "accion",
+      "text": "corte ya a {potencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.soltarMucho.2",
+      "slot": "accion",
+      "text": "bájele a {potencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.soltarMucho.3",
+      "slot": "accion",
+      "text": "quite {deltaPotencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "coach.ac.soltarMucho.4",
+      "slot": "accion",
+      "text": "suelte fuerte",
+      "adjustments": [
+        "soltarMucho"
+      ]
+    },
+    {
+      "id": "coach.ac.soltar.1",
+      "slot": "accion",
+      "text": "baje a {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.soltar.2",
+      "slot": "accion",
+      "text": "trabaje en {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.soltar.3",
+      "slot": "accion",
+      "text": "suelte {deltaPotencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "coach.ac.soltar.4",
+      "slot": "accion",
+      "text": "afloje un punto",
+      "adjustments": [
+        "soltar"
+      ]
+    },
+    {
+      "id": "coach.ac.soltar.5",
+      "slot": "accion",
+      "text": "apunte a {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "registers": [
+        "cauto",
+        "neutro"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.mantener.1",
+      "slot": "accion",
+      "text": "sostenga {potencia} vatios",
+      "adjustments": [
+        "mantener"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.mantener.2",
+      "slot": "accion",
+      "text": "clave los {potencia} vatios",
+      "adjustments": [
+        "mantener"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.mantener.3",
+      "slot": "accion",
+      "text": "mantenga el ritmo",
+      "adjustments": [
+        "mantener"
+      ]
+    },
+    {
+      "id": "coach.ac.mantener.4",
+      "slot": "accion",
+      "text": "no cambie nada",
+      "adjustments": [
+        "mantener"
+      ]
+    },
+    {
+      "id": "coach.ac.apretar.1",
+      "slot": "accion",
+      "text": "suba a {potencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.apretar.2",
+      "slot": "accion",
+      "text": "sume {deltaPotencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "coach.ac.apretar.3",
+      "slot": "accion",
+      "text": "exíjase un poco",
+      "adjustments": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "coach.ac.apretarMucho.1",
+      "slot": "accion",
+      "text": "ataque a {potencia} vatios",
+      "adjustments": [
+        "apretarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ac.apretarMucho.2",
+      "slot": "accion",
+      "text": "vacíese ahora",
+      "adjustments": [
+        "apretarMucho"
+      ]
+    },
+    {
+      "id": "coach.ac.apretarMucho.3",
+      "slot": "accion",
+      "text": "todo lo que tenga",
+      "adjustments": [
+        "apretarMucho"
+      ]
+    },
+    {
+      "id": "coach.mo.tanque.1",
+      "slot": "motivo",
+      "text": "no alcanza el tanque",
+      "diagnoses": [
+        "C2"
+      ]
+    },
+    {
+      "id": "coach.mo.tanque.2",
+      "slot": "motivo",
+      "text": "así se revienta",
+      "diagnoses": [
+        "C2"
+      ]
+    },
+    {
+      "id": "coach.mo.reserva.1",
+      "slot": "motivo",
+      "text": "la reserva va justa",
+      "diagnoses": [
+        "C8"
+      ]
+    },
+    {
+      "id": "coach.mo.reserva.2",
+      "slot": "motivo",
+      "text": "faltan {desnivel} metros",
+      "diagnoses": [
+        "C8",
+        "C2"
+      ],
+      "values": [
+        "desnivel"
+      ]
+    },
+    {
+      "id": "coach.mo.arranque.1",
+      "slot": "motivo",
+      "text": "esto apenas arranca",
+      "diagnoses": [
+        "C1"
+      ]
+    },
+    {
+      "id": "coach.mo.muro.1",
+      "slot": "motivo",
+      "text": "viene el muro",
+      "diagnoses": [
+        "C3",
+        "C7"
+      ]
+    },
+    {
+      "id": "coach.mo.muro.2",
+      "slot": "motivo",
+      "text": "rampa al {rampa} por ciento",
+      "diagnoses": [
+        "C3",
+        "C7"
+      ],
+      "values": [
+        "rampa"
+      ]
+    },
+    {
+      "id": "coach.mo.ritmo.1",
+      "slot": "motivo",
+      "text": "va en ritmo",
+      "diagnoses": [
+        "C4",
+        "C5"
+      ]
+    },
+    {
+      "id": "coach.mo.ritmo.2",
+      "slot": "motivo",
+      "text": "el récord es suyo",
+      "diagnoses": [
+        "C5",
+        "C9"
+      ]
+    },
+    {
+      "id": "coach.mo.sobra.1",
+      "slot": "motivo",
+      "text": "le sobra reserva",
+      "diagnoses": [
+        "C9"
+      ]
+    },
+    {
+      "id": "coach.mo.pareja.1",
+      "slot": "motivo",
+      "text": "la subida es pareja",
+      "diagnoses": [
+        "C6"
+      ]
+    },
+    {
+      "id": "coach.mo.generico.1",
+      "slot": "motivo",
+      "text": "queda trabajo"
+    },
+    {
+      "id": "coach.mo.generico.2",
+      "slot": "motivo",
+      "text": "así llega entero"
+    },
+    {
+      "id": "coach.mo.generico.3",
+      "slot": "motivo",
+      "text": "falta montaña"
+    },
+    {
+      "id": "coach.mo.remate.1",
+      "slot": "motivo",
+      "text": "esto es el remate",
+      "phases": [
+        "remate"
+      ]
+    },
+    {
+      "id": "coach.mo.remate.2",
+      "slot": "motivo",
+      "text": "la cima está ahí",
+      "phases": [
+        "remate"
+      ]
+    },
+    {
+      "id": "coach.sc.piso.1",
+      "slot": "secundaria",
+      "text": "sin bajar de {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "coach.sc.piso.2",
+      "slot": "secundaria",
+      "text": "nunca bajo {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "coach.sc.piso.3",
+      "slot": "secundaria",
+      "text": "con piso en {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "coach.sc.piso.4",
+      "slot": "secundaria",
+      "text": "no menos de {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "coach.sc.cadencia.1",
+      "slot": "secundaria",
+      "text": "pedalee a {cadencia} de cadencia",
+      "values": [
+        "cadencia"
+      ]
+    },
+    {
+      "id": "coach.sc.respira.4",
+      "slot": "secundaria",
+      "text": "respire y trabaje",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "coach.ci.2",
+      "slot": "cierre",
+      "text": "usted puede"
+    },
+    {
+      "id": "coach.ci.3",
+      "slot": "cierre",
+      "text": "confíe en el dato"
+    },
+    {
+      "id": "coach.ci.4",
+      "slot": "cierre",
+      "text": "olvide la velocidad"
+    },
+    {
+      "id": "coach.sg.cumple.1",
+      "slot": "seguimiento",
+      "text": "eso es, sosténgalo",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "coach.sg.cumple.2",
+      "slot": "seguimiento",
+      "text": "perfecto, ahí clavado",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "coach.sg.cumple.3",
+      "slot": "seguimiento",
+      "text": "bien, {potencia} vatios exactos",
+      "diagnoses": [
+        "cumple"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.sg.nocumple.1",
+      "slot": "seguimiento",
+      "text": "sigue por encima",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "coach.sg.nocumple.2",
+      "slot": "seguimiento",
+      "text": "todavía no baja",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "coach.sg.nocumple.3",
+      "slot": "seguimiento",
+      "text": "va en {potenciaActual} vatios aún",
+      "diagnoses": [
+        "no-cumple"
+      ],
+      "values": [
+        "potenciaActual"
+      ]
+    },
+    {
+      "id": "coach.mo.muro.3",
+      "slot": "motivo",
+      "text": "el muro está encima",
+      "demands": [
+        "muro"
+      ]
+    },
+    {
+      "id": "coach.mo.repecho.1",
+      "slot": "motivo",
+      "text": "es apenas un repecho",
+      "demands": [
+        "repecho"
+      ]
+    },
+    {
+      "id": "coach.mo.sostenida.1",
+      "slot": "motivo",
+      "text": "la subida no afloja",
+      "demands": [
+        "sostenida"
+      ]
+    },
+    {
+      "id": "coach.mo.arranque.2",
+      "slot": "motivo",
+      "text": "esto apenas comienza",
+      "phases": [
+        "arranque"
+      ]
+    },
+    {
+      "id": "coach.mo.primero.1",
+      "slot": "motivo",
+      "text": "falta la mayoría",
+      "phases": [
+        "primerTercio"
+      ]
+    },
+    {
+      "id": "coach.mo.medio.1",
+      "slot": "motivo",
+      "text": "vamos por la mitad",
+      "phases": [
+        "medio"
+      ]
+    },
+    {
+      "id": "coach.es.fundido.3",
+      "slot": "estado",
+      "text": "se quedó vacío:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "coach.es.comodo.3",
+      "slot": "estado",
+      "text": "tiene el control:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "coach.es.sobrado.3",
+      "slot": "estado",
+      "text": "esto no lo mueve:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "coach.ac.apretar.4",
+      "slot": "accion",
+      "text": "agregue {deltaPotencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "coach.ac.apretarMucho.4",
+      "slot": "accion",
+      "text": "arranque en {potencia} vatios",
+      "adjustments": [
+        "apretarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "coach.ap.10",
+      "slot": "apertura",
+      "text": "listo,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "coach.sc.respira.5",
+      "slot": "secundaria",
+      "text": "respire parejo",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "coach.sg.cumple.4",
+      "slot": "seguimiento",
+      "text": "así mismo, sosténgalo",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "coach.sg.nocumple.4",
+      "slot": "seguimiento",
+      "text": "corrija, sigue alto",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "coach.sc.respira.1",
+      "slot": "secundaria",
+      "text": "respire profundo",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "coach.sc.respira.2",
+      "slot": "secundaria",
+      "text": "controle la respiración",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "coach.sc.respira.3",
+      "slot": "secundaria",
+      "text": "lleve el pulso a {pulsoObjetivo} pulsaciones",
+      "hints": [
+        "respirar"
+      ],
+      "values": [
+        "pulsoObjetivo"
+      ]
+    },
+    {
+      "id": "coach.sc.pinon.1",
+      "slot": "secundaria",
+      "text": "suba un piñón",
+      "hints": [
+        "pinon"
+      ]
+    },
+    {
+      "id": "coach.sc.pinon.2",
+      "slot": "secundaria",
+      "text": "suba un piñón: {cadencia} de cadencia",
+      "hints": [
+        "pinon"
+      ],
+      "values": [
+        "cadencia"
+      ]
+    },
+    {
+      "id": "coach.pl.regular.1",
+      "slot": "plan",
+      "text": "nos regulamos acá y apretamos arriba",
+      "hints": [
+        "regular"
+      ]
+    },
+    {
+      "id": "coach.pl.regular.2",
+      "slot": "plan",
+      "text": "guarde algo para la rampa",
+      "hints": [
+        "regular"
+      ]
+    },
+    {
+      "id": "coach.pl.sostener.1",
+      "slot": "plan",
+      "text": "parejo hasta arriba",
+      "hints": [
+        "sostener"
+      ]
+    },
+    {
+      "id": "coach.pl.sostener.2",
+      "slot": "plan",
+      "text": "así de parejo hasta la cima",
+      "hints": [
+        "sostener"
+      ]
+    },
+    {
+      "id": "coach.pl.apretar.1",
+      "slot": "plan",
+      "text": "suelte todo lo que le quede",
+      "hints": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "coach.pl.apretar.2",
+      "slot": "plan",
+      "text": "ya no hay nada que guardar",
+      "hints": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "coach.ap.km.1",
+      "slot": "apertura",
+      "text": "quedan {kmRestantes} kilómetros,",
+      "values": [
+        "kmRestantes"
+      ]
+    },
+    {
+      "id": "coach.ci.nombre.1",
+      "slot": "cierre",
+      "text": "usted puede, {nombre}"
+    },
+    {
+      "id": "coach.ci.nombre.2",
+      "slot": "cierre",
+      "text": "vamos, {nombre}"
+    },
+    {
+      "id": "coach.sc.pinonduro.1",
+      "slot": "secundaria",
+      "text": "baje un piñón",
+      "hints": [
+        "pinonDuro"
+      ]
+    },
+    {
+      "id": "coach.sc.pinonduro.2",
+      "slot": "secundaria",
+      "text": "baje un piñón: {cadencia} de cadencia",
+      "hints": [
+        "pinonDuro"
+      ],
+      "values": [
+        "cadencia"
+      ]
+    }
+  ]
+}

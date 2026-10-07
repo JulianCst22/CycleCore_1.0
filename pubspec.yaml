@@ -11,19 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- Módulos core (packages/core): infraestructura compartida, sin
-  # lógica de negocio y sin conocer ninguna feature ---
-  core_ui:
-    path: packages/core/ui
-  core_database:
-    path: packages/core/database
-  core_fuzzy_logic:
-    path: packages/core/fuzzy_logic
-  core_geo:
-    path: packages/core/geo
-  core_platform:
-    path: packages/core/platform
-
   # Cupertino
   cupertino_icons: ^1.0.8
 
@@ -102,6 +89,8 @@ flutter:
 
   assets:
     - assets/lottie/
+    # Banco de frases del coach (una por voz) -- ver README_VOZ.md.
+    - assets/coaching/messages/
 
   # Tipografía de la app -- Rubik (OFL). Un sans humanista con esquinas
   # sutilmente redondeadas: legible, cálido y de proporción ancha (nada

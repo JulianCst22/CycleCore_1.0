@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../core/ui/ui.dart';
+import '../features/coaching/coaching.dart';
 import '../features/auth/auth.dart';
+import '../features/bikes/bikes.dart';
 import '../features/elevation/elevation.dart';
 import '../features/navigation/navigation.dart';
 import '../features/profile/profile.dart';
@@ -85,10 +87,22 @@ class SettingsScreen extends StatelessWidget {
             _SettingsGroup(
               children: [
                 _SettingsTile(
+                  icon: Icons.pedal_bike_outlined,
+                  label: 'Mis bicicletas',
+                  subtitle: 'Cuál usas, cuánto pesa y cuánto llevas con ella',
+                  onTap: () => push(const BikesScreen()),
+                ),
+                _SettingsTile(
                   icon: Icons.record_voice_over_outlined,
                   label: 'Voz de guía',
                   subtitle: 'Activarla y elegir la voz',
                   onTap: () => push(const VoiceSelectionScreen()),
+                ),
+                _SettingsTile(
+                  icon: Icons.sports_score,
+                  label: 'Coach en subidas',
+                  subtitle: 'Consejos de potencia dentro de los segmentos',
+                  onTap: () => push(const CoachingSettingsScreen()),
                 ),
                 _SettingsTile(
                   icon: Icons.dashboard_customize_outlined,

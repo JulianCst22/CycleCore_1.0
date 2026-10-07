@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/database/database.dart';
+import '../../../../core/ui/ui.dart';
 import '../../../gamification/gamification.dart';
 import '../../application/extension_points.dart';
 import '../../../stats/stats.dart';

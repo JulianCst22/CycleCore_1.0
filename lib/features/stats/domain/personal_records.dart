@@ -1,4 +1,4 @@
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 
 /// Dimensiones en las que una actividad puede ser récord personal
 /// dentro de su propio tipo ('race', 'training', ...). Se usa tanto

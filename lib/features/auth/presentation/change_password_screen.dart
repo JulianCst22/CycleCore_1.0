@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/auth_exceptions.dart';
 import '../application/auth_providers.dart';
 import 'widgets/auth_error_banner.dart';

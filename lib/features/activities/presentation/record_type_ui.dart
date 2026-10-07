@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/activity_records.dart';
 
 /// Ícono, etiqueta, color y valor formateado de cada [RecordType] --

@@ -6,12 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:core_database/core_database.dart';
-import 'package:core_ui/core_ui.dart';
+import '../../../core/database/database.dart';
+import '../../../core/ui/ui.dart';
 import '../data/segments_repository.dart';
 import '../domain/segment_profile_builder.dart';
 import '../domain/segment_stats_calculator.dart';
 import '../application/segments_providers.dart';
+import '../../../core/platform/platform.dart' show CachedTileProvider;
 
 /// Pantalla de creación de segmento: el usuario arrastra dos
 /// marcadores (A = inicio, B = fin) sobre la polilínea de una
@@ -41,8 +42,7 @@ class SegmentCreationScreen extends ConsumerStatefulWidget {
       _SegmentCreationScreenState();
 }
 
-class _SegmentCreationScreenState
-    extends ConsumerState<SegmentCreationScreen> {
+class _SegmentCreationScreenState extends ConsumerState<SegmentCreationScreen> {
   late final MapController _mapController;
   late final List<RoutePointSnapshot> _points;
   final GlobalKey _stackKey = GlobalKey();
@@ -92,9 +92,7 @@ class _SegmentCreationScreenState
   // mapa), que es donde se posicionan los `_DragHandle`. ---
 
   latlng.LatLng _screenOffsetToLatLng(Offset local) {
-    return _mapController.camera.pointToLatLng(
-      math.Point(local.dx, local.dy),
-    );
+    return _mapController.camera.pointToLatLng(math.Point(local.dx, local.dy));
   }
 
   Offset _latLngToScreenOffset(latlng.LatLng point) {
@@ -129,8 +127,7 @@ class _SegmentCreationScreenState
   }
 
   Offset? _globalToStackLocal(Offset global) {
-    final stackBox =
-        _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (stackBox == null) return null;
     return stackBox.globalToLocal(global);
   }
@@ -230,8 +227,9 @@ class _SegmentCreationScreenState
       );
     }
 
-    final latLngs =
-        _points.map((p) => latlng.LatLng(p.latitude, p.longitude)).toList();
+    final latLngs = _points
+        .map((p) => latlng.LatLng(p.latitude, p.longitude))
+        .toList();
     final bounds = LatLngBounds.fromPoints(latLngs);
     final selectedLatLngs = latLngs.sublist(_startIndex, _endIndex + 1);
     final stats = computeSegmentStats(
@@ -276,6 +274,8 @@ class _SegmentCreationScreenState
                           urlTemplate:
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.example.cyclecore_app',
+                          // Guardados en el teléfono: sin internet se ve lo ya visto.
+                          tileProvider: CachedTileProvider.instance,
                         ),
                         PolylineLayer(
                           polylines: [
@@ -297,27 +297,27 @@ class _SegmentCreationScreenState
                     ),
                     if (_mapReady) ...[
                       _DragHandle(
-                        position: _draggingHandle == 0 && _dragFingerLocal != null
+                        position:
+                            _draggingHandle == 0 && _dragFingerLocal != null
                             ? _dragFingerLocal!
                             : _latLngToScreenOffset(latLngs[_startIndex]),
                         color: AppColors.segmentStart,
                         label: 'A',
                         dragging: _draggingHandle == 0,
                         onDragStart: () => _onHandleDragStart(0),
-                        onDragUpdate: (d) =>
-                            _onHandleDragUpdate(d, handle: 0),
+                        onDragUpdate: (d) => _onHandleDragUpdate(d, handle: 0),
                         onDragEnd: _onHandleDragEnd,
                       ),
                       _DragHandle(
-                        position: _draggingHandle == 1 && _dragFingerLocal != null
+                        position:
+                            _draggingHandle == 1 && _dragFingerLocal != null
                             ? _dragFingerLocal!
                             : _latLngToScreenOffset(latLngs[_endIndex]),
                         color: AppColors.segmentEnd,
                         label: 'B',
                         dragging: _draggingHandle == 1,
                         onDragStart: () => _onHandleDragStart(1),
-                        onDragUpdate: (d) =>
-                            _onHandleDragUpdate(d, handle: 1),
+                        onDragUpdate: (d) => _onHandleDragUpdate(d, handle: 1),
                         onDragEnd: _onHandleDragEnd,
                       ),
                     ] else
@@ -545,10 +545,7 @@ class _BottomPanel extends StatelessWidget {
               'El segmento debe medir al menos '
               '${kMinSegmentDistanceMeters.round()} metros -- separa un '
               'poco más los marcadores A y B.',
-              style: const TextStyle(
-                color: AppColors.segmentEnd,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: AppColors.segmentEnd, fontSize: 12),
             ),
           ],
           const SizedBox(height: 14),

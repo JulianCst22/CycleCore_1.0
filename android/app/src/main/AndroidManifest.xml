@@ -25,6 +25,12 @@
     <!-- silencio al intentar escuchar la posición en segundo plano.      -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Pedir que Android no frene a la app por ahorro de batería: en    -->
+    <!-- Samsung, Xiaomi, Huawei y otros, sin esta excepción el sistema    -->
+    <!-- mata la grabación con la pantalla apagada aunque haya un          -->
+    <!-- foreground service. Se pide una sola vez, al primer "Grabar".     -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!-- La notificación persistente que muestra el foreground service    -->
     <!-- ("Grabando actividad...") requiere este permiso en Android 13+.  -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import 'account_setup_wizard.dart';
 import 'login_screen.dart';
 import 'widgets/dawn_hero.dart';

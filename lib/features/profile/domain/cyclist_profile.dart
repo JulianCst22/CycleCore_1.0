@@ -1,13 +1,23 @@
+import '../../../core/physiology/physiology.dart'
+    show RiderLevel, riderLevelFrom;
+
 /// Perfil del ciclista: datos base que alimentan el motor de lógica
 /// difusa para comparar el esfuerzo en vivo (FC, potencia) contra los
 /// límites personales, más los datos "visuales" de identidad (foto,
 /// ciudad, bio) que muestra la pantalla de Perfil.
 ///
-/// **Ningún dato deportivo es obligatorio.** No todo el mundo conoce su
+/// Casi ningún dato deportivo es obligatorio: no todo el mundo conoce su
 /// FTP o su FC máxima, ni todo el mundo usa potenciómetro. Cuando un
 /// dato falta, la parte de la app que lo necesita simplemente se apaga
 /// (sin zonas de potencia si no hay FTP, calorías por peso en vez de por
 /// vatios, etc.) y el usuario lo completa después desde "Editar perfil".
+///
+/// Las dos excepciones son el **peso** y el **nivel**: sin ellos el coach
+/// no tiene con qué empezar. Sin peso no se puede estimar la potencia a
+/// partir de la velocidad ni repartir la reserva por kilo, y sin nivel
+/// habría que suponerle a todo el mundo la misma reserva anaeróbica, que
+/// es justo lo que hace que un consejo sirva para uno y sobre para otro.
+/// Por eso se piden al registrarse, y se pueden corregir después.
 class CyclistProfile {
   final String name;
 
@@ -29,6 +39,14 @@ class CyclistProfile {
   /// máxima, lo cual es más preciso para detectar sobreesfuerzo real.
   final int? restingHr;
 
+  /// Cadencia de referencia en subida, en rpm, puesta a mano. `null` =
+  /// la calcula la app con tus propias salidas, y mientras no alcancen
+  /// usa la recomendada ([recommendedCadenceRpm]).
+  ///
+  /// Contra este número mide el coach el torque, así que decide si te
+  /// lee «pesado» o «ligero» y si te manda subir o bajar un piñón.
+  final int? preferredCadence;
+
   /// Fecha de nacimiento. Sólo se usa para calcular la edad (y con ella
   /// un estimado de FC máxima). `null` = no registrada.
   final DateTime? birthDate;
@@ -42,17 +60,41 @@ class CyclistProfile {
   /// Biografía corta tipo Strava/Garmin Connect. Opcional.
   final String? bio;
 
+  /// Hace cuántos años rueda. Con [weeklyHours] sale el nivel.
+  final int? yearsRiding;
+
+  /// Horas que sale a la semana, en promedio.
+  final double? weeklyHours;
+
+  /// Nivel elegido a mano. Si es `null` se deduce de los años y las
+  /// horas (ver [level]); tenerlo aparte permite que el usuario lo
+  /// corrija sin tener que mentir en las horas.
+  final RiderLevel? declaredLevel;
+
   const CyclistProfile({
     required this.name,
     this.weightKg,
     this.ftpWatts,
     this.maxHr,
     this.restingHr,
+    this.preferredCadence,
     this.birthDate,
     this.avatarPath,
     this.city,
     this.bio,
+    this.yearsRiding,
+    this.weeklyHours,
+    this.declaredLevel,
   });
+
+  /// Nivel del ciclista: el que declaró o el que sale de cuánto rueda.
+  /// `null` si no hay ni lo uno ni lo otro.
+  RiderLevel? get level =>
+      declaredLevel ??
+      riderLevelFrom(yearsRiding: yearsRiding, weeklyHours: weeklyHours);
+
+  /// Si el perfil tiene lo mínimo para que el coach trabaje.
+  bool get canCoach => (weightKg ?? 0) > 0 && level != null;
 
   /// Relación potencia/peso (W/kg). `null` si falta el FTP o el peso.
   double? get powerToWeight {
@@ -112,10 +154,14 @@ class CyclistProfile {
     'ftpWatts': ftpWatts,
     'maxHr': maxHr,
     'restingHr': restingHr,
+    'preferredCadence': preferredCadence,
     'birthDate': birthDate?.toIso8601String(),
     'avatarPath': avatarPath,
     'city': city,
     'bio': bio,
+    'yearsRiding': yearsRiding,
+    'weeklyHours': weeklyHours,
+    'declaredLevel': declaredLevel?.name,
   };
 
   /// Perfiles guardados antes de esta versión traían `weightKg` /
@@ -130,10 +176,16 @@ class CyclistProfile {
       ftpWatts: (json['ftpWatts'] as num?)?.toInt(),
       maxHr: (json['maxHr'] as num?)?.toInt(),
       restingHr: (json['restingHr'] as num?)?.toInt(),
+      preferredCadence: (json['preferredCadence'] as num?)?.toInt(),
       birthDate: rawBirth == null ? null : DateTime.tryParse(rawBirth),
       avatarPath: json['avatarPath'] as String?,
       city: json['city'] as String?,
       bio: json['bio'] as String?,
+      yearsRiding: (json['yearsRiding'] as num?)?.toInt(),
+      weeklyHours: (json['weeklyHours'] as num?)?.toDouble(),
+      declaredLevel: json['declaredLevel'] == null
+          ? null
+          : RiderLevel.byName(json['declaredLevel'] as String),
     );
   }
 
@@ -146,10 +198,14 @@ class CyclistProfile {
     int? ftpWatts,
     int? maxHr,
     int? restingHr,
+    int? preferredCadence,
     DateTime? birthDate,
     String? avatarPath,
     String? city,
     String? bio,
+    int? yearsRiding,
+    double? weeklyHours,
+    RiderLevel? declaredLevel,
   }) {
     return CyclistProfile(
       name: name ?? this.name,
@@ -157,10 +213,14 @@ class CyclistProfile {
       ftpWatts: ftpWatts ?? this.ftpWatts,
       maxHr: maxHr ?? this.maxHr,
       restingHr: restingHr ?? this.restingHr,
+      preferredCadence: preferredCadence ?? this.preferredCadence,
       birthDate: birthDate ?? this.birthDate,
       avatarPath: avatarPath ?? this.avatarPath,
       city: city ?? this.city,
       bio: bio ?? this.bio,
+      yearsRiding: yearsRiding ?? this.yearsRiding,
+      weeklyHours: weeklyHours ?? this.weeklyHours,
+      declaredLevel: declaredLevel ?? this.declaredLevel,
     );
   }
 }

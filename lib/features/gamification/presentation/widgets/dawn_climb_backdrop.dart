@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 
 /// Telón de fondo FIJO (no se mueve con el avance del ciclista) de la
 /// pantalla de la subida: el mismo amanecer de montaña de Welcome y

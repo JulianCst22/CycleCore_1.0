@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:core_ui/core_ui.dart';
+import '../../../../core/ui/ui.dart';
 import '../../../cockpit/cockpit.dart';
 import '../../domain/segment_cockpit_field.dart';
 import '../../domain/segment_cockpit_tile_config.dart';
-import 'package:core_geo/core_geo.dart';
+import '../../../../core/geo/geo.dart';
 import '../segment_cockpit_field_ui.dart';
 import 'segment_altitude_profile.dart';
 import 'segment_mini_map.dart';

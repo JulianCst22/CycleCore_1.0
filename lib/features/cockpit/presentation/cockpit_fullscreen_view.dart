@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/cockpit_field.dart';
 import '../domain/cockpit_tile_config.dart';
 import 'cockpit_grid_layout.dart';

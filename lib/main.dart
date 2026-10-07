@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'package:core_ui/core_ui.dart';
+import 'core/ui/ui.dart';
 
 import 'app/app_gate.dart';
+import 'app/coach_highlight.dart';
 import 'features/activities/activities.dart';
+import 'features/coaching/coaching.dart';
+import 'features/cockpit/cockpit.dart';
 import 'features/profile/profile.dart';
+import 'features/segments/segments.dart';
 import 'features/gamification/gamification.dart';
 import 'features/voice/voice.dart';
 
@@ -24,9 +28,9 @@ Future<void> main() async {
     //
     // Los overrides conectan los puntos de extensión de `gamification` y
     // `profile` (sus `extension_points.dart`) con las implementaciones
-    // reales de `voice`, `activities` y `profile` -- este es el ÚNICO
-    // lugar de toda la app que conoce a ambos lados. Esas features no se
-    // importan entre sí en ese sentido.
+    // reales de `voice`, `activities`, `coaching` y `profile` -- este es
+    // el ÚNICO lugar de toda la app que conoce a ambos lados. Esas
+    // features no se importan entre sí en ese sentido.
     ProviderScope(
       overrides: [
         unlockCelebrationSourcesProvider.overrideWithValue(
@@ -37,6 +41,13 @@ Future<void> main() async {
           [voiceHasUnseenUnlocksProvider],
         ),
         openActivityDetailProvider.overrideWithValue(openActivityDetail),
+        criticalPowerSummaryProvider.overrideWith(
+          (ref) => ref.watch(criticalPowerSummaryOfAthleteProvider),
+        ),
+        mentionedFieldsProvider.overrideWith(
+          (ref) => ref.watch(coachMentionedFieldsProvider),
+        ),
+        segmentLiveNoticeProvider.overrideWithValue(const CoachingStrip()),
         riderNameProvider.overrideWith(
           (ref) => ref.watch(profileProvider).valueOrNull?.name,
         ),
@@ -54,7 +65,7 @@ class CycleCoreApp extends StatelessWidget {
     return MaterialApp(
       title: 'CycleCore',
       debugShowCheckedModeBanner: false,
-      // Todo el theming vive en el módulo core_ui -- los tokens de color
+      // Todo el theming vive en el módulo core/ui -- los tokens de color
       // están en cc_colors.dart y la tipografía en cc_type.dart. La app es
       // oscura a propósito (uso al aire libre).
       theme: AppTheme.dark,

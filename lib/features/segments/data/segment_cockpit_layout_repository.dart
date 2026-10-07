@@ -10,31 +10,30 @@ import '../../cockpit/cockpit.dart' show CockpitTileSize;
 /// SharedPreferences para que las dos configuraciones sean
 /// independientes.
 class SegmentCockpitLayoutRepository {
-  static const String _prefsKey = 'segment_cockpit_tiles_v1';
+  /// v2: el mapa, el perfil y la barra de progreso dejaron de ser
+  /// recuadros de la cuadrícula (ahora son la cabecera fija de la
+  /// pantalla). Clave nueva para que nadie arrastre la distribución
+  /// vieja, que ya no tiene sentido sin esos tres bloques.
+  static const String _prefsKey = 'segment_cockpit_tiles_v2';
 
+  /// Lo que se mira subiendo, en orden: el esfuerzo (potencia, pulso,
+  /// cadencia), el terreno de ahora y el reloj. Lo que falta para la
+  /// cima y la comparación con la mejor marca ya están en la cabecera.
   static const List<SegmentCockpitTileConfig> defaultTiles = [
     SegmentCockpitTileConfig(
-      field: SegmentCockpitField.mapaSegmento,
-      size: CockpitTileSize.large,
-    ),
-    SegmentCockpitTileConfig(
-      field: SegmentCockpitField.deltaPr,
-      size: CockpitTileSize.large,
-    ),
-    SegmentCockpitTileConfig(
-      field: SegmentCockpitField.perfilAltimetria,
-      size: CockpitTileSize.wide,
-    ),
-    SegmentCockpitTileConfig(
-      field: SegmentCockpitField.barraProgreso,
-      size: CockpitTileSize.wide,
-    ),
-    SegmentCockpitTileConfig(
-      field: SegmentCockpitField.tiempoEnSegmento,
+      field: SegmentCockpitField.potencia,
       size: CockpitTileSize.small,
     ),
     SegmentCockpitTileConfig(
-      field: SegmentCockpitField.proyeccionMeta,
+      field: SegmentCockpitField.frecuenciaCardiaca,
+      size: CockpitTileSize.small,
+    ),
+    SegmentCockpitTileConfig(
+      field: SegmentCockpitField.cadencia,
+      size: CockpitTileSize.small,
+    ),
+    SegmentCockpitTileConfig(
+      field: SegmentCockpitField.velocidad,
       size: CockpitTileSize.small,
     ),
     SegmentCockpitTileConfig(
@@ -42,7 +41,7 @@ class SegmentCockpitLayoutRepository {
       size: CockpitTileSize.small,
     ),
     SegmentCockpitTileConfig(
-      field: SegmentCockpitField.desnivelRestante,
+      field: SegmentCockpitField.proyeccionMeta,
       size: CockpitTileSize.small,
     ),
   ];
@@ -54,6 +53,7 @@ class SegmentCockpitLayoutRepository {
       final parsed = raw
           .map(SegmentCockpitTileConfig.tryDeserialize)
           .whereType<SegmentCockpitTileConfig>()
+          .where((t) => !t.field.isVisualBlock)
           .toList();
       if (parsed.isNotEmpty) return parsed;
     }

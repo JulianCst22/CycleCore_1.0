@@ -1,0 +1,979 @@
+{
+  "version": 1,
+  "persona": "chill",
+  "covers": [
+    {
+      "state": "fundido",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "fundido",
+      "demand": "muro",
+      "phase": "remate"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "arranque"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "alLimite",
+      "demand": "muro",
+      "phase": "medio"
+    },
+    {
+      "state": "alLimite",
+      "demand": "muro",
+      "phase": "remate"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "justo",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "justo",
+      "demand": "muro",
+      "phase": "medio"
+    },
+    {
+      "state": "justo",
+      "demand": "repecho",
+      "phase": "primerTercio"
+    },
+    {
+      "state": "comodo",
+      "demand": "sostenida",
+      "phase": "medio"
+    },
+    {
+      "state": "comodo",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "comodo",
+      "demand": "repecho",
+      "phase": "medio"
+    },
+    {
+      "state": "sobrado",
+      "demand": "sostenida",
+      "phase": "remate"
+    },
+    {
+      "state": "sobrado",
+      "demand": "repecho",
+      "phase": "medio"
+    }
+  ],
+  "pieces": [
+    {
+      "id": "chill.ap.1",
+      "slot": "apertura",
+      "text": "parce,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "chill.ap.2",
+      "slot": "apertura",
+      "text": "oiga,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "chill.ap.3",
+      "slot": "apertura",
+      "text": "hermano,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "chill.ap.4",
+      "slot": "apertura",
+      "text": "fresco,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "chill.ap.5",
+      "slot": "apertura",
+      "text": "relax,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "chill.ap.6",
+      "slot": "apertura",
+      "text": "tranqui,",
+      "registers": [
+        "cauto",
+        "neutro"
+      ]
+    },
+    {
+      "id": "chill.ap.7",
+      "slot": "apertura",
+      "text": "bueno,"
+    },
+    {
+      "id": "chill.es.limite.1",
+      "slot": "estado",
+      "text": "vas al tope:",
+      "states": [
+        "alLimite"
+      ]
+    },
+    {
+      "id": "chill.es.limite.2",
+      "slot": "estado",
+      "text": "estás sufriendo:",
+      "states": [
+        "alLimite"
+      ]
+    },
+    {
+      "id": "chill.es.limite.3",
+      "slot": "estado",
+      "text": "el pulso se disparó:",
+      "states": [
+        "alLimite"
+      ],
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "chill.es.limite.4",
+      "slot": "estado",
+      "text": "el pulso en {pulso}:",
+      "states": [
+        "alLimite"
+      ],
+      "values": [
+        "pulso"
+      ]
+    },
+    {
+      "id": "chill.es.fundido.1",
+      "slot": "estado",
+      "text": "quedaste sin nada:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "chill.es.fundido.2",
+      "slot": "estado",
+      "text": "ya reventaste:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "chill.es.justo.1",
+      "slot": "estado",
+      "text": "vas bien:",
+      "states": [
+        "justo"
+      ]
+    },
+    {
+      "id": "chill.es.justo.2",
+      "slot": "estado",
+      "text": "vas justo ahí:",
+      "states": [
+        "justo"
+      ]
+    },
+    {
+      "id": "chill.es.justo.3",
+      "slot": "estado",
+      "text": "llevas {potenciaActual} vatios:",
+      "states": [
+        "justo"
+      ],
+      "values": [
+        "potenciaActual"
+      ]
+    },
+    {
+      "id": "chill.es.comodo.1",
+      "slot": "estado",
+      "text": "vas relajado:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "chill.es.comodo.2",
+      "slot": "estado",
+      "text": "te sobra aire:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "chill.es.sobrado.1",
+      "slot": "estado",
+      "text": "esto es paseo:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "chill.es.sobrado.2",
+      "slot": "estado",
+      "text": "vas sobradísimo:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "chill.ac.soltarMucho.1",
+      "slot": "accion",
+      "text": "suéltalo a {potencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.soltarMucho.2",
+      "slot": "accion",
+      "text": "bájale ya, {potencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.soltarMucho.3",
+      "slot": "accion",
+      "text": "quita {deltaPotencia} vatios",
+      "adjustments": [
+        "soltarMucho"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "chill.ac.soltarMucho.4",
+      "slot": "accion",
+      "text": "suelta tranquilo",
+      "adjustments": [
+        "soltarMucho"
+      ]
+    },
+    {
+      "id": "chill.ac.soltar.1",
+      "slot": "accion",
+      "text": "bájale a {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.soltar.2",
+      "slot": "accion",
+      "text": "déjalo en {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.soltar.3",
+      "slot": "accion",
+      "text": "suelta {deltaPotencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "chill.ac.soltar.4",
+      "slot": "accion",
+      "text": "afloja suavecito",
+      "adjustments": [
+        "soltar"
+      ]
+    },
+    {
+      "id": "chill.ac.soltar.5",
+      "slot": "accion",
+      "text": "apunta a {potencia} vatios",
+      "adjustments": [
+        "soltar"
+      ],
+      "registers": [
+        "cauto",
+        "neutro"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.mantener.1",
+      "slot": "accion",
+      "text": "sostén {potencia} vatios",
+      "adjustments": [
+        "mantener"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.mantener.2",
+      "slot": "accion",
+      "text": "quédate en {potencia} vatios",
+      "adjustments": [
+        "mantener"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.mantener.3",
+      "slot": "accion",
+      "text": "así mismo",
+      "adjustments": [
+        "mantener"
+      ]
+    },
+    {
+      "id": "chill.ac.mantener.4",
+      "slot": "accion",
+      "text": "no muevas nada",
+      "adjustments": [
+        "mantener"
+      ]
+    },
+    {
+      "id": "chill.ac.apretar.1",
+      "slot": "accion",
+      "text": "súbele a {potencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.apretar.2",
+      "slot": "accion",
+      "text": "ponle {deltaPotencia} vatios más",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "chill.ac.apretar.3",
+      "slot": "accion",
+      "text": "métele poquito",
+      "adjustments": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "chill.ac.apretarMucho.1",
+      "slot": "accion",
+      "text": "dale hasta {potencia} vatios",
+      "adjustments": [
+        "apretarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ac.apretarMucho.2",
+      "slot": "accion",
+      "text": "métele duro",
+      "adjustments": [
+        "apretarMucho"
+      ]
+    },
+    {
+      "id": "chill.ac.apretarMucho.3",
+      "slot": "accion",
+      "text": "ahora sí, fuerte",
+      "adjustments": [
+        "apretarMucho"
+      ]
+    },
+    {
+      "id": "chill.mo.tanque.1",
+      "slot": "motivo",
+      "text": "no te da el tanque",
+      "diagnoses": [
+        "C2"
+      ]
+    },
+    {
+      "id": "chill.mo.tanque.2",
+      "slot": "motivo",
+      "text": "si no, revientas",
+      "diagnoses": [
+        "C2"
+      ]
+    },
+    {
+      "id": "chill.mo.reserva.1",
+      "slot": "motivo",
+      "text": "la reserva anda justa",
+      "diagnoses": [
+        "C8"
+      ]
+    },
+    {
+      "id": "chill.mo.reserva.2",
+      "slot": "motivo",
+      "text": "faltan {desnivel} metros",
+      "diagnoses": [
+        "C8",
+        "C2"
+      ],
+      "values": [
+        "desnivel"
+      ]
+    },
+    {
+      "id": "chill.mo.arranque.1",
+      "slot": "motivo",
+      "text": "apenas empezamos",
+      "diagnoses": [
+        "C1"
+      ]
+    },
+    {
+      "id": "chill.mo.muro.1",
+      "slot": "motivo",
+      "text": "ahí viene lo duro",
+      "diagnoses": [
+        "C3",
+        "C7"
+      ]
+    },
+    {
+      "id": "chill.mo.muro.2",
+      "slot": "motivo",
+      "text": "rampa al {rampa} por ciento",
+      "diagnoses": [
+        "C3",
+        "C7"
+      ],
+      "values": [
+        "rampa"
+      ]
+    },
+    {
+      "id": "chill.mo.ritmo.1",
+      "slot": "motivo",
+      "text": "vas en tu ritmo",
+      "diagnoses": [
+        "C4",
+        "C5"
+      ]
+    },
+    {
+      "id": "chill.mo.ritmo.2",
+      "slot": "motivo",
+      "text": "el récord anda cerca",
+      "diagnoses": [
+        "C5",
+        "C9"
+      ]
+    },
+    {
+      "id": "chill.mo.sobra.1",
+      "slot": "motivo",
+      "text": "te queda de sobra",
+      "diagnoses": [
+        "C9"
+      ]
+    },
+    {
+      "id": "chill.mo.pareja.1",
+      "slot": "motivo",
+      "text": "la subida está pareja",
+      "diagnoses": [
+        "C6"
+      ]
+    },
+    {
+      "id": "chill.mo.generico.1",
+      "slot": "motivo",
+      "text": "falta subida"
+    },
+    {
+      "id": "chill.mo.generico.2",
+      "slot": "motivo",
+      "text": "así llegamos bien"
+    },
+    {
+      "id": "chill.mo.generico.3",
+      "slot": "motivo",
+      "text": "todavía falta"
+    },
+    {
+      "id": "chill.mo.remate.1",
+      "slot": "motivo",
+      "text": "ya es el remate",
+      "phases": [
+        "remate"
+      ]
+    },
+    {
+      "id": "chill.mo.remate.2",
+      "slot": "motivo",
+      "text": "la cima ahí nomás",
+      "phases": [
+        "remate"
+      ]
+    },
+    {
+      "id": "chill.sc.piso.1",
+      "slot": "secundaria",
+      "text": "sin bajar de {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "chill.sc.piso.2",
+      "slot": "secundaria",
+      "text": "nunca bajo {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "chill.sc.piso.3",
+      "slot": "secundaria",
+      "text": "con piso en {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "chill.sc.piso.4",
+      "slot": "secundaria",
+      "text": "no menos de {piso} vatios",
+      "registers": [
+        "conMatiz"
+      ],
+      "values": [
+        "piso"
+      ]
+    },
+    {
+      "id": "chill.sc.cadencia.1",
+      "slot": "secundaria",
+      "text": "pedalea a {cadencia} de cadencia",
+      "values": [
+        "cadencia"
+      ]
+    },
+    {
+      "id": "chill.sc.respira.4",
+      "slot": "secundaria",
+      "text": "respire hondo",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "chill.ci.2",
+      "slot": "cierre",
+      "text": "vamos suave"
+    },
+    {
+      "id": "chill.ci.3",
+      "slot": "cierre",
+      "text": "yo le aviso"
+    },
+    {
+      "id": "chill.ci.4",
+      "slot": "cierre",
+      "text": "no mire la velocidad"
+    },
+    {
+      "id": "chill.sg.cumple.1",
+      "slot": "seguimiento",
+      "text": "eso, ahí mismo",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "chill.sg.cumple.2",
+      "slot": "seguimiento",
+      "text": "bien, sosténgalo",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "chill.sg.cumple.3",
+      "slot": "seguimiento",
+      "text": "listo, {potencia} vatios clavados",
+      "diagnoses": [
+        "cumple"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.sg.nocumple.1",
+      "slot": "seguimiento",
+      "text": "todavía va pasado",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "chill.sg.nocumple.2",
+      "slot": "seguimiento",
+      "text": "aún no baja",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "chill.sg.nocumple.3",
+      "slot": "seguimiento",
+      "text": "va en {potenciaActual} vatios todavía",
+      "diagnoses": [
+        "no-cumple"
+      ],
+      "values": [
+        "potenciaActual"
+      ]
+    },
+    {
+      "id": "chill.mo.muro.3",
+      "slot": "motivo",
+      "text": "la pared ahí mismo",
+      "demands": [
+        "muro"
+      ]
+    },
+    {
+      "id": "chill.mo.repecho.1",
+      "slot": "motivo",
+      "text": "es un repechito",
+      "demands": [
+        "repecho"
+      ]
+    },
+    {
+      "id": "chill.mo.sostenida.1",
+      "slot": "motivo",
+      "text": "la subida no cede",
+      "demands": [
+        "sostenida"
+      ]
+    },
+    {
+      "id": "chill.mo.arranque.2",
+      "slot": "motivo",
+      "text": "esto apenas empieza",
+      "phases": [
+        "arranque"
+      ]
+    },
+    {
+      "id": "chill.mo.primero.1",
+      "slot": "motivo",
+      "text": "falta casi toda",
+      "phases": [
+        "primerTercio"
+      ]
+    },
+    {
+      "id": "chill.mo.medio.1",
+      "slot": "motivo",
+      "text": "vamos por la mitad",
+      "phases": [
+        "medio"
+      ]
+    },
+    {
+      "id": "chill.es.fundido.3",
+      "slot": "estado",
+      "text": "quedó sin gasolina:",
+      "states": [
+        "fundido"
+      ]
+    },
+    {
+      "id": "chill.es.comodo.3",
+      "slot": "estado",
+      "text": "va tranquilo:",
+      "states": [
+        "comodo"
+      ]
+    },
+    {
+      "id": "chill.es.sobrado.3",
+      "slot": "estado",
+      "text": "eso ni lo siente:",
+      "states": [
+        "sobrado"
+      ]
+    },
+    {
+      "id": "chill.ac.apretar.4",
+      "slot": "accion",
+      "text": "métale {deltaPotencia} vatios",
+      "adjustments": [
+        "apretar"
+      ],
+      "values": [
+        "deltaPotencia"
+      ]
+    },
+    {
+      "id": "chill.ac.apretarMucho.4",
+      "slot": "accion",
+      "text": "arranque en {potencia} vatios",
+      "adjustments": [
+        "apretarMucho"
+      ],
+      "values": [
+        "potencia"
+      ]
+    },
+    {
+      "id": "chill.ap.10",
+      "slot": "apertura",
+      "text": "listo,",
+      "registers": [
+        "asertivo",
+        "conMatiz"
+      ]
+    },
+    {
+      "id": "chill.sc.respira.5",
+      "slot": "secundaria",
+      "text": "respire parejo",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "chill.sg.cumple.4",
+      "slot": "seguimiento",
+      "text": "así mismo, parce",
+      "diagnoses": [
+        "cumple"
+      ]
+    },
+    {
+      "id": "chill.sg.nocumple.4",
+      "slot": "seguimiento",
+      "text": "todavía va alto",
+      "diagnoses": [
+        "no-cumple"
+      ]
+    },
+    {
+      "id": "chill.sc.respira.1",
+      "slot": "secundaria",
+      "text": "respira hondo, tranquilo",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "chill.sc.respira.2",
+      "slot": "secundaria",
+      "text": "afloja la respiración",
+      "hints": [
+        "respirar"
+      ]
+    },
+    {
+      "id": "chill.sc.respira.3",
+      "slot": "secundaria",
+      "text": "busca el pulso en {pulsoObjetivo} pulsaciones",
+      "hints": [
+        "respirar"
+      ],
+      "values": [
+        "pulsoObjetivo"
+      ]
+    },
+    {
+      "id": "chill.sc.pinon.1",
+      "slot": "secundaria",
+      "text": "sube un piñón, sin pena",
+      "hints": [
+        "pinon"
+      ]
+    },
+    {
+      "id": "chill.sc.pinon.2",
+      "slot": "secundaria",
+      "text": "sube un piñón: {cadencia} de cadencia",
+      "hints": [
+        "pinon"
+      ],
+      "values": [
+        "cadencia"
+      ]
+    },
+    {
+      "id": "chill.pl.regular.1",
+      "slot": "plan",
+      "text": "nos regulamos acá y apretamos arriba",
+      "hints": [
+        "regular"
+      ]
+    },
+    {
+      "id": "chill.pl.regular.2",
+      "slot": "plan",
+      "text": "guardemos algo para la rampa",
+      "hints": [
+        "regular"
+      ]
+    },
+    {
+      "id": "chill.pl.sostener.1",
+      "slot": "plan",
+      "text": "parejo, sin sustos",
+      "hints": [
+        "sostener"
+      ]
+    },
+    {
+      "id": "chill.pl.sostener.2",
+      "slot": "plan",
+      "text": "así de parejo hasta la cima",
+      "hints": [
+        "sostener"
+      ]
+    },
+    {
+      "id": "chill.pl.apretar.1",
+      "slot": "plan",
+      "text": "suelta lo que te quede",
+      "hints": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "chill.pl.apretar.2",
+      "slot": "plan",
+      "text": "ya no hay que guardar nada",
+      "hints": [
+        "apretar"
+      ]
+    },
+    {
+      "id": "chill.ap.km.1",
+      "slot": "apertura",
+      "text": "quedan {kmRestantes} kilómetros,",
+      "values": [
+        "kmRestantes"
+      ]
+    },
+    {
+      "id": "chill.ci.nombre.1",
+      "slot": "cierre",
+      "text": "tú puedes, {nombre}"
+    },
+    {
+      "id": "chill.ci.nombre.2",
+      "slot": "cierre",
+      "text": "vamos, {nombre}"
+    },
+    {
+      "id": "chill.sc.pinonduro.1",
+      "slot": "secundaria",
+      "text": "baja un piñón, sin miedo",
+      "hints": [
+        "pinonDuro"
+      ]
+    },
+    {
+      "id": "chill.sc.pinonduro.2",
+      "slot": "secundaria",
+      "text": "baja un piñón: {cadencia} de cadencia",
+      "hints": [
+        "pinonDuro"
+      ],
+      "values": [
+        "cadencia"
+      ]
+    }
+  ]
+}

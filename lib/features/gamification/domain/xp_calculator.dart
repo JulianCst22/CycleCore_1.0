@@ -1,4 +1,4 @@
-import 'package:core_database/core_database.dart';
+import '../../../core/database/database.dart';
 import '../../stats/stats.dart';
 
 /// Desglose de cuánta experiencia (XP) aportó una actividad concreta y

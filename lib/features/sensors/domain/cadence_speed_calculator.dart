@@ -102,8 +102,19 @@ class CadenceSpeedCalculator {
   }
 
   void reset() {
+    resetWheel();
+    resetCrank();
+  }
+
+  /// Olvida la referencia de la rueda: la próxima lectura solo vuelve a
+  /// tomarla (tras una parada o una reconexión).
+  void resetWheel() {
     _lastWheelRevolutions = null;
     _lastWheelEventTime = null;
+  }
+
+  /// Olvida la referencia de la biela.
+  void resetCrank() {
     _lastCrankRevolutions = null;
     _lastCrankEventTime = null;
   }

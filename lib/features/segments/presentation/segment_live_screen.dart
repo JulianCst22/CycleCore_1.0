@@ -1,24 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart' as latlng;
 
-import 'package:core_ui/core_ui.dart';
-import '../data/segment_cockpit_layout_repository.dart';
+import '../../../core/geo/geo.dart';
+import '../../../core/ui/ui.dart';
+import '../application/extension_points.dart';
 import '../application/segment_cockpit_layout_providers.dart';
-import 'segment_data_settings_screen.dart';
 import '../application/segment_detection_providers.dart';
 import '../application/segment_live_data_provider.dart';
+import '../data/segment_cockpit_layout_repository.dart';
+import '../domain/segment_cockpit_field.dart';
+import '../domain/segment_cockpit_tile_config.dart';
+import 'segment_data_settings_screen.dart';
 import 'widgets/segment_cockpit_grid.dart';
+import 'widgets/segment_route_header.dart';
 
-/// Pantalla de segmento en vivo (Fase D). Ocupa el lugar del cockpit de
-/// pantalla completa (`CockpitFullscreenView`) en el panel deslizable
-/// del mapa mientras el ciclista está dentro de un segmento vigilado.
+/// Pantalla de segmento en vivo. Ocupa el lugar del cockpit de pantalla
+/// completa (`CockpitFullscreenView`) en el panel deslizable del mapa
+/// mientras el ciclista está dentro de un segmento vigilado.
 ///
-/// **Todo es configurable** desde Perfil → Ajustes → "Datos del
-/// segmento": el mapa con la polilínea, el perfil de altimetría, la
-/// barra de progreso y cada dato numérico son elementos que el usuario
-/// puede poner, quitar, reordenar y redimensionar. Esta pantalla solo
-/// pone la manija de arriba y deja que la grilla haga el resto.
+/// Tres bloques, de arriba abajo y por orden de importancia:
+///  1. dónde vas en el tramo (`SegmentRouteHeader`, siempre visible);
+///  2. qué te pide el coach, en una franja (punto de extensión
+///     `segmentLiveNoticeProvider`);
+///  3. tus datos, los que elegiste en Ajustes → "Datos del segmento".
+///
+/// Antes el mapa, el perfil y la barra de progreso eran recuadros sueltos
+/// de la cuadrícula, y el coach una tarjeta grande con notas al pie: la
+/// pantalla quedaba tan cargada que no se leía pedaleando.
 class SegmentLiveScreen extends ConsumerWidget {
   /// El panel deslizable del mapa pide colapsarse por acá cuando el
   /// usuario arrastra hacia abajo la franja de arriba.
@@ -32,22 +40,60 @@ class SegmentLiveScreen extends ConsumerWidget {
     final data = ref.watch(segmentLiveDataProvider);
 
     if (active == null || data == null) {
-      return const Material(
-        color: AppColors.panelBackground,
-        child: SizedBox.shrink(),
-      );
+      return const Material(color: CcColors.surface, child: SizedBox.shrink());
     }
 
-    final profilePoints = active.profile.points;
-    final pos = active.profile.positionAtDistance(data.alongMeters);
-    final currentLatLng =
-        pos == null ? null : latlng.LatLng(pos.lat, pos.lng);
+    final tiles = [
+      for (final t
+          in ref.watch(segmentCockpitLayoutProvider).valueOrNull ??
+              SegmentCockpitLayoutRepository.defaultTiles)
+        if (!t.field.isVisualBlock) t,
+    ];
+    final notice = ref.watch(segmentLiveNoticeProvider);
 
-    final tiles = ref.watch(segmentCockpitLayoutProvider).valueOrNull ??
-        SegmentCockpitLayoutRepository.defaultTiles;
+    return SegmentLiveView(
+      segmentName: active.segment.name,
+      profilePoints: active.profile.points,
+      data: data,
+      tiles: tiles,
+      notice: notice,
+      onCollapse: onCollapse,
+      onEditData: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SegmentDataSettingsScreen()),
+      ),
+    );
+  }
+}
 
+/// La pantalla de segmento ya con sus datos: sin providers, para que se
+/// pueda dibujar igual en la salida y en una vista previa.
+class SegmentLiveView extends StatelessWidget {
+  final String segmentName;
+  final List<SegmentProfilePoint> profilePoints;
+  final SegmentLiveData data;
+  final List<SegmentCockpitTileConfig> tiles;
+
+  /// La franja del coach (punto de extensión), si la hay.
+  final Widget? notice;
+  final VoidCallback onCollapse;
+  final VoidCallback onEditData;
+
+  const SegmentLiveView({
+    super.key,
+    required this.segmentName,
+    required this.profilePoints,
+    required this.data,
+    required this.tiles,
+    required this.notice,
+    required this.onCollapse,
+    required this.onEditData,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final notice = this.notice;
     return Material(
-      color: AppColors.panelBackground,
+      color: CcColors.surface,
       child: SafeArea(
         child: Column(
           children: [
@@ -59,66 +105,70 @@ class SegmentLiveScreen extends ConsumerWidget {
                 if ((details.primaryVelocity ?? 0) > 200) onCollapse();
               },
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 8, 4),
+                padding: const EdgeInsets.fromLTRB(14, 2, 4, 0),
                 child: Row(
                   children: [
                     Container(
-                      width: 36,
+                      width: 32,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: AppColors.textSecondaryOnPanel
-                            .withValues(alpha: 0.4),
+                        color: CcColors.inkFaint,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                     const SizedBox(width: 12),
+                    const Icon(
+                      Icons.flag,
+                      size: 15,
+                      color: CcColors.segmentActiveTrack,
+                    ),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        active.segment.name,
+                        segmentName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimaryOnPanel,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
+                        style: CcType.label(size: 14, color: CcColors.ink),
                       ),
+                    ),
+                    Text(
+                      formatElapsedShort(data.elapsedInSegment),
+                      style:
+                          CcType.displayStyle(
+                            size: 15,
+                            weight: FontWeight.w700,
+                          ).copyWith(
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                     ),
                     IconButton(
                       icon: const Icon(
                         Icons.tune,
-                        color: AppColors.textSecondaryOnPanel,
+                        color: CcColors.inkDim,
                         size: 20,
                       ),
-                      tooltip: 'Editar qué se ve acá',
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const SegmentDataSettingsScreen(),
-                        ),
-                      ),
+                      tooltip: 'Elegir qué datos se ven',
+                      onPressed: onEditData,
                     ),
                   ],
                 ),
               ),
             ),
-
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+              child: SegmentRouteHeader(points: profilePoints, data: data),
+            ),
+            if (notice != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: notice,
+              ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                 child: tiles.isEmpty
-                    ? _EmptyGridHint(
-                        onEdit: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SegmentDataSettingsScreen(),
-                          ),
-                        ),
-                      )
-                    : SegmentCockpitGrid(
-                        tiles: tiles,
-                        data: data,
-                        profilePoints: profilePoints,
-                        currentPosition: currentLatLng,
-                      ),
+                    ? _EmptyGridHint(onEdit: onEditData)
+                    : SegmentCockpitGrid(tiles: tiles, data: data),
               ),
             ),
           ],
@@ -138,18 +188,12 @@ class _EmptyGridHint extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'No configuraste nada para ver acá.',
-            style: TextStyle(color: AppColors.textSecondaryOnPanel),
+          Text(
+            'No elegiste datos para ver acá.',
+            style: CcType.label(size: 13, color: CcColors.inkDim),
           ),
           const SizedBox(height: 10),
-          TextButton(
-            onPressed: onEdit,
-            child: const Text(
-              'Elegir qué mostrar',
-              style: TextStyle(color: CyclecorePalette.paramo),
-            ),
-          ),
+          TextButton(onPressed: onEdit, child: const Text('Elegir datos')),
         ],
       ),
     );

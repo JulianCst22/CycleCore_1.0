@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/srtm_tile_naming.dart';
-import 'package:core_ui/core_ui.dart';
-import 'package:core_platform/core_platform.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/platform/platform.dart';
 import '../application/elevation_providers.dart';
 
 /// Pantalla de Ajustes > Elevación. Antes la descarga de teselas HGT
@@ -138,7 +138,7 @@ class _CurrentZoneCard extends ConsumerStatefulWidget {
 }
 
 class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
-  static const double _radiusKm = 15;
+  static const double _radiusKm = elevationDownloadRadiusKm;
 
   bool _downloading = false;
   double _progress = 0;
@@ -168,12 +168,22 @@ class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
       _error = null;
     });
     try {
-      await ref.read(elevationRepositoryProvider).downloadTiles(
+      final result = await ref
+          .read(elevationRepositoryProvider)
+          .downloadTiles(
             _missing!,
             onProgress: (p) => setState(() => _progress = p),
           );
       await _loadMissing();
-      if (mounted) setState(() => _downloading = false);
+      if (mounted) {
+        setState(() {
+          _downloading = false;
+          _error = result.ok
+              ? null
+              : 'No se pudieron bajar ${result.failed.join(', ')}: '
+                    '${result.firstError}';
+        });
+      }
     } catch (e) {
       setState(() {
         _downloading = false;
@@ -211,10 +221,11 @@ class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
                 size: 22,
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Elevación de tu zona (radio de 15 km)',
-                  style: TextStyle(
+                  'Elevación de tu zona (radio de '
+                  '${elevationDownloadRadiusKm.round()} km)',
+                  style: const TextStyle(
                     color: AppColors.textPrimaryOnPanel,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,

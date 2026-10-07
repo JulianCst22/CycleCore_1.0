@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 import 'widgets/voice_roster_view.dart';
 
 /// Pantalla para elegir la voz de guía y probarla antes de confirmar. Se

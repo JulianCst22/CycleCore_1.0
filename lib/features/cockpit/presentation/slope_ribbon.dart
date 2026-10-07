@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:core_ui/core_ui.dart';
+import '../../../core/ui/ui.dart';
 
 /// El elemento visual "firma" del cockpit: una cinta horizontal que se
 /// llena y cambia de color en tiempo real según la pendiente actual,

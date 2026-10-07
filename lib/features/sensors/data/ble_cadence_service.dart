@@ -24,28 +24,13 @@ class BleCadenceService
 
   @override
   Future<SensorLink<CyclingSpeedCadenceReading>> connect(String deviceId) =>
-      fbpConnect(deviceId, _watch);
-
-  Stream<CyclingSpeedCadenceReading> _watch(BluetoothDevice device) async* {
-    final services = await device.discoverServices();
-
-    final cscService = services.firstWhere(
-      (s) => s.uuid == _serviceUuid,
-      orElse: () => throw StateError(
-        'Este dispositivo no expone el servicio estándar de velocidad/'
-        'cadencia (0x1816).',
-      ),
-    );
-
-    final measurementCharacteristic = cscService.characteristics.firstWhere(
-      (c) => c.uuid == _measurementCharUuid,
-    );
-
-    await measurementCharacteristic.setNotifyValue(true);
-
-    await for (final rawData in measurementCharacteristic.lastValueStream) {
-      if (rawData.isEmpty) continue;
-      yield parseCyclingSpeedCadenceMeasurement(rawData);
-    }
-  }
+      fbpConnect(
+        deviceId,
+        serviceUuid: _serviceUuid,
+        characteristicUuid: _measurementCharUuid,
+        parse: parseCyclingSpeedCadenceMeasurement,
+        missingServiceMessage:
+            'Este dispositivo no expone el servicio estándar de velocidad/'
+            'cadencia (0x1816).',
+      );
 }
