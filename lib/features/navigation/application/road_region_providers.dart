@@ -89,8 +89,8 @@ class RegionDownloads extends StateNotifier<Map<String, RegionDownload>> {
       final snapshot = await _ref.refresh(regionCatalogProvider.future);
       if (!snapshot.online) {
         throw Exception(
-          'No hay conexión con el servidor. Conecta el celular por USB y '
-          'abre INICIAR SERVIDOR.bat en el PC.',
+          'No se pudo conectar para bajar el mapa. Revisa que tengas '
+          'internet e inténtalo de nuevo.',
         );
       }
       final target = snapshot.catalog.byId(region.id);

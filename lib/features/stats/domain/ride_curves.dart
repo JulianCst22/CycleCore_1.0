@@ -10,13 +10,15 @@ enum CurveKind { power, heartRate }
 
 /// Versión del cálculo de curvas. Si cambia (otras duraciones, otra forma
 /// de armar la serie), las curvas de todas las actividades se recalculan.
-const curveAlgorithmVersion = 2;
+///
+/// 3: de 1 s a 5 h (antes de 5 s a 60 min).
+const curveAlgorithmVersion = 3;
 
 /// Actividad de la que salió un punto de una curva.
 typedef CurveOrigin = ({int activityId, DateTime startedAt, String title});
 
 /// Curvas de una actividad: la mejor potencia y el mejor pulso sostenidos
-/// de 5 s a 60 min.
+/// de 1 s a 5 h.
 final class RideCurves {
   final int movingSeconds;
   final int powerSeconds;

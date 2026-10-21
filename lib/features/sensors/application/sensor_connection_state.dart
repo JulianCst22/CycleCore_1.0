@@ -17,6 +17,11 @@ class SensorConnectionState {
   final List<DiscoveredDevice> discoveredDevices;
   final String? connectedDeviceName;
 
+  /// Id BLE del sensor conectado: sirve para no ofrecer el mismo aparato
+  /// en la lista de otro tipo (un combo o un potenciómetro anuncian
+  /// también el servicio de velocidad/cadencia).
+  final String? connectedDeviceId;
+
   /// Segundos sin señal antes de avisar al usuario que no se ha podido
   /// reconectar. Configurable desde la UI.
   final int reconnectTimeoutSeconds;
@@ -34,6 +39,7 @@ class SensorConnectionState {
     this.status = SensorConnectionStatus.disconnected,
     this.discoveredDevices = const [],
     this.connectedDeviceName,
+    this.connectedDeviceId,
     this.reconnectTimeoutSeconds = 60,
     this.showReconnectAlert = false,
     this.needsWheelSizeSetup = false,
@@ -48,6 +54,7 @@ class SensorConnectionState {
     SensorConnectionStatus? status,
     List<DiscoveredDevice>? discoveredDevices,
     String? connectedDeviceName,
+    String? connectedDeviceId,
     int? reconnectTimeoutSeconds,
     bool? showReconnectAlert,
     bool? needsWheelSizeSetup,
@@ -57,6 +64,7 @@ class SensorConnectionState {
       status: status ?? this.status,
       discoveredDevices: discoveredDevices ?? this.discoveredDevices,
       connectedDeviceName: connectedDeviceName ?? this.connectedDeviceName,
+      connectedDeviceId: connectedDeviceId ?? this.connectedDeviceId,
       reconnectTimeoutSeconds:
           reconnectTimeoutSeconds ?? this.reconnectTimeoutSeconds,
       showReconnectAlert: showReconnectAlert ?? this.showReconnectAlert,

@@ -27,6 +27,9 @@ enum VoiceEventType {
   navigationUTurn,
   navigationArrived,
 
+  /// El ciclista tomó otro camino y la ruta se recalculó sola.
+  navigationRerouted,
+
   // --- Segmentos en vivo (Fase C). Frase FIJA por diseño, igual que
   // el resto del enum: los números ("vas +12 s") van en la pantalla
   // del segmento, no en la voz. ---

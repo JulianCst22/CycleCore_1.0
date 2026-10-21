@@ -160,6 +160,33 @@ class Segments extends Table {
   IntColumn get sourceActivityId => integer().nullable()();
 }
 
+/// Tiempos en un segmento de ANTES de usar la app, medidos sobre un GPX
+/// del ciclista (de su Garmin u otro aparato) al recortar o revisar ese
+/// GPX. Son datos propios: la línea base de "antes y con la app".
+///
+/// No cuelgan de una actividad (la salida del GPX no se guarda en el
+/// historial, solo su tiempo en el segmento).
+class BaselineEfforts extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get segmentId => integer()();
+
+  /// Cuándo terminó ese paso por el segmento.
+  DateTimeColumn get completedAt => dateTime()();
+
+  IntColumn get durationSeconds => integer()();
+  RealColumn get avgSpeedKmh => real()();
+  IntColumn get avgHeartRate => integer().nullable()();
+  IntColumn get avgPower => integer().nullable()();
+
+  /// Curva tiempo-distancia, mismo formato que `SegmentEfforts.splitsJson`.
+  TextColumn get splitsJson => text().withDefault(const Constant('[]'))();
+
+  /// De qué archivo salió (nombre del GPX o de la salida).
+  TextColumn get sourceName => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 /// Un "esfuerzo": cada vez que el usuario completa un segmento activo
 /// dentro de una actividad. Permite comparar contra la mejor marca
 /// propia (equivalente a los "segment efforts" de Strava) y alimentar
@@ -356,6 +383,14 @@ class CoachingAdvices extends Table {
   RealColumn get physicsGapPercent => real().nullable()();
 }
 
+/// Lo mínimo de una actividad para ubicarla sin leer su trazado.
+typedef ActivityRef = ({
+  int id,
+  DateTime startedAt,
+  DateTime endedAt,
+  String title,
+});
+
 /// Una fila de la curva de una actividad junto con los datos de la
 /// actividad que hacen falta para mostrar su origen.
 typedef CurvePointWithActivity = ({
@@ -426,6 +461,7 @@ class Bikes extends Table {
     ActivityCurvePoints,
     CoachingAdvices,
     Bikes,
+    BaselineEfforts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -436,7 +472,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -536,6 +572,17 @@ class AppDatabase extends _$AppDatabase {
       // curvas de todas las actividades, y de paso la mide.
       if (from >= 9 && from < 13) {
         await m.addColumn(activityCurves, activityCurves.climbingCadence);
+      }
+      // Las marcas de antes de la app sacadas de los GPX del ciclista.
+      if (from < 14) {
+        await m.createTable(baselineEfforts);
+      }
+      // La versión 14 traía la subida a Strava (su cola y el id de cada
+      // salida allá). Se quitó: la app no depende de servicios de
+      // terceros. Las actividades quedan intactas.
+      if (from == 14) {
+        await m.deleteTable('strava_uploads');
+        await customStatement('ALTER TABLE activities DROP COLUMN external_id');
       }
     },
   );
@@ -653,6 +700,14 @@ class AppDatabase extends _$AppDatabase {
     )..where((a) => a.id.equals(id))).getSingleOrNull();
   }
 
+  /// La actividad [id] y cada cambio que tenga (editar, reajustar la
+  /// altimetría); `null` si se borró.
+  Stream<Activity?> watchActivityById(int id) {
+    return (select(
+      activities,
+    )..where((a) => a.id.equals(id))).watchSingleOrNull();
+  }
+
   Future<int> insertActivity(ActivitiesCompanion entry) {
     return into(activities).insert(entry);
   }
@@ -667,6 +722,32 @@ class AppDatabase extends _$AppDatabase {
               ..limit(1))
             .getSingleOrNull();
     return match != null;
+  }
+
+  /// Lo básico de cada actividad, sin el trazado (que es lo pesado):
+  /// cuándo fue y cómo se llama. Lo usa la comparativa con y sin la
+  /// app.
+  Stream<List<ActivityRef>> watchActivityRefs() => _activityRefsQuery().watch();
+
+  Future<List<ActivityRef>> getActivityRefs() => _activityRefsQuery().get();
+
+  Selectable<ActivityRef> _activityRefsQuery() {
+    final query = selectOnly(activities)
+      ..addColumns([
+        activities.id,
+        activities.startedAt,
+        activities.endedAt,
+        activities.title,
+      ])
+      ..orderBy([OrderingTerm.asc(activities.startedAt)]);
+    return query.map(
+      (r) => (
+        id: r.read(activities.id)!,
+        startedAt: r.read(activities.startedAt)!,
+        endedAt: r.read(activities.endedAt)!,
+        title: r.read(activities.title)!,
+      ),
+    );
   }
 
   /// Borra la actividad junto con sus curvas y los avisos del coach que
@@ -771,19 +852,16 @@ class AppDatabase extends _$AppDatabase {
     if (since != null) {
       filter = filter & activities.startedAt.isBiggerOrEqualValue(since);
     }
-    final query =
-        select(activityCurves).join([
-            innerJoin(
-              activities,
-              activities.id.equalsExp(activityCurves.activityId),
-              useColumns: false,
-            ),
-          ])
-          ..where(filter);
+    final query = select(activityCurves).join([
+      innerJoin(
+        activities,
+        activities.id.equalsExp(activityCurves.activityId),
+        useColumns: false,
+      ),
+    ])..where(filter);
     return query.watch().map(
       (rows) => [
-        for (final row in rows)
-          ?row.readTable(activityCurves).climbingCadence,
+        for (final row in rows) ?row.readTable(activityCurves).climbingCadence,
       ],
     );
   }
@@ -972,8 +1050,15 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Borra el segmento y sus marcas de antes de la app (sin el segmento
+  /// no tienen con qué compararse).
   Future<void> deleteSegment(int id) {
-    return (delete(segments)..where((s) => s.id.equals(id))).go();
+    return transaction(() async {
+      await (delete(
+        baselineEfforts,
+      )..where((e) => e.segmentId.equals(id))).go();
+      await (delete(segments)..where((s) => s.id.equals(id))).go();
+    });
   }
 
   // ---------------------------------------------------------------
@@ -1035,6 +1120,47 @@ class AppDatabase extends _$AppDatabase {
     return (select(
       segmentEfforts,
     )..where((e) => e.activityId.equals(activityId))).get();
+  }
+
+  // ---------------------------------------------------------------
+  // Marcas de antes de la app (de los GPX del ciclista)
+  // ---------------------------------------------------------------
+
+  Future<int> insertBaselineEffort(BaselineEffortsCompanion entry) {
+    return into(baselineEfforts).insert(entry);
+  }
+
+  Future<List<BaselineEffort>> getBaselineEfforts(int segmentId) {
+    return (select(baselineEfforts)
+          ..where((e) => e.segmentId.equals(segmentId))
+          ..orderBy([(e) => OrderingTerm.asc(e.completedAt)]))
+        .get();
+  }
+
+  Stream<List<BaselineEffort>> watchAllBaselineEfforts() {
+    return (select(
+      baselineEfforts,
+    )..orderBy([(e) => OrderingTerm.asc(e.completedAt)])).watch();
+  }
+
+  Future<void> deleteBaselineEffort(int id) {
+    return (delete(baselineEfforts)..where((e) => e.id.equals(id))).go();
+  }
+
+  /// Para cada salida, en qué segmentos habló el coach -- lo que separa
+  /// un esfuerzo "con coach" de uno solo con la app.
+  Stream<Set<(DateTime, int)>> watchCoachedSegmentRides() {
+    final query = selectOnly(coachingAdvices, distinct: true)
+      ..addColumns([coachingAdvices.rideStartedAt, coachingAdvices.segmentId]);
+    return query.watch().map(
+      (rows) => {
+        for (final r in rows)
+          (
+            r.read(coachingAdvices.rideStartedAt)!,
+            r.read(coachingAdvices.segmentId)!,
+          ),
+      },
+    );
   }
 
   // ---------------------------------------------------------------

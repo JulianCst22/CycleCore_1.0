@@ -24,6 +24,7 @@ export 'domain/profile_stats.dart';
 export 'domain/ride_curves.dart'
     show CurveKind, CurveOrigin, RideCurves, originOf;
 export 'presentation/widgets/activity_type_breakdown_bar.dart';
+export 'presentation/widgets/best_efforts_table.dart';
 export 'presentation/widgets/mean_max_curve_chart.dart';
 export 'presentation/widgets/period_selector.dart';
 export 'presentation/widgets/stats_trend_chart.dart';

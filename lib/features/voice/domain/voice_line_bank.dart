@@ -78,6 +78,11 @@ final Map<String, Map<VoiceEventType, List<String>>> kVoiceLineBank = {
       'Destino alcanzado. Excelente recorrido.',
       'Has llegado. ¡Ruta completada!',
     ],
+    VoiceEventType.navigationRerouted: [
+      'Recalculando. Seguimos por aquí.',
+      'Nueva ruta lista. Dale.',
+      'Cambiamos de camino. Sigue las indicaciones.',
+    ],
     VoiceEventType.segmentEntered: [
       'Entraste al segmento. Dale con todo.',
       'Segmento en marcha. Ahora es cuando.',
@@ -170,6 +175,11 @@ final Map<String, Map<VoiceEventType, List<String>>> kVoiceLineBank = {
       'Llegamos. Disfruta el momento.',
       'Destino alcanzado. Buen recorrido.',
       'Ya llegamos. Todo tranquilo.',
+    ],
+    VoiceEventType.navigationRerouted: [
+      'Tranquilo, tomamos otro camino.',
+      'Ruta nueva. Sigue a tu ritmo.',
+      'Recalculé la ruta. Todo bien.',
     ],
     VoiceEventType.segmentEntered: [
       'Empezó el segmento. A tu ritmo.',
@@ -264,6 +274,11 @@ final Map<String, Map<VoiceEventType, List<String>>> kVoiceLineBank = {
       'Ha llegado al destino.',
       'Navegación finalizada. Destino alcanzado.',
     ],
+    VoiceEventType.navigationRerouted: [
+      'Ruta recalculada.',
+      'Recalculando la ruta.',
+      'Nueva ruta calculada.',
+    ],
     VoiceEventType.segmentEntered: [
       'Segmento iniciado. Registrando tiempo.',
       'Entrada al segmento confirmada.',
@@ -356,6 +371,11 @@ final Map<String, Map<VoiceEventType, List<String>>> kVoiceLineBank = {
       'Has llegado. Tómate un momento.',
       'El camino termina aquí. Bien hecho.',
       'Destino alcanzado. A recuperar con calma.',
+    ],
+    VoiceEventType.navigationRerouted: [
+      'Otro camino también llega. Ruta nueva.',
+      'Recalculamos con calma.',
+      'El camino cambió. Sigue respirando.',
     ],
     VoiceEventType.segmentEntered: [
       'Comienza el segmento. A tu ritmo, sin agobios.',
@@ -451,6 +471,11 @@ final Map<String, Map<VoiceEventType, List<String>>> kVoiceLineBank = {
       'Llegamos a meta. Bien hecho.',
       'Destino alcanzado. Buen recorrido.',
       'Fin de ruta. Trabajo completado.',
+    ],
+    VoiceEventType.navigationRerouted: [
+      'Cambio de ruta. Te guío por aquí.',
+      'Recalculado. Sigue mis indicaciones.',
+      'Nueva ruta, mismo destino.',
     ],
     VoiceEventType.segmentEntered: [
       'Empieza el segmento. A tope pero con cabeza.',

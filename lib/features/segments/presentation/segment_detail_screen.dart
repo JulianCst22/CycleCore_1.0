@@ -6,6 +6,7 @@ import '../../../core/ui/ui.dart';
 import '../domain/segment_source.dart';
 import '../application/segments_providers.dart';
 import 'widgets/segment_altitude_profile.dart';
+import 'widgets/segment_comparison_sections.dart';
 import 'widgets/segment_mini_map.dart';
 import 'widgets/segment_progress_chart.dart';
 import '../domain/segment_profile_access.dart';
@@ -165,6 +166,7 @@ class _SegmentDetailBody extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _BestEffortCard(effort: best),
               ],
+              SegmentComparisonSections(segmentId: segment.id),
               const SizedBox(height: 20),
               const _SectionLabel('Perfil de altimetría'),
               const SizedBox(height: 8),

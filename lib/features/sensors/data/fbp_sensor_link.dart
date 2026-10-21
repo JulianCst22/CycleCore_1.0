@@ -20,25 +20,68 @@ const _connectTimeout = Duration(seconds: 15);
 /// en el escaneo (en vez de mostrar todo y filtrar después) evita
 /// saturar al usuario con audífonos, parlantes y demás. [fallbackName]
 /// se usa cuando el dispositivo no anuncia nombre.
+///
+/// `FlutterBluePlus.scanResults` es un stream global que repite la lista
+/// del escaneo anterior a quien se suscribe. Por eso se espera a que el
+/// escaneo nuevo arranque, se escucha `onScanResults` (no repite) y cada
+/// resultado se vuelve a filtrar por [serviceUuid]: si no, la lista de
+/// pulso mostraba los sensores de velocidad que se habían buscado antes.
+/// El stream se cierra cuando el escaneo termina (por [timeout] o porque
+/// otro escaneo lo reemplazó).
 Stream<List<DiscoveredDevice>> fbpScanForService(
   Guid serviceUuid,
   String fallbackName, {
   Duration timeout = const Duration(seconds: 12),
 }) {
-  FlutterBluePlus.startScan(withServices: [serviceUuid], timeout: timeout);
-  return FlutterBluePlus.scanResults.map(
-    (results) => results
-        .map(
-          (r) => DiscoveredDevice(
-            id: r.device.remoteId.str,
-            name: r.device.platformName.isNotEmpty
-                ? r.device.platformName
-                : fallbackName,
-            rssi: r.rssi,
-          ),
-        )
-        .toList(),
+  StreamSubscription<List<ScanResult>>? resultsSub;
+  StreamSubscription<bool>? scanningSub;
+  late final StreamController<List<DiscoveredDevice>> out;
+
+  Future<void> start() async {
+    try {
+      await FlutterBluePlus.startScan(
+        withServices: [serviceUuid],
+        timeout: timeout,
+      );
+    } catch (e, st) {
+      final off =
+          FlutterBluePlus.adapterStateNow != BluetoothAdapterState.on &&
+          FlutterBluePlus.adapterStateNow != BluetoothAdapterState.unknown;
+      out.addError(
+        off ? StateError('Activa el Bluetooth para buscar sensores.') : e,
+        st,
+      );
+      await out.close();
+      return;
+    }
+    if (out.isClosed) return;
+    resultsSub = FlutterBluePlus.onScanResults.listen((results) {
+      if (out.isClosed) return;
+      out.add([
+        for (final r in results)
+          if (r.advertisementData.serviceUuids.contains(serviceUuid))
+            DiscoveredDevice(
+              id: r.device.remoteId.str,
+              name: r.device.platformName.isNotEmpty
+                  ? r.device.platformName
+                  : fallbackName,
+              rssi: r.rssi,
+            ),
+      ]);
+    }, onError: out.addError);
+    scanningSub = FlutterBluePlus.isScanning
+        .where((scanning) => !scanning)
+        .listen((_) => out.close());
+  }
+
+  out = StreamController<List<DiscoveredDevice>>(
+    onListen: () => unawaited(start()),
+    onCancel: () async {
+      await resultsSub?.cancel();
+      await scanningSub?.cancel();
+    },
   );
+  return out.stream;
 }
 
 Future<void> fbpStopScan() => FlutterBluePlus.stopScan();
@@ -49,32 +92,64 @@ Future<void> fbpStopScan() => FlutterBluePlus.stopScan();
 ///
 /// Si el dispositivo no expone ese servicio se desconecta y se lanza un
 /// [StateError] con [missingServiceMessage], para que la pantalla de
-/// sensores lo muestre.
+/// sensores lo muestre. [verify] permite revisar algo más del sensor
+/// antes de darlo por bueno (p. ej. que un sensor CSC mida la rueda y
+/// no sólo la biela); recibe una función que lee una característica del
+/// mismo servicio y devuelve `null` si no existe. Si lanza, el sensor se
+/// desconecta y el error llega a la pantalla.
 Future<SensorLink<R>> fbpConnect<R>(
   String deviceId, {
   required Guid serviceUuid,
   required Guid characteristicUuid,
   required R Function(List<int> data) parse,
   required String missingServiceMessage,
+  Future<void> Function(Future<List<int>?> Function(Guid uuid) read)? verify,
 }) async {
   final device = BluetoothDevice.fromId(deviceId);
-  await device.connect(autoConnect: false, mtu: null, timeout: _connectTimeout);
-  final link = _FbpSensorLink<R>(
-    device,
-    serviceUuid: serviceUuid,
-    characteristicUuid: characteristicUuid,
-    parse: parse,
-    missingServiceMessage: missingServiceMessage,
-  );
-  try {
-    await link.subscribe();
-  } catch (_) {
-    await link.disconnect();
-    rethrow;
+  for (var attempt = 1; ; attempt++) {
+    await device.connect(
+      autoConnect: false,
+      mtu: null,
+      timeout: _connectTimeout,
+    );
+    final link = _FbpSensorLink<R>(
+      device,
+      serviceUuid: serviceUuid,
+      characteristicUuid: characteristicUuid,
+      parse: parse,
+      missingServiceMessage: missingServiceMessage,
+    );
+    try {
+      await link.subscribe();
+      if (verify != null) await verify(link.readCharacteristic);
+    } on FlutterBluePlusException {
+      // El sensor se cayó mientras se configuraba (en Android, el famoso
+      // GATT 133; 2026-10-18 una Polar H7 dejó de contestar al pedirle
+      // las notificaciones). Suele bastar con soltarlo y volver a
+      // intentar una vez tras una pausa corta.
+      await link.disconnect();
+      if (attempt < _setupAttempts) {
+        await Future<void>.delayed(_setupRetryPause);
+        continue;
+      }
+      throw StateError(
+        'El sensor se desconectó mientras se configuraba. Revisa que esté '
+        'cerca, encendido y con batería (una banda de pulso necesita '
+        'estar húmeda y bien ajustada) y vuelve a intentar.',
+      );
+    } catch (_) {
+      await link.disconnect();
+      rethrow;
+    }
+    link.watchConnection();
+    return link;
   }
-  link.watchConnection();
-  return link;
 }
+
+/// Intentos de configurar el sensor (descubrir servicios y pedir las
+/// notificaciones) antes de rendirse, y la pausa entre ellos.
+const _setupAttempts = 2;
+const _setupRetryPause = Duration(seconds: 1);
 
 /// Enlace con un sensor ya conectado.
 ///
@@ -142,6 +217,23 @@ class _FbpSensorLink<R> implements SensorLink<R> {
     } finally {
       _subscribing = false;
     }
+  }
+
+  /// Lee una característica del servicio del sensor (ya descubierto en
+  /// [subscribe]). `null` si no existe o no se pudo leer.
+  Future<List<int>?> readCharacteristic(Guid uuid) async {
+    for (final service in _device.servicesList) {
+      if (service.uuid != serviceUuid) continue;
+      for (final c in service.characteristics) {
+        if (c.uuid != uuid) continue;
+        try {
+          return await c.read();
+        } on Object {
+          return null;
+        }
+      }
+    }
+    return null;
   }
 
   void _onRaw(List<int> raw) {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlng;
@@ -82,6 +83,18 @@ class _RideScreenState extends ConsumerState<RideScreen>
   /// (recentrar, brújula) tampoco tienen sentido flotando sobre un
   /// panel que tapa el mapa por completo.
   bool _isCockpitExpanded = false;
+
+  /// Desde cuándo está en curso el arranque que empezó con «Grabar» (hoja
+  /// del coach, teselas, permisos, espera del GPS): mientras tanto el
+  /// botón muestra que está trabajando y no abre otra hoja. Pasado
+  /// [_startStaleAfter] se da por colgado y se puede volver a tocar.
+  DateTime? _startingSince;
+  static const _startStaleAfter = Duration(seconds: 30);
+
+  bool get _isStarting {
+    final since = _startingSince;
+    return since != null && DateTime.now().difference(since) < _startStaleAfter;
+  }
 
   // --- Animación del marcador entre puntos GPS reales ("efecto Waze") ---
   //
@@ -284,6 +297,10 @@ class _RideScreenState extends ConsumerState<RideScreen>
     final hasNavigationData =
         ref.watch(hasNavigationDataProvider).valueOrNull ?? false;
     final activeNavigationRoute = ref.watch(activeNavigationRouteProvider);
+    // Avance sobre la ruta: recorta lo recorrido y, al salirse, la
+    // recalcula. Se mira siempre (no solo con el banner a la vista) para
+    // que siga corriendo dentro de un segmento.
+    final navigationProgress = ref.watch(navigationProgressProvider).progress;
     final activeNavigationTarget = ref.watch(activeNavigationTargetProvider);
     final routePreview = ref.watch(routePreviewProvider);
     final routeComputing = ref.watch(routeComputingProvider);
@@ -503,7 +520,10 @@ class _RideScreenState extends ConsumerState<RideScreen>
                     // ruta en preview (esperando confirmación) se dibuja
                     // esa, más tenue; si ya se activó, la activa.
                     if (activeNavigationRoute != null)
-                      ...buildNavigationRouteLayers(activeNavigationRoute)
+                      ...buildNavigationRouteLayers(
+                        activeNavigationRoute,
+                        progress: navigationProgress,
+                      )
                     else if (routePreview != null)
                       ...buildNavigationRouteLayers(
                         routePreview.route,
@@ -675,45 +695,81 @@ class _RideScreenState extends ConsumerState<RideScreen>
                       liveData: liveData,
                       isRecording: recordingState.isRecording,
                       isPaused: recordingState.isPaused,
+                      isStarting: _isStarting || recordingState.isAcquiringGps,
                       onStartPressed: () async {
-                        // La bitácora de sensores se limpia sola cuando
-                        // `routeRecordingProvider` pasa a isRecording:true
-                        // (ver rideSensorLogProvider).
-                        //
-                        // Una grabación nueva abre un diario nuevo y borra
-                        // el anterior: si quedó una sin guardar (p. ej. se
-                        // salió de "Guardar actividad" con atrás), primero
-                        // se ofrece recuperarla.
-                        if (await _offerRecordingRecovery()) return;
-                        // Lo que el coach recomienda para hoy (sensores,
-                        // modo, cada cuánto habla), para ajustarlo antes
-                        // de arrancar. Cerrarla sin «Grabar» no graba.
-                        if (!context.mounted) return;
-                        if (!await confirmCoachSetup(context, ref)) return;
+                        // Mientras ya está arrancando, un segundo toque no
+                        // abre otra hoja ni arranca otra grabación encima.
+                        if (_isStarting || recordingState.isAcquiringGps) {
+                          return;
+                        }
+                        // TEMPORAL: las trazas `[grabar]` salen en el log
+                        // de Android incluso en la build release; sirven
+                        // para ver en qué paso se detiene el arranque.
+                        debugPrint('[grabar] toque en Grabar');
+                        setState(() => _startingSince = DateTime.now());
                         try {
+                          // La bitácora de sensores se limpia sola cuando
+                          // `routeRecordingProvider` pasa a isRecording:true
+                          // (ver rideSensorLogProvider).
+                          //
+                          // Una grabación nueva abre un diario nuevo y borra
+                          // el anterior: si quedó una sin guardar (p. ej. se
+                          // salió de "Guardar actividad" con atrás), primero
+                          // se ofrece recuperarla.
+                          if (await _offerRecordingRecovery()) {
+                            debugPrint('[grabar] había una sin guardar');
+                            return;
+                          }
+                          // Lo que el coach recomienda para hoy (sensores,
+                          // modo, cada cuánto habla), para ajustarlo antes
+                          // de arrancar. Cerrarla sin «Grabar» no graba.
+                          if (!context.mounted) return;
+                          debugPrint('[grabar] hoja del coach');
+                          if (!await confirmCoachSetup(context, ref)) {
+                            debugPrint('[grabar] hoja cerrada sin grabar');
+                            return;
+                          }
                           // Se recalcula ahora: lo descargado (o la
                           // posición) pudo cambiar desde que se abrió la
                           // app.
-                          final missingTiles = await ref.refresh(
-                            missingElevationTilesProvider.future,
-                          );
+                          // Con tope: es solo para ofrecer descargas, y si
+                          // la base está ocupada tardaba hasta 3 s sin que
+                          // en pantalla pasara nada.
+                          debugPrint('[grabar] teselas de elevación');
+                          final missingTiles = await ref
+                              .refresh(missingElevationTilesProvider.future)
+                              .timeout(
+                                const Duration(seconds: 2),
+                                onTimeout: () => const [],
+                              );
                           if (missingTiles.isNotEmpty && context.mounted) {
                             await showElevationDownloadDialog(
                               context,
                               missingTiles,
                             );
                           }
+                          debugPrint('[grabar] arrancando');
                           await recordingController.startRecording();
+                          debugPrint('[grabar] grabando');
                           // Voz: la actividad acaba de arrancar.
                           ref
                               .read(voiceSettingsProvider.notifier)
                               .speak(VoiceEventType.activityStarted);
                         } catch (e) {
+                          // Antes un error al ofrecer la recuperación
+                          // quedaba sin mostrar: el botón no hacía nada.
+                          debugPrint('[grabar] falló: $e');
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString())),
+                              SnackBar(
+                                content: Text(
+                                  'No se pudo iniciar la actividad: $e',
+                                ),
+                              ),
                             );
                           }
+                        } finally {
+                          if (mounted) setState(() => _startingSince = null);
                         }
                       },
                       onPauseResumePressed: () {
@@ -747,6 +803,17 @@ class _RideScreenState extends ConsumerState<RideScreen>
                             liveData: liveData,
                             onSwipeDown: () =>
                                 _slidingPanelKey.currentState?.collapse(),
+                            onOpenSensors: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const SensorsScreen(),
+                              ),
+                            ),
+                            sensorsSummary: _sensorsSummary(
+                              ref.watch(sensorsHubProvider),
+                            ),
+                            sensorsWarning: ref
+                                .watch(sensorsHubProvider)
+                                .anyReconnecting,
                           ),
                   ),
                 ),
@@ -1400,6 +1467,9 @@ class _CompactCockpitPanel extends StatelessWidget {
   final CockpitLiveData liveData;
   final bool isRecording;
   final bool isPaused;
+
+  /// «Grabar» ya se tocó y se está preparando: el botón lo muestra.
+  final bool isStarting;
   final VoidCallback onStartPressed;
   final VoidCallback onPauseResumePressed;
   final VoidCallback onFinishPressed;
@@ -1408,6 +1478,7 @@ class _CompactCockpitPanel extends StatelessWidget {
     required this.liveData,
     required this.isRecording,
     required this.isPaused,
+    required this.isStarting,
     required this.onStartPressed,
     required this.onPauseResumePressed,
     required this.onFinishPressed,
@@ -1527,6 +1598,7 @@ class _CompactCockpitPanel extends StatelessWidget {
                       backgroundColor: AppColors.recordButtonInactive,
                       onTap: onStartPressed,
                       size: 64,
+                      busy: isStarting,
                     ),
             ),
           ],
@@ -1536,39 +1608,78 @@ class _CompactCockpitPanel extends StatelessWidget {
   }
 }
 
-class _CircleActionButton extends StatelessWidget {
+/// Botón redondo de Grabar / Pausa / Terminar. Se hunde apenas el dedo
+/// lo toca: antes no reaccionaba hasta que la acción terminaba y parecía
+/// que el toque no había llegado. Con [busy] muestra que está trabajando.
+class _CircleActionButton extends StatefulWidget {
   final IconData icon;
   final Color backgroundColor;
   final VoidCallback onTap;
   final double size;
+  final bool busy;
 
   const _CircleActionButton({
     required this.icon,
     required this.backgroundColor,
     required this.onTap,
     required this.size,
+    this.busy = false,
   });
 
   @override
+  State<_CircleActionButton> createState() => _CircleActionButtonState();
+}
+
+class _CircleActionButtonState extends State<_CircleActionButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final size = widget.size;
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: backgroundColor,
-          border: Border.all(color: AppColors.panelBackground, width: 4),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black45,
-              blurRadius: 10,
-              offset: Offset(0, 3),
-            ),
-          ],
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      onTap: widget.busy
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              widget.onTap();
+            },
+      child: AnimatedScale(
+        scale: _pressed ? 0.9 : 1,
+        duration: const Duration(milliseconds: 90),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _pressed
+                ? Color.lerp(widget.backgroundColor, Colors.black, 0.18)
+                : widget.backgroundColor,
+            border: Border.all(color: AppColors.panelBackground, width: 4),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black45,
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: widget.busy
+              ? Padding(
+                  padding: EdgeInsets.all(size * 0.28),
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                )
+              : Icon(widget.icon, color: Colors.white, size: size * 0.42),
         ),
-        child: Icon(icon, color: Colors.white, size: size * 0.42),
       ),
     );
   }
@@ -1604,4 +1715,12 @@ class _PulsingDotState extends State<_PulsingDot>
       ),
     );
   }
+}
+
+/// "2 de 4 conectados" para el menú del cockpit.
+String _sensorsSummary(SensorsHubSnapshot hub) {
+  if (hub.anyReconnecting) return 'Uno se está reconectando';
+  final n = hub.connectedCount;
+  if (n == 0) return 'Ninguno conectado · toca para conectar';
+  return '$n de ${hub.total} conectados';
 }

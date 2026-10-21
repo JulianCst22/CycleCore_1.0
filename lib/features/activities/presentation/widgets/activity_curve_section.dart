@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/physiology/physiology.dart';
 import '../../../../core/ui/ui.dart';
+import '../../../profile/profile.dart';
 import '../../../stats/stats.dart';
 
 /// «Curva de esta salida»: la mejor media de cada duración en esta
-/// actividad, encima de la mejor de siempre. Los puntos donde esta salida
-/// es la marca van en dorado.
+/// actividad, encima de la mejor de siempre, y debajo la tabla de mejores
+/// valores (de 1 s a 5 h, como la de Garmin). Los puntos donde esta
+/// salida es la marca van en dorado.
 class ActivityCurveSection extends ConsumerStatefulWidget {
   final int activityId;
   final bool hasPower;
@@ -41,11 +43,14 @@ class _ActivityCurveSectionState extends ConsumerState<ActivityCurveSection> {
 
     final curves = ref.watch(activityCurvesProvider(widget.activityId));
     final best =
-        ref.watch(bestCurveProvider((kind: _kind, since: null, until: null))).valueOrNull ??
+        ref
+            .watch(bestCurveProvider((kind: _kind, since: null, until: null)))
+            .valueOrNull ??
         const MeanMaxCurve.empty();
     final curve = curves.valueOrNull?[_kind];
     final isPower = _kind == CurveKind.power;
     final color = isPower ? CcColors.mPower : CcColors.mHeartRate;
+    final weightKg = ref.watch(profileProvider).valueOrNull?.weightKg;
     final records = <int>{
       if (curve != null)
         for (final d in curve.points.keys)
@@ -115,6 +120,19 @@ class _ActivityCurveSectionState extends ConsumerState<ActivityCurveSection> {
           ),
           const SizedBox(height: 8),
           _Legend(color: color, hasRecords: records.isNotEmpty),
+          const SizedBox(height: 16),
+          BestEffortsTable(
+            curve: curve,
+            curveLabel: 'Esta salida',
+            comparison: best.isEmpty ? null : best,
+            comparisonLabel: 'Tu mejor',
+            unit: isPower ? 'W' : 'ppm',
+            color: color,
+            highlighted: records,
+            selected: _selected,
+            onSelect: (d) => setState(() => _selected = d),
+            weightKg: weightKg,
+          ),
         ],
       ],
     );

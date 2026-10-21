@@ -290,8 +290,14 @@ class SegmentDetector {
       );
     }
 
+    // Un split nuevo cada [minSplitAdvanceMeters] desde el ÚLTIMO SPLIT,
+    // no desde el punto anterior: subiendo a menos de 18 km/h con GPS a
+    // 1 Hz se avanzan menos de 5 m por punto, y comparando contra el
+    // punto anterior la curva quedaba casi vacía (el fantasma iba a
+    // ritmo parejo).
     final splits = List<SplitPoint>.of(run.splits);
-    if (proj.alongMeters > run.alongMeters + minSplitAdvanceMeters) {
+    final lastSplit = splits.isEmpty ? 0.0 : splits.last.distanceMeters;
+    if (proj.alongMeters > lastSplit + minSplitAdvanceMeters) {
       splits.add(SplitPoint(proj.alongMeters, secondsSinceEnter));
     }
 

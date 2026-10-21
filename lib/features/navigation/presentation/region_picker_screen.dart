@@ -160,15 +160,13 @@ class _NoServer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'La lista de mapas la manda el servidor',
+            'La lista de mapas se baja de internet',
             style: CcType.displayStyle(size: 16),
           ),
           const SizedBox(height: 8),
           Text(
-            '1. Conecta el celular al PC por USB.\n'
-            '2. Abre INICIAR SERVIDOR.bat (carpeta «Servidor CycleCore» del '
-            'escritorio) y espera «Celular conectado».\n'
-            '3. Toca «Buscar de nuevo» o desliza la lista hacia abajo.',
+            '1. Revisa que tengas datos o wifi.\n'
+            '2. Toca «Buscar de nuevo» o desliza la lista hacia abajo.',
             style: CcType.label(
               size: 12.5,
               color: CcColors.inkDim,

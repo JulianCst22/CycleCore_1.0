@@ -26,61 +26,30 @@ import 'widgets/activity_zones_section.dart';
 import 'widgets/photo_viewer_screen.dart';
 import '../../../core/platform/platform.dart' show CachedTileProvider;
 
-class ActivityDetailScreen extends ConsumerStatefulWidget {
+class ActivityDetailScreen extends ConsumerWidget {
   final int activityId;
 
   const ActivityDetailScreen({super.key, required this.activityId});
 
+  // La actividad se escucha en la base de datos (no se lee una sola
+  // vez): al volver de "Editar" o de "Ajustar altimetría" el mapa, el
+  // perfil, la altitud y el desnivel ya muestran lo nuevo.
   @override
-  ConsumerState<ActivityDetailScreen> createState() =>
-      _ActivityDetailScreenState();
-}
-
-class _ActivityDetailScreenState extends ConsumerState<ActivityDetailScreen> {
-  late Future<Activity?> _activityFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _reload();
-  }
-
-  // Vuelve a pedir la actividad a la base de datos. Se llama al volver
-  // de editar, para que los cambios se reflejen sin salir de la
-  // pantalla de detalle.
-  void _reload() {
-    final database = ref.read(appDatabaseProvider);
-    _activityFuture = database.getActivityById(widget.activityId);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activityAsync = ref.watch(activityByIdProvider(activityId));
     return Scaffold(
-      body: FutureBuilder<Activity?>(
-        future: _activityFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
-          }
-
-          final activity = snapshot.data;
-          if (activity == null) {
-            return const Center(
-              child: Text(
-                'Esta actividad ya no existe.',
-                style: TextStyle(color: AppColors.textSecondaryOnPanel),
-              ),
-            );
-          }
-
-          return _ActivityDetailBody(
-            activity: activity,
-            onEdited: () => setState(_reload),
-          );
-        },
-      ),
+      body: switch (activityAsync) {
+        AsyncValue(:final value?) => _ActivityDetailBody(activity: value),
+        AsyncValue(hasValue: true) || AsyncError() => const Center(
+          child: Text(
+            'Esta actividad ya no existe.',
+            style: TextStyle(color: AppColors.textSecondaryOnPanel),
+          ),
+        ),
+        _ => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      },
     );
   }
 }
@@ -116,9 +85,8 @@ class _DerivedStats {
 
 class _ActivityDetailBody extends ConsumerWidget {
   final Activity activity;
-  final VoidCallback onEdited;
 
-  const _ActivityDetailBody({required this.activity, required this.onEdited});
+  const _ActivityDetailBody({required this.activity});
 
   Future<void> _edit(BuildContext context) async {
     final result = await Navigator.of(context).push<Object?>(
@@ -130,8 +98,6 @@ class _ActivityDetailBody extends ConsumerWidget {
     if (result == 'deleted') {
       // La actividad ya no existe -- cerramos también el detalle.
       Navigator.of(context).pop();
-    } else if (result == true) {
-      onEdited();
     }
   }
 

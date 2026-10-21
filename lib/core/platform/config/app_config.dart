@@ -3,29 +3,30 @@
 class AppConfig {
   AppConfig._();
 
-  /// Base donde viven las teselas de elevación (.hgt) que TÚ subiste a tu
-  /// cloud (bucket S3, R2, Backblaze, etc.) -- el celular NUNCA llama a
-  /// NASA directamente, ni conoce que NASA existe. Solo habla con esta URL.
+  /// Dónde viven los archivos que la app descarga: el release `mapas-v1`
+  /// del repositorio público `cyclecore-mapas` en GitHub (ver
+  /// https://github.com/JulianCst22/cyclecore-mapas/releases). Un release
+  /// no tiene carpetas: teselas de elevación (`N04W074.hgt`), mapas por
+  /// región (`regiones.json` + `<región>.roadgraph.gz`) y catálogo de
+  /// segmentos (`catalog.json` + un `.gpx` por segmento) van todos
+  /// sueltos en la misma dirección. Para publicar mapas nuevos se crea
+  /// otro release (`mapas-v2`) y se cambia esta constante.
   ///
-  /// TODO: reemplazar por la URL real de tu bucket cuando subas las
-  /// teselas manualmente. Ej: 'https://tu-bucket.s3.amazonaws.com/elevation-tiles'
-  static const String elevationTilesBaseUrl = 'http://localhost:8000';
+  /// El celular nunca habla con NASA ni con OpenStreetMap para esto: solo
+  /// con esta dirección. Las descargas de GitHub redirigen a su CDN; el
+  /// cliente `http` sigue esas redirecciones solo.
+  static const String filesBaseUrl =
+      'https://github.com/JulianCst22/cyclecore-mapas/releases/download/mapas-v1';
 
-  /// Base donde viven los mapas de navegación por región: el catálogo
-  /// `regiones.json` y un `<región>.roadgraph.gz` por departamento. Los
-  /// genera y los sirve la carpeta "Servidor CycleCore" del escritorio
-  /// (GENERAR MAPAS.bat / INICIAR SERVIDOR.bat), en la ruta `/grafos`
-  /// del mismo servidor que las teselas. Para pasarlos a la nube basta
-  /// con subir esa carpeta `grafos` al bucket y cambiar esta dirección.
-  static const String roadRegionsBaseUrl = 'http://localhost:8000/grafos';
+  /// Teselas de elevación (.hgt).
+  static const String elevationTilesBaseUrl = filesBaseUrl;
 
-  /// Base donde viven los segmentos "nativos" de la app: un
-  /// `catalog.json` con la lista y un `.gpx` por segmento (altitud
-  /// barométrica de un ciclocomputador). Mismo espíritu que las dos
-  /// URLs de arriba -- el celular solo habla con TU bucket. Ver
-  /// `SegmentCatalogRepository`.
-  ///
-  /// TODO: reemplazar por la URL real de tu bucket.
-  /// Ej: 'https://tu-bucket.s3.amazonaws.com/segments'
-  static const String segmentCatalogBaseUrl = 'http://localhost:8000';
+  /// Mapas de navegación por región: `regiones.json` y un
+  /// `<región>.roadgraph.gz` por departamento. Los genera la carpeta
+  /// "Servidor CycleCore" del escritorio (GENERAR MAPAS.bat).
+  static const String roadRegionsBaseUrl = filesBaseUrl;
+
+  /// Segmentos "nativos" de la app: un `catalog.json` con la lista y un
+  /// `.gpx` por segmento. Ver `SegmentCatalogRepository`.
+  static const String segmentCatalogBaseUrl = filesBaseUrl;
 }

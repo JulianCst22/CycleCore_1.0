@@ -39,7 +39,7 @@ class SegmentCatalogRepository {
       );
     }
 
-    final decoded = jsonDecode(response.body);
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
     final list = decoded is Map<String, dynamic>
         ? decoded['segments'] as List<dynamic>
         : decoded as List<dynamic>;

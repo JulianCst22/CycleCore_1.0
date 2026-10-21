@@ -22,6 +22,20 @@ Future<void> main() async {
   // LocaleDataException la primera vez que se formatea una fecha.
   await initializeDateFormatting('es');
 
+  // TEMPORAL (diagnóstico 2026-10-18): deja en el log de Android los
+  // cuadros que tardan más de 50 ms, con cuánto se fue en armar la
+  // pantalla (Dart) y cuánto en dibujarla. Quitar al terminar.
+  WidgetsBinding.instance.addTimingsCallback((timings) {
+    for (final t in timings) {
+      final total = t.totalSpan.inMilliseconds;
+      if (total < 50) continue;
+      debugPrint(
+        '[cuadros] lento: ${total}ms (armar ${t.buildDuration.inMilliseconds}'
+        'ms, dibujar ${t.rasterDuration.inMilliseconds}ms)',
+      );
+    }
+  });
+
   runApp(
     // ProviderScope debe envolver toda la app para que Riverpod funcione
     // en cualquier pantalla, sin importar qué tan anidada esté.
@@ -33,13 +47,13 @@ Future<void> main() async {
     // features no se importan entre sí en ese sentido.
     ProviderScope(
       overrides: [
-        unlockCelebrationSourcesProvider.overrideWithValue(
-          [checkVoiceUnlockCelebration],
-        ),
+        unlockCelebrationSourcesProvider.overrideWithValue([
+          checkVoiceUnlockCelebration,
+        ]),
         wardrobeExtraTabsProvider.overrideWithValue([voiceWardrobeTab]),
-        unseenUnlockIndicatorsProvider.overrideWithValue(
-          [voiceHasUnseenUnlocksProvider],
-        ),
+        unseenUnlockIndicatorsProvider.overrideWithValue([
+          voiceHasUnseenUnlocksProvider,
+        ]),
         openActivityDetailProvider.overrideWithValue(openActivityDetail),
         criticalPowerSummaryProvider.overrideWith(
           (ref) => ref.watch(criticalPowerSummaryOfAthleteProvider),

@@ -97,25 +97,49 @@ abstract class BleSensorController<R>
 
   // --- Flujo compartido --------------------------------------------
 
+  /// Busca sensores de este tipo. Termina cuando el escaneo ya arrancó
+  /// (o lanza si no pudo, p. ej. con el Bluetooth apagado); la lista se
+  /// sigue llenando en [SensorConnectionState.discoveredDevices] y el
+  /// estado vuelve a `disconnected` cuando el escaneo se acaba, con lo
+  /// encontrado todavía a la vista.
   Future<void> startScan() async {
     final granted = await _requestPermissions();
     if (!granted) throw StateError(_missingPermissionsMessage);
 
+    await _scanSub?.cancel();
     state = state.copyWith(
       status: SensorConnectionStatus.scanning,
       discoveredDevices: const [],
     );
 
-    _scanSub = _service.scan().listen((devices) {
-      state = state.copyWith(discoveredDevices: devices);
-    });
+    final started = Completer<void>();
+    late final StreamSubscription<List<DiscoveredDevice>> sub;
+    sub = _service.scan().listen(
+      (devices) {
+        if (!started.isCompleted) started.complete();
+        if (mounted) state = state.copyWith(discoveredDevices: devices);
+      },
+      onError: (Object e, StackTrace st) {
+        if (!started.isCompleted) started.completeError(e, st);
+      },
+      onDone: () {
+        if (!started.isCompleted) started.complete();
+        if (!identical(_scanSub, sub)) return;
+        _scanSub = null;
+        if (mounted && state.status == SensorConnectionStatus.scanning) {
+          state = state.copyWith(status: SensorConnectionStatus.disconnected);
+        }
+      },
+    );
+    _scanSub = sub;
+    await started.future;
   }
 
   Future<void> stopScan() async {
     await _service.stopScan();
     await _scanSub?.cancel();
     _scanSub = null;
-    if (state.status == SensorConnectionStatus.scanning) {
+    if (mounted && state.status == SensorConnectionStatus.scanning) {
       state = state.copyWith(status: SensorConnectionStatus.disconnected);
     }
   }
@@ -139,6 +163,7 @@ abstract class BleSensorController<R>
       state = state.copyWith(
         status: SensorConnectionStatus.connected,
         connectedDeviceName: device.name,
+        connectedDeviceId: device.id,
         showReconnectAlert: false,
       );
     } catch (e) {

@@ -5,17 +5,19 @@ import 'package:flutter/material.dart';
 import '../../../../core/physiology/physiology.dart';
 import '../../../../core/ui/ui.dart';
 
-/// Duración de un punto de la curva: «5 s», «1 min», «20 min».
+/// Duración de un punto de la curva, como en la tabla de Garmin: «5 s»,
+/// «1 min», «90 min», «2 h».
 String formatCurveDuration(int seconds) {
   if (seconds < 60) return '$seconds s';
+  if (seconds >= 7200 && seconds % 3600 == 0) return '${seconds ~/ 3600} h';
   final minutes = seconds / 60;
   return minutes == minutes.roundToDouble()
       ? '${minutes.round()} min'
       : '${minutes.toStringAsFixed(1)} min';
 }
 
-/// Curva de medias máximas con el tiempo en escala logarítmica (de 5 s a
-/// 60 min): la forma estándar de mirar una curva de potencia, donde los
+/// Curva de medias máximas con el tiempo en escala logarítmica (de 1 s a
+/// 5 h): la forma estándar de mirar una curva de potencia, donde los
 /// esfuerzos cortos y los largos se leen igual de bien.
 ///
 /// Opcionalmente dibuja una curva de comparación (más tenue), una curva
@@ -55,9 +57,13 @@ class MeanMaxCurveChart extends StatelessWidget {
     this.height = 170,
   });
 
-  static const _minSeconds = 5.0;
-  static const _maxSeconds = 3600.0;
-  static const _ticks = <int>[5, 60, 300, 1200, 3600];
+  static const _minSeconds = 1.0;
+  static const _maxSeconds = 18000.0;
+  static const _ticks = <int>[1, 10, 60, 300, 1200, 3600, 18000];
+
+  /// El modelo `CP + W′/t` no vale para esfuerzos de horas (ahí pesa la
+  /// fatiga): se dibuja hasta 60 min.
+  static const _modelMaxSeconds = 3600.0;
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +213,7 @@ class _CurvePainter extends CustomPainter {
       final lo = math.log(
         math.max(modelFromSeconds, MeanMaxCurveChart._minSeconds),
       );
-      final hi = math.log(MeanMaxCurveChart._maxSeconds);
+      final hi = math.log(MeanMaxCurveChart._modelMaxSeconds);
       for (var i = 0; i <= steps; i++) {
         final t = math.exp(lo + (hi - lo) * i / steps);
         final point = Offset(layout.x(t), y(m(t).clamp(min, max)));
@@ -324,7 +330,11 @@ class _CurvePainter extends CustomPainter {
       canvas.drawLine(Offset(xx, _ChartLayout.top), Offset(xx, bottom), grid);
       _text(
         canvas,
-        t < 60 ? '${t}s' : '${t ~/ 60}m',
+        t < 60
+            ? '${t}s'
+            : t < 3600
+            ? '${t ~/ 60}m'
+            : '${t ~/ 3600}h',
         Offset(xx, bottom + 3),
         CcColors.inkFaint,
         center: true,

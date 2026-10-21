@@ -149,3 +149,11 @@ final segmentsForActivityProvider =
           .watch(segmentsRepositoryProvider)
           .getSegmentsForActivity(activityId);
     });
+
+/// Qué muestra la pestaña Segmentos: la lista de tus segmentos o "Mi
+/// progreso" (la comparativa de todos juntos). Vive en memoria.
+enum SegmentsTabView { list, progress }
+
+final segmentsTabViewProvider = StateProvider<SegmentsTabView>(
+  (ref) => SegmentsTabView.list,
+);

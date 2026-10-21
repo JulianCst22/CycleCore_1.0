@@ -24,8 +24,10 @@ VoiceEventType? _voiceEventFor(TurnDirection direction) {
       return VoiceEventType.navigationTurnSharpRight;
     case TurnDirection.uTurn:
       return VoiceEventType.navigationUTurn;
+    // La llegada se dice al llegar (`navigationArrivalsProvider`), no
+    // cuando esta instrucción pasa a ser la siguiente -- eso ocurría
+    // apenas se pasaba el último giro, a veces a kilómetros del destino.
     case TurnDirection.arrive:
-      return VoiceEventType.navigationArrived;
     case TurnDirection.straight:
       return null;
   }
@@ -47,15 +49,16 @@ class NavigationVoiceBridge extends ConsumerStatefulWidget {
       _NavigationVoiceBridgeState();
 }
 
-class _NavigationVoiceBridgeState
-    extends ConsumerState<NavigationVoiceBridge> {
+class _NavigationVoiceBridgeState extends ConsumerState<NavigationVoiceBridge> {
   int? _lastAnnouncedIndex;
   bool _announcedStart = false;
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<NavigationRoute?>(activeNavigationRouteProvider,
-        (previous, next) {
+    ref.listen<NavigationRoute?>(activeNavigationRouteProvider, (
+      previous,
+      next,
+    ) {
       if (previous == null && next != null && !_announcedStart) {
         _announcedStart = true;
         _lastAnnouncedIndex = null;
@@ -68,6 +71,23 @@ class _NavigationVoiceBridgeState
         // próxima ruta vuelva a anunciar su inicio.
         _announcedStart = false;
         _lastAnnouncedIndex = null;
+      }
+    });
+
+    ref.listen<int>(navigationArrivalsProvider, (previous, next) {
+      if (previous != null && next > previous) {
+        ref
+            .read(voiceSettingsProvider.notifier)
+            .speak(VoiceEventType.navigationArrived);
+      }
+    });
+
+    ref.listen<int>(navigationReroutesProvider, (previous, next) {
+      if (previous != null && next > previous) {
+        _lastAnnouncedIndex = null;
+        ref
+            .read(voiceSettingsProvider.notifier)
+            .speak(VoiceEventType.navigationRerouted);
       }
     });
 

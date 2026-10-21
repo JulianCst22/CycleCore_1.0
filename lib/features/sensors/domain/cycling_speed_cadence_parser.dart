@@ -11,9 +11,7 @@ import 'cycling_speed_cadence_reading.dart';
 ///
 /// A diferencia de Cycling Power, aquí SÍ nos interesan los datos de
 /// rueda (es la única fuente de velocidad en todo este módulo).
-CyclingSpeedCadenceReading parseCyclingSpeedCadenceMeasurement(
-  List<int> data,
-) {
+CyclingSpeedCadenceReading parseCyclingSpeedCadenceMeasurement(List<int> data) {
   if (data.isEmpty) {
     throw ArgumentError('Payload de CSC Measurement vacío');
   }
@@ -62,4 +60,16 @@ CyclingSpeedCadenceReading parseCyclingSpeedCadenceMeasurement(
     lastCrankEventTime: lastCrankEventTime,
     timestamp: DateTime.now(),
   );
+}
+
+/// Qué mide un sensor CSC según su característica "CSC Feature"
+/// (UUID 0x2A5C): bit 0 = datos de rueda, bit 1 = datos de biela.
+///
+/// Velocidad y cadencia anuncian el mismo servicio (0x1816), así que en
+/// el escaneo no se pueden distinguir; esto se lee al conectar para no
+/// dejar un sensor de biela en el lugar del de velocidad (o al revés).
+({bool wheel, bool crank}) parseCscFeature(List<int> data) {
+  if (data.isEmpty) return (wheel: true, crank: true);
+  final flags = data[0] | (data.length > 1 ? data[1] << 8 : 0);
+  return (wheel: (flags & 0x01) != 0, crank: (flags & 0x02) != 0);
 }
