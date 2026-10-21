@@ -197,6 +197,28 @@ class SegmentsRepository {
     );
   }
 
+  // ---------------------------------------------------------------
+  // Marcas de antes de la app (de los GPX del ciclista)
+  // ---------------------------------------------------------------
+
+  /// Todos los segmentos, activos o no -- para buscarlos en un GPX.
+  Future<List<Segment>> getAllSegments() =>
+      database.select(database.segments).get();
+
+  /// Guarda un tiempo de antes de usar la app, medido sobre un GPX.
+  Future<int> recordBaselineEffort(BaselineEffortsCompanion entry) =>
+      database.insertBaselineEffort(entry);
+
+  /// Las marcas de antes de un segmento, de la más vieja a la más nueva.
+  Future<List<BaselineEffort>> getBaselineEfforts(int segmentId) =>
+      database.getBaselineEfforts(segmentId);
+
+  Stream<List<BaselineEffort>> watchAllBaselineEfforts() =>
+      database.watchAllBaselineEfforts();
+
+  Future<void> deleteBaselineEffort(int id) =>
+      database.deleteBaselineEffort(id);
+
   Future<int> _insertSegment({
     required String name,
     required List<SegmentProfilePoint> profilePoints,

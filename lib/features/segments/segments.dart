@@ -6,8 +6,10 @@
 library;
 
 export 'application/extension_points.dart';
+export 'application/segment_comparison_providers.dart';
 export 'application/segment_detection_providers.dart';
 export 'application/segments_providers.dart';
+export 'domain/segment_comparison.dart';
 export 'presentation/segment_creation_screen.dart';
 export 'presentation/segment_data_settings_screen.dart';
 export 'presentation/segment_detail_screen.dart';

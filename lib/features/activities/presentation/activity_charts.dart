@@ -39,14 +39,30 @@ class _ActivityChartsCardState extends State<ActivityChartsCard> {
   // ruido punto a punto original.
   static const int _slopeSmoothingWindow = 9;
 
-  late final List<RoutePointSnapshot> _sampled;
-  late final List<double> _smoothedSlopes;
+  late List<RoutePointSnapshot> _sampled;
+  late List<double> _smoothedSlopes;
   final Set<ChartOverlay> _overlays = {};
   int? _scrubIndex;
 
   @override
   void initState() {
     super.initState();
+    _prepare();
+  }
+
+  /// Puntos nuevos (p. ej. tras "Ajustar altimetría"): se vuelve a
+  /// muestrear; si no, el perfil seguía dibujando la altitud vieja.
+  @override
+  void didUpdateWidget(covariant ActivityChartsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.points, widget.points)) {
+      _prepare();
+      final scrub = _scrubIndex;
+      if (scrub != null && scrub >= _sampled.length) _scrubIndex = null;
+    }
+  }
+
+  void _prepare() {
     _sampled = _downsample(widget.points, _maxSamples);
     _smoothedSlopes = _smoothSlopes(_sampled, _slopeSmoothingWindow);
   }

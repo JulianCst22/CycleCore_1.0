@@ -66,7 +66,9 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
             '−${result.lossMeters.toStringAsFixed(0)} m.\n'
             '$pct% de los puntos con fuente precisa '
             '(${result.gpxPoints} GPX · ${result.hgtPoints} HGT · '
-            '${result.approxPoints} aproximados).';
+            '${result.approxPoints} aproximados).\n'
+            'El perfil, los colores de pendiente del mapa y la altitud '
+            'de la actividad ya quedaron con los datos nuevos.';
       });
     } catch (e) {
       if (!mounted) return;

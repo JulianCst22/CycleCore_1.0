@@ -7,13 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/ui/ui.dart';
-import '../data/gpx_segment_importer.dart';
+import '../application/ride_analysis_providers.dart';
+import '../data/gpx_ride_reader.dart';
 import '../../../core/geo/geo.dart';
 import '../domain/segment_source.dart';
 import '../domain/segments_overview.dart';
 import 'segment_catalog_screen.dart';
 import 'segment_detail_screen.dart';
-import 'segment_import_preview_screen.dart';
+import 'ride_climbs_screen.dart';
+import 'segment_progress_view.dart';
 import '../application/segments_providers.dart';
 import 'widgets/segment_route_thumbnail.dart';
 import '../domain/segment_profile_access.dart';
@@ -115,12 +117,16 @@ class _Content extends ConsumerWidget {
                 color: CcColors.blue,
               ),
               title: const Text(
-                'Importar un archivo GPX',
+                'Buscar subidas en un GPX',
                 style: TextStyle(color: CcColors.ink),
+              ),
+              subtitle: const Text(
+                'Una salida de tu Garmin u otro aparato',
+                style: TextStyle(color: CcColors.inkDim, fontSize: 12),
               ),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                _importFromGpx(context, ref);
+                _analyzeGpx(context, ref);
               },
             ),
             const SizedBox(height: 8),
@@ -141,7 +147,9 @@ class _Content extends ConsumerWidget {
     );
   }
 
-  Future<void> _importFromGpx(BuildContext context, WidgetRef ref) async {
+  /// Abre un GPX, busca sus subidas y tus segmentos, y muestra lo que
+  /// encontró para elegir qué guardar.
+  Future<void> _analyzeGpx(BuildContext context, WidgetRef ref) async {
     // `FileType.any` + validación manual de extensión: en Android el
     // filtro `.gpx` no funciona (no es un MIME reconocido) y el picker
     // termina sin abrir nada.
@@ -172,49 +180,38 @@ class _Content extends ConsumerWidget {
       }
       return;
     }
+    if (!context.mounted) return;
 
-    String xml;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _AnalyzingDialog(),
+    );
+    RideAnalysis? analysis;
+    String? error;
     try {
       final bytes = file.bytes;
-      if (bytes != null) {
-        xml = utf8.decode(bytes);
-      } else if (file.path != null) {
-        xml = await File(file.path!).readAsString();
-      } else {
-        throw const GpxImportException('No se pudo leer el archivo elegido.');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('No se pudo leer el GPX: $e')));
-      }
+      final xml = bytes != null
+          ? utf8.decode(bytes, allowMalformed: true)
+          : await File(file.path!).readAsString();
+      analysis = await ref
+          .read(rideAnalyzerProvider)
+          .analyzeGpx(xml, fileName: file.name);
+    } on GpxRideException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'No se pudo leer el GPX.';
+    }
+    navigator.pop();
+    if (analysis == null) {
+      messenger.showSnackBar(SnackBar(content: Text(error ?? 'Error')));
       return;
     }
-
-    GpxImportResult result;
-    try {
-      result = const GpxSegmentImporter().parse(xml);
-    } on GpxImportException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-      return;
-    }
-
-    if (!context.mounted) return;
-    final createdId = await Navigator.of(context).push<int?>(
-      MaterialPageRoute(
-        builder: (_) => SegmentImportPreviewScreen(result: result),
-      ),
+    await navigator.push<int?>(
+      MaterialPageRoute(builder: (_) => RideClimbsScreen(analysis: analysis!)),
     );
-    if (createdId != null && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Segmento importado.')));
-    }
   }
 
   Future<void> _confirmDelete(
@@ -270,7 +267,7 @@ class _Content extends ConsumerWidget {
                 MaterialPageRoute(builder: (_) => const SegmentCatalogScreen()),
               ),
               onCreate: () => _goToActivitiesToCreate(context),
-              onImport: () => _importFromGpx(context, ref),
+              onImport: () => _analyzeGpx(context, ref),
             ),
           ),
         ],
@@ -278,24 +275,39 @@ class _Content extends ConsumerWidget {
     }
 
     final now = DateTime.now();
+    final view = ref.watch(segmentsTabViewProvider);
+    final header = SliverToBoxAdapter(
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Header(
+              total: overview.total,
+              onAdd: () => _showAddSheet(context, ref),
+            ),
+            const _ViewSwitch(),
+            if (view == SegmentsTabView.list) _StatsPanel(overview: overview),
+          ],
+        ),
+      ),
+    );
+
+    if (view == SegmentsTabView.progress) {
+      return CustomScrollView(
+        slivers: [
+          header,
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 28),
+            sliver: SliverToBoxAdapter(child: SegmentProgressView()),
+          ),
+        ],
+      );
+    }
 
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(
-          child: SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Header(
-                  total: overview.total,
-                  onAdd: () => _showAddSheet(context, ref),
-                ),
-                _StatsPanel(overview: overview),
-              ],
-            ),
-          ),
-        ),
+        header,
         if (overview.recent.isNotEmpty) ...[
           const SliverToBoxAdapter(
             child: Padding(
@@ -409,6 +421,92 @@ class _Header extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Mis segmentos | Mi progreso": la lista de siempre o la comparativa
+/// de todos los segmentos juntos.
+class _ViewSwitch extends ConsumerWidget {
+  const _ViewSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final view = ref.watch(segmentsTabViewProvider);
+    void select(SegmentsTabView v) =>
+        ref.read(segmentsTabViewProvider.notifier).state = v;
+
+    Widget option(String label, SegmentsTabView v) {
+      final on = view == v;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => select(v),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: on ? CcColors.surfaceHi : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              border: on ? Border.all(color: CcColors.line) : null,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: CcType.label(
+                size: 12.5,
+                color: on ? CcColors.ink : CcColors.inkDim,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: CcColors.surfaceInset,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CcColors.lineSoft),
+      ),
+      child: Row(
+        children: [
+          option('Mis segmentos', SegmentsTabView.list),
+          option('Mi progreso', SegmentsTabView.progress),
+        ],
+      ),
+    );
+  }
+}
+
+/// Mientras se lee el GPX y se buscan sus subidas.
+class _AnalyzingDialog extends StatelessWidget {
+  const _AnalyzingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AlertDialog(
+      backgroundColor: CcColors.surfaceHi,
+      content: Row(
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: CcColors.orange,
+            ),
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Buscando subidas en tu salida…',
+              style: TextStyle(color: CcColors.ink),
+            ),
+          ),
         ],
       ),
     );
@@ -1002,7 +1100,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 16),
             TextButton(
               onPressed: onImport,
-              child: const Text('o importa un archivo GPX'),
+              child: const Text('o busca subidas en un GPX de tu Garmin'),
             ),
           ],
         ),

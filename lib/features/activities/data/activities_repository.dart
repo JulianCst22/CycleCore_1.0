@@ -42,6 +42,8 @@ class ActivitiesRepository {
 
   Stream<List<Activity>> watchActivities() => database.watchAllActivities();
 
+  Stream<Activity?> watchActivity(int id) => database.watchActivityById(id);
+
   Future<void> deleteActivity(int id) => database.deleteActivity(id);
 
   /// Guarda la actividad: copia las fotos elegidas (rutas temporales de la

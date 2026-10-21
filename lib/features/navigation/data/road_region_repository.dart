@@ -153,8 +153,8 @@ class RoadRegionRepository {
     } on SocketException {
       if (await partial.exists()) await partial.delete();
       throw Exception(
-        'No hay conexión con el servidor. Conecta el celular y abre '
-        'INICIAR SERVIDOR.bat en el PC.',
+        'No se pudo conectar para bajar el mapa. Revisa que tengas '
+        'internet e inténtalo de nuevo.',
       );
     } catch (_) {
       if (await partial.exists()) await partial.delete();

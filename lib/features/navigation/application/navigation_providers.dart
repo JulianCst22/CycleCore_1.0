@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -12,8 +14,10 @@ import '../domain/climb_detection.dart';
 import '../domain/navigation_route.dart';
 import '../domain/navigation_target.dart';
 import '../domain/route_preview.dart';
+import 'navigation_progress.dart';
 import 'road_region_providers.dart';
 
+export 'navigation_progress.dart' show NavigationProgressState, RerouteState;
 export 'road_region_providers.dart';
 
 final geocodingServiceProvider = Provider<GeocodingService>((ref) {
@@ -122,8 +126,71 @@ final routeComputingProvider =
     );
 
 /// Índice de la próxima instrucción a mostrar/anunciar dentro de
-/// `activeNavigationRouteProvider.instructions`.
+/// `activeNavigationRouteProvider.instructions`. Lo avanza
+/// [navigationProgressProvider] según lo recorrido sobre la ruta.
 final nextInstructionIndexProvider = StateProvider<int>((ref) => 0);
+
+/// Recálculo automático de la ruta cuando el ciclista se sale de ella.
+final rerouteStateProvider = StateProvider<RerouteState>(
+  (ref) => RerouteState.idle,
+);
+
+/// Cuántas veces se recalculó la ruta en esta navegación: la voz lo
+/// escucha para decir "recalculando".
+final navigationReroutesProvider = StateProvider<int>((ref) => 0);
+
+/// Cuántas veces se llegó a un destino: la voz lo escucha para decir
+/// "llegamos" en el momento de llegar (no al pasar el último giro).
+final navigationArrivalsProvider = StateProvider<int>((ref) => 0);
+
+/// Avance sobre la ruta activa, fix a fix: recorta en el mapa lo ya
+/// recorrido, mide la distancia al próximo giro por la ruta, avanza las
+/// instrucciones, cierra la navegación al llegar y recalcula la ruta
+/// cuando se toma otro camino (como Waze).
+///
+/// Vive mientras alguien lo mire (la pantalla de la salida) y se vuelve
+/// a crear con cada ruta nueva, incluida la recalculada.
+final navigationProgressProvider =
+    StateNotifierProvider.autoDispose<
+      NavigationProgressNotifier,
+      NavigationProgressState
+    >((ref) {
+      final route = ref.watch(activeNavigationRouteProvider);
+      final controller = ref.read(navigationControllerProvider);
+      final notifier = NavigationProgressNotifier(
+        route,
+        onInstructionIndex: (i) =>
+            ref.read(nextInstructionIndexProvider.notifier).state = i,
+        onReroute: (lat, lng) =>
+            unawaited(controller.reroute(fromLat: lat, fromLng: lng)),
+        // Cerrar la navegación vuelve a crear este provider: se hace fuera
+        // del aviso del fix.
+        onArrive: () => scheduleMicrotask(controller.arrive),
+      );
+      if (route == null) return notifier;
+
+      // La hora del fix, no la de llegada al callback: los 5 s para dar
+      // por salido de la ruta son tiempo de GPS.
+      void apply(Position p) =>
+          notifier.onPosition(p.latitude, p.longitude, p.accuracy, p.timestamp);
+
+      var building = true;
+      ref.listen<AsyncValue<Position>>(liveNavigationPositionProvider, (
+        _,
+        next,
+      ) {
+        final position = next.valueOrNull;
+        if (position == null) return;
+        if (!building) return apply(position);
+        // El último fix conocido llega ya mismo, todavía armando el
+        // provider: ahí no se puede tocar a otros providers.
+        scheduleMicrotask(() {
+          if (notifier.mounted) apply(position);
+        });
+      }, fireImmediately: true);
+      building = false;
+      return notifier;
+    });
 
 class NavigationController {
   final Ref ref;
@@ -292,6 +359,8 @@ class NavigationController {
     ref.read(activeNavigationTargetProvider.notifier).state = preview.target;
     ref.read(nextInstructionIndexProvider.notifier).state = 0;
     ref.read(routePreviewProvider.notifier).state = null;
+    ref.read(rerouteStateProvider.notifier).state = RerouteState.idle;
+    _rerouteNotBefore = null;
 
     // Guardar el reciente en segundo plano -- si falla, no pasa nada.
     ref.read(recentDestinationsStoreProvider).add(preview.target);
@@ -307,6 +376,75 @@ class NavigationController {
     ref.read(activeNavigationTargetProvider.notifier).state = null;
     ref.read(routePreviewProvider.notifier).state = null;
     ref.read(nextInstructionIndexProvider.notifier).state = 0;
+    ref.read(rerouteStateProvider.notifier).state = RerouteState.idle;
+    _rerouteNotBefore = null;
+  }
+
+  /// Se llegó al destino: lo dice la voz y se cierra la navegación.
+  void arrive() {
+    if (ref.read(activeNavigationRouteProvider) == null) return;
+    ref.read(navigationArrivalsProvider.notifier).state++;
+    cancelNavigation();
+  }
+
+  /// No se recalcula más seguido que esto, ni tras un fallo antes de
+  /// [_retryAfterFailure] (p. ej. fuera del mapa descargado: cada
+  /// intento costaría lo mismo y daría lo mismo).
+  static const _minRerouteGap = Duration(seconds: 10);
+  static const _retryAfterFailure = Duration(seconds: 60);
+  static DateTime? _rerouteNotBefore;
+
+  /// Recalcula la ruta desde la posición actual hasta el mismo destino
+  /// y la deja activa en lugar de la vieja. Lo pide
+  /// [navigationProgressProvider] cuando el ciclista se sale de la ruta.
+  Future<void> reroute({
+    required double fromLat,
+    required double fromLng,
+  }) async {
+    final target = ref.read(activeNavigationTargetProvider);
+    if (target == null || ref.read(activeNavigationRouteProvider) == null) {
+      return;
+    }
+    final status = ref.read(rerouteStateProvider.notifier);
+    final now = DateTime.now();
+    final notBefore = _rerouteNotBefore;
+    if (status.state.busy || (notBefore != null && now.isBefore(notBefore))) {
+      return;
+    }
+
+    final generation = _generation;
+    bool current() =>
+        generation == _generation &&
+        identical(ref.read(activeNavigationTargetProvider), target);
+
+    status.state = RerouteState(busy: true, problem: status.state.problem);
+    _rerouteNotBefore = now.add(_minRerouteGap);
+    try {
+      final route = await _computeRoute(
+        fromLat: fromLat,
+        fromLng: fromLng,
+        toLat: target.lat,
+        toLng: target.lng,
+        onStage: (_) {},
+      );
+      if (!current()) return;
+      ref.read(nextInstructionIndexProvider.notifier).state = 0;
+      ref.read(activeNavigationRouteProvider.notifier).state = route;
+      ref.read(navigationReroutesProvider.notifier).state++;
+      status.state = RerouteState.idle;
+    } on RouteUnavailableException catch (e) {
+      if (!current()) return;
+      _rerouteNotBefore = DateTime.now().add(_retryAfterFailure);
+      status.state = RerouteState(problem: e.message);
+    } catch (_) {
+      if (!current()) return;
+      _rerouteNotBefore = DateTime.now().add(_retryAfterFailure);
+      status.state = const RerouteState(
+        problem: 'No se pudo recalcular la ruta. Vuelve a la ruta verde.',
+      );
+    } finally {
+      if (current() && status.state.busy) status.state = RerouteState.idle;
+    }
   }
 
   /// Muestrea la altitud (msnm) a lo largo de la polilínea de la ruta,

@@ -14,6 +14,14 @@ extension SensorKindInfo on SensorKind {
     SensorKind.cadence => 'Cadencia',
   };
 
+  /// Nombre corto para los chips del filtro de la pantalla de sensores.
+  String get shortLabel => switch (this) {
+    SensorKind.heartRate => 'Pulso',
+    SensorKind.power => 'Potencia',
+    SensorKind.speed => 'Velocidad',
+    SensorKind.cadence => 'Cadencia',
+  };
+
   /// Unidad del valor en vivo ('ppm', 'W', 'km/h', 'rpm').
   String get unit => switch (this) {
     SensorKind.heartRate => 'ppm',

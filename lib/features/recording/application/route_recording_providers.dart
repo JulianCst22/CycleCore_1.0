@@ -240,9 +240,28 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   /// quiere agregar más adelante un botón de "compartir log".
   File? get debugLogFile => _debugLogger.currentFile;
 
-  Future<void> startRecording() async {
-    if (state.isRecording) return;
+  /// Hay un arranque en curso (permisos, elevación, espera del GPS):
+  /// [startRecording] y [resumeFrom] tardan varios segundos antes de
+  /// marcar `isRecording`, y un segundo toque en «Grabar» en ese rato
+  /// arrancaba OTRA grabación encima (salida del 2026-10-17: cada punto
+  /// duplicado y el GPS sin el servicio en primer plano, ver
+  /// `LocationService.watchPosition`).
+  bool _preparing = false;
 
+  Future<void> startRecording() async {
+    if (state.isRecording || _preparing) {
+      debugPrint('[grabar] ya estaba arrancando o grabando');
+      return;
+    }
+    _preparing = true;
+    try {
+      await _start();
+    } finally {
+      _preparing = false;
+    }
+  }
+
+  Future<void> _start() async {
     await _prepareToRecord();
 
     _accumulatedActiveDuration = Duration.zero;
@@ -270,8 +289,16 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   /// sensores se restaura por separado ANTES de llamar a esto -- ver
   /// `RideSensorLogController.restore`.
   Future<void> resumeFrom(RecordingSnapshot snapshot) async {
-    if (state.isRecording) return;
+    if (state.isRecording || _preparing) return;
+    _preparing = true;
+    try {
+      await _resume(snapshot);
+    } finally {
+      _preparing = false;
+    }
+  }
 
+  Future<void> _resume(RecordingSnapshot snapshot) async {
     await _prepareToRecord();
 
     _accumulatedActiveDuration = snapshot.movingTime;
@@ -305,9 +332,26 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   /// primer punto: permisos, fuentes de elevación, motores del modelo
   /// geoespacial en limpio y un fix de GPS estable.
   Future<void> _prepareToRecord() async {
+    // Se avisa desde ya (no recién al esperar el GPS): los permisos y la
+    // elevación también tardan, y mientras tanto «Grabar» parecía no
+    // haber hecho nada.
+    state = state.copyWith(isAcquiringGps: true);
+    try {
+      await _prepareSteps();
+    } catch (_) {
+      state = state.copyWith(isAcquiringGps: false);
+      rethrow;
+    }
+  }
+
+  Future<void> _prepareSteps() async {
+    debugPrint('[grabar] permiso de ubicación');
     await _locationService.ensureLocationReady();
+    debugPrint('[grabar] permiso en segundo plano');
     await _locationService.ensureBackgroundLocationReady();
+    debugPrint('[grabar] batería');
     await _locationService.ensureUnrestrictedBattery();
+    debugPrint('[grabar] elevación');
     await _elevation.preload();
 
     _altitudeFusion.reset();
@@ -325,8 +369,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     // todavía inestable): el buffer de calentamiento de
     // SlopePlausibilityFilter es la segunda línea de defensa para ese
     // caso. Ver LocationService.waitForStableFix.
-    state = state.copyWith(isAcquiringGps: true);
+    debugPrint('[grabar] esperando el GPS');
     await _locationService.waitForStableFix();
+    debugPrint('[grabar] GPS listo');
 
     await _debugLogger.start(DateTime.now().millisecondsSinceEpoch.toString());
   }
@@ -354,6 +399,13 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   }
 
   void _subscribeToSensors() {
+    // Nunca dos suscripciones a la vez: cada fix se procesaría dos veces
+    // (puntos duplicados, distancia y desnivel inflados).
+    _autoPauseTimer?.cancel();
+    _wheelDistanceSubscription?.close();
+    unawaited(_positionSubscription?.cancel());
+    unawaited(_pressureSubscription?.cancel());
+
     _pressureSubscription = _barometerService.watchPressureHpa().listen(
       (pressure) => _lastPressureHpa = pressure,
       onError: (_) {

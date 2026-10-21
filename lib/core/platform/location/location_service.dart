@@ -196,7 +196,9 @@ class LocationService {
 
     await completer.future;
     timer.cancel();
-    await sub.cancel();
+    // Sin esperar: si el plugin tarda en soltar el stream, la grabación no
+    // debe quedarse colgada aquí.
+    unawaited(sub.cancel());
   }
 
   /// Stream continuo de posiciones, usado mientras se está grabando una
@@ -210,6 +212,15 @@ class LocationService {
   ///
   /// `distanceFilter: 5` evita saturar el flujo con ruido del GPS
   /// cuando el ciclista está momentáneamente detenido.
+  ///
+  /// OJO: `geolocator_android` mantiene UN solo stream de posiciones por
+  /// app, y si ya hay uno abierto lo devuelve tal cual, con los ajustes
+  /// de quien lo abrió. Si ese era uno sin servicio en primer plano, la
+  /// grabación se quedaba sin él y con la pantalla apagada el GPS dejaba
+  /// de llegar (salida del 2026-10-17: 48 min sin puntos, trazado en
+  /// línea recta, por un doble arranque mientras [waitForStableFix] tenía
+  /// abierto el suyo). Por eso la grabación no arranca dos veces a la vez
+  /// (ver `RouteRecordingController.startRecording`).
   Stream<Position> watchPosition() {
     final androidSettings = AndroidSettings(
       accuracy: LocationAccuracy.bestForNavigation,

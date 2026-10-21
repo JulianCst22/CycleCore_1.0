@@ -281,14 +281,13 @@ class ServerStatusRow extends ConsumerWidget {
       data: (snapshot) => snapshot.online
           ? (
               CcColors.ok,
-              'Servidor conectado · mapas del '
+              'Conectado · mapas del '
                   '${formatMapVersion(snapshot.catalog.version)}',
             )
           : (
               CcColors.warn,
-              'Sin servidor: lo descargado funciona sin conexión. Para bajar '
-                  'mapas, conecta el celular por USB y abre INICIAR '
-                  'SERVIDOR.bat en el PC.',
+              'Sin conexión: lo descargado funciona igual. Para bajar '
+                  'mapas, conéctate a internet.',
             ),
     );
     return Container(

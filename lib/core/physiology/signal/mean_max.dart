@@ -1,8 +1,12 @@
-/// Duraciones de la curva de medias máximas: de 5 s a 60 min.
+/// Duraciones de la curva de medias máximas: de 1 s a 5 h, las mismas
+/// que muestra Garmin en su tabla de mejores valores, más 3 y 12 min,
+/// que usa el ajuste de potencia crítica.
 const standardDurations = <int>[
+  1,
+  3,
   5,
   10,
-  15,
+  20,
   30,
   60,
   120,
@@ -13,6 +17,9 @@ const standardDurations = <int>[
   1200,
   1800,
   3600,
+  5400,
+  7200,
+  18000,
 ];
 
 /// Mejor media de una duración, con dónde y de dónde salió.

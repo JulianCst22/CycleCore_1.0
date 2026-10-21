@@ -5,11 +5,13 @@ import '../../../../core/physiology/physiology.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../stats/stats.dart';
 import '../../application/extension_points.dart';
+import '../../application/profile_providers.dart';
 
 /// Tarjeta «Curvas» de la pantalla de estadísticas: la mejor potencia y
-/// el mejor pulso sostenidos de 5 s a 60 min en el periodo elegido. Cada
-/// punto sabe de qué salida viene; tocarlo muestra cuál y deja abrirla.
-/// En la de potencia van además la CP y el modelo `CP + W′/t`.
+/// el mejor pulso sostenidos de 1 s a 5 h en el periodo elegido, con la
+/// tabla de mejores valores debajo (como la de Garmin). Cada punto sabe
+/// de qué salida viene; tocarlo muestra cuál y deja abrirla. En la de
+/// potencia van además la CP y el modelo `CP + W′/t`.
 class CurvesCard extends ConsumerStatefulWidget {
   const CurvesCard({super.key});
 
@@ -24,10 +26,20 @@ class _CurvesCardState extends ConsumerState<CurvesCard> {
   @override
   Widget build(BuildContext context) {
     final curveAsync = ref.watch(periodBestCurveProvider(_kind));
-    final period = ref.watch(statsPeriodProvider);
+    // El periodo de las curvas (su propio selector), no el de
+    // estadísticas: antes la frase decía «este mes» mirando otra cosa.
+    final period = ref.watch(curvesPeriodProvider);
+    final offset = ref.watch(curvesPeriodOffsetProvider);
     final isPower = _kind == CurveKind.power;
     final summary = isPower ? ref.watch(criticalPowerSummaryProvider) : null;
     final color = isPower ? CcColors.mPower : CcColors.mHeartRate;
+    final curve = curveAsync.valueOrNull;
+    final selected =
+        curve != null && _selected != null && curve[_selected!] != null
+        ? _selected
+        : null;
+    final open = ref.watch(openActivityDetailProvider);
+    final weightKg = ref.watch(profileProvider).valueOrNull?.weightKg;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
@@ -80,12 +92,9 @@ class _CurvesCardState extends ConsumerState<CurvesCard> {
               if (curve.isEmpty) {
                 return _EmptyCurve(
                   '${isPower ? 'Sin salidas con potenciómetro' : 'Sin salidas con pulsómetro'} '
-                  '${_periodPhrase(period)}.',
+                  '${_periodPhrase(period, offset)}.',
                 );
               }
-              final selected = _selected != null && curve[_selected!] != null
-                  ? _selected
-                  : null;
               final model = summary?.model;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,10 +123,24 @@ class _CurvesCardState extends ConsumerState<CurvesCard> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Mejor media de cada duración ${_periodPhrase(period)}'
+            'Mejor media de cada duración ${_periodPhrase(period, offset)}'
             "${summary == null ? '' : " · punteada: CP + W'/t"}",
             style: const TextStyle(color: CcColors.inkDim, fontSize: 10),
           ),
+          if (curve != null && !curve.isEmpty) ...[
+            const SizedBox(height: 14),
+            BestEffortsTable(
+              curve: curve,
+              curveLabel: 'Mejor',
+              showOrigin: true,
+              onOpenOrigin: open == null ? null : (id) => open(context, id),
+              unit: isPower ? 'W' : 'ppm',
+              color: color,
+              selected: selected,
+              onSelect: (d) => setState(() => _selected = d),
+              weightKg: weightKg,
+            ),
+          ],
           if (summary != null) ...[
             const SizedBox(height: 14),
             _CriticalPowerRow(summary: summary),
@@ -127,7 +150,10 @@ class _CurvesCardState extends ConsumerState<CurvesCard> {
     );
   }
 
-  static String _periodPhrase(StatsPeriod period) => switch (period) {
+  static String _periodPhrase(StatsPeriod period, int offset) =>
+      offset != 0 ? 'en el periodo elegido' : _currentPhrase(period);
+
+  static String _currentPhrase(StatsPeriod period) => switch (period) {
     StatsPeriod.week => 'esta semana',
     StatsPeriod.month => 'este mes',
     StatsPeriod.year => 'este año',

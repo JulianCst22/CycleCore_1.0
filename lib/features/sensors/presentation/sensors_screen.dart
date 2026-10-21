@@ -5,6 +5,7 @@ import '../application/heart_rate_provider.dart';
 import '../../../core/ui/ui.dart';
 import '../domain/discovered_device.dart';
 import '../domain/sensor_kind.dart';
+import '../application/ble_sensor_controller.dart';
 import '../application/cadence_providers.dart';
 import '../application/power_providers.dart';
 import '../application/sensors_providers.dart';
@@ -12,14 +13,16 @@ import '../application/speed_providers.dart';
 import 'cadence_source_dialog.dart';
 import 'wheel_size_dialog.dart';
 
-/// Pantalla de sensores BLE: un resumen arriba ("N de 4 listos") y un
-/// slot por sensor -- frecuencia cardíaca, potencia, velocidad y
-/// cadencia -- cada uno con su propio flujo escanear -> conectar ->
-/// desconectar y su propia conexión física.
+/// Pantalla de sensores BLE: un resumen arriba ("N de 4 listos") cuyas
+/// cuatro fichas -- pulso, velocidad, cadencia y potencia -- funcionan
+/// como filtro, y debajo sólo la tarjeta del tipo elegido, con su propio
+/// flujo escanear -> conectar -> ajustar -> desconectar.
 ///
-/// El escaneo de cada sensor sólo corre mientras su tarjeta está abierta,
-/// para no encender los 4 radios BLE a la vez. Todo es 100% local: la
-/// comunicación es directa entre el teléfono y el sensor.
+/// Sólo se escanea el tipo elegido, y sólo los dispositivos que anuncian
+/// su servicio: con las cuatro tarjetas abiertas a la vez, los escaneos
+/// se pisaban y la lista de pulso terminaba mostrando sensores de
+/// velocidad. Todo es 100% local: la comunicación es directa entre el
+/// teléfono y el sensor.
 class SensorsScreen extends ConsumerStatefulWidget {
   const SensorsScreen({super.key});
 
@@ -27,8 +30,17 @@ class SensorsScreen extends ConsumerStatefulWidget {
   ConsumerState<SensorsScreen> createState() => _SensorsScreenState();
 }
 
+/// Orden de los chips: el de la prueba de campo (pulso y velocidad son
+/// lo primero que se conecta; la potencia, cuando hay medidor).
+const _kindOrder = [
+  SensorKind.heartRate,
+  SensorKind.speed,
+  SensorKind.cadence,
+  SensorKind.power,
+];
+
 class _SensorsScreenState extends ConsumerState<SensorsScreen> {
-  final Set<SensorKind> _expanded = {};
+  late SensorKind _selected;
 
   StateNotifierProvider<dynamic, SensorConnectionState> _providerFor(
     SensorKind kind,
@@ -39,34 +51,60 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
     SensorKind.cadence => cadenceSensorControllerProvider,
   };
 
-  dynamic _controllerFor(SensorKind kind) =>
-      ref.read(_providerFor(kind).notifier);
+  /// Los controladores se guardan al abrir: en `dispose` ya no se puede
+  /// usar `ref`, y ahí hace falta detener el escaneo.
+  late final Map<SensorKind, BleSensorController<Object?>> _controllers;
+
+  BleSensorController<Object?> _controllerFor(SensorKind kind) =>
+      _controllers[kind]!;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final kind in SensorKind.values)
+        kind:
+            ref.read(_providerFor(kind).notifier)
+                as BleSensorController<Object?>,
+    };
+    // Se abre en el primer tipo que falta por conectar y se busca de una:
+    // a esta pantalla casi siempre se viene a conectar algo.
+    final hub = ref.read(sensorsHubProvider);
+    _selected = _kindOrder.firstWhere(
+      (k) => hub.of(k).status == SensorConnectionStatus.disconnected,
+      orElse: () => _kindOrder.first,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scanIfIdle(_selected);
+    });
+  }
 
   @override
   void dispose() {
-    // Si el usuario sale mientras alguna tarjeta seguía escaneando (sin
-    // conectar nada), detenemos ese escaneo para no gastar batería.
-    for (final kind in _expanded) {
-      final state = ref.read(_providerFor(kind));
-      if (state.isScanning) _controllerFor(kind).stopScan();
-    }
+    // Si el usuario sale mientras seguía escaneando (sin conectar nada),
+    // detenemos ese escaneo para no gastar batería. Si no estaba
+    // escaneando, no cambia nada.
+    _controllerFor(_selected).stopScan();
     super.dispose();
   }
 
-  Future<void> _toggleExpand(SensorKind kind) async {
-    final controller = _controllerFor(kind);
-    final state = ref.read(_providerFor(kind));
+  Future<void> _select(SensorKind kind) async {
+    final previous = _selected;
+    if (previous == kind) return;
+    setState(() => _selected = kind);
+    if (ref.read(_providerFor(previous)).isScanning) {
+      await _controllerFor(previous).stopScan();
+    }
+    if (!mounted || _selected != kind) return;
+    await _scanIfIdle(kind);
+  }
 
-    if (_expanded.contains(kind)) {
-      if (state.isScanning) await controller.stopScan();
-      setState(() => _expanded.remove(kind));
+  Future<void> _scanIfIdle(SensorKind kind) async {
+    if (ref.read(_providerFor(kind)).status !=
+        SensorConnectionStatus.disconnected) {
       return;
     }
-
-    setState(() => _expanded.add(kind));
-    if (state.status == SensorConnectionStatus.disconnected) {
-      await _guard(controller.startScan());
-    }
+    await _guard(_controllerFor(kind).startScan());
   }
 
   Future<void> _connect(SensorKind kind, DiscoveredDevice device) async {
@@ -88,7 +126,8 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
       await action;
     } catch (e) {
       if (!mounted) return;
-      final msg = prefix == null ? '$e' : '$prefix: $e';
+      final detail = e is StateError ? e.message : '$e';
+      final msg = prefix == null ? detail : '$prefix: $detail';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -117,7 +156,6 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
     );
     if (ok != true) return;
     await _controllerFor(kind).disconnect();
-    if (!_expanded.contains(kind)) setState(() => _expanded.add(kind));
     await _guard(_controllerFor(kind).startScan());
   }
 
@@ -152,6 +190,15 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
     });
 
     final hub = ref.watch(sensorsHubProvider);
+    final kind = _selected;
+
+    // Aparatos ya conectados en OTRO tipo: un combo o un potenciómetro
+    // también anuncian el servicio de velocidad/cadencia.
+    final takenBy = <String, SensorKind>{
+      for (final k in SensorKind.values)
+        if (k != kind && hub.of(k).connectedDeviceId != null)
+          hub.of(k).connectedDeviceId!: k,
+    };
 
     return Scaffold(
       backgroundColor: CcColors.bg,
@@ -159,15 +206,21 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
         children: [
-          _SummaryStrip(hub: hub, liveValueFor: _liveValue),
+          _SummaryStrip(
+            hub: hub,
+            liveValueFor: _liveValue,
+            selected: kind,
+            onSelect: _select,
+          ),
           const SizedBox(height: 14),
-          for (final kind in SensorKind.values) ...[
-            _SlotCard(
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _SlotCard(
+              key: ValueKey(kind),
               kind: kind,
               state: hub.of(kind),
               liveValue: _liveValue(kind),
-              expanded: _expanded.contains(kind),
-              onToggleExpand: () => _toggleExpand(kind),
+              takenBy: takenBy,
               onRescan: () => _guard(_controllerFor(kind).startScan()),
               onDeviceTap: (d) => _connect(kind, d),
               onDisconnect: () => _controllerFor(kind).disconnect(),
@@ -188,8 +241,8 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
                     }
                   : null,
             ),
-            const SizedBox(height: 12),
-          ],
+          ),
+          const SizedBox(height: 12),
           const CadenceSourceRow(),
         ],
       ),
@@ -206,6 +259,19 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
   SensorKind.cadence => (icon: Icons.autorenew, color: CcColors.mCadence),
 };
 
+/// Qué deja pasar el filtro de cada tipo, dicho en corto bajo la lista.
+String _filterNote(SensorKind kind) => switch (kind) {
+  SensorKind.heartRate =>
+    'Sólo aparecen bandas y relojes que transmiten pulso.',
+  SensorKind.power => 'Sólo aparecen medidores que transmiten potencia.',
+  SensorKind.speed =>
+    'Velocidad y cadencia comparten la misma señal Bluetooth: al conectar '
+        'revisamos que el sensor mida la rueda.',
+  SensorKind.cadence =>
+    'Velocidad y cadencia comparten la misma señal Bluetooth: al conectar '
+        'revisamos que el sensor mida la biela.',
+};
+
 ({int bars, String label}) _signal(int rssi) {
   if (rssi >= -55) return (bars: 4, label: 'señal fuerte');
   if (rssi >= -67) return (bars: 3, label: 'señal buena');
@@ -213,13 +279,20 @@ class _SensorsScreenState extends ConsumerState<SensorsScreen> {
   return (bars: 1, label: 'señal muy débil');
 }
 
-// --- Resumen -------------------------------------------------------
+// --- Resumen + filtro ----------------------------------------------
 
 class _SummaryStrip extends StatelessWidget {
-  const _SummaryStrip({required this.hub, required this.liveValueFor});
+  const _SummaryStrip({
+    required this.hub,
+    required this.liveValueFor,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final SensorsHubSnapshot hub;
   final String? Function(SensorKind) liveValueFor;
+  final SensorKind selected;
+  final ValueChanged<SensorKind> onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -253,16 +326,23 @@ class _SummaryStrip extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 4),
+          Text(
+            'Elige qué sensor vas a conectar o ajustar.',
+            style: CcType.label(size: 11, color: CcColors.inkDim),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
-              for (final kind in SensorKind.values) ...[
-                if (kind != SensorKind.values.first) const SizedBox(width: 8),
+              for (final kind in _kindOrder) ...[
+                if (kind != _kindOrder.first) const SizedBox(width: 8),
                 Expanded(
-                  child: _SummaryChip(
+                  child: _KindChip(
                     kind: kind,
-                    on: hub.of(kind).isConnected,
+                    state: hub.of(kind),
                     value: liveValueFor(kind),
+                    selected: kind == selected,
+                    onTap: () => onSelect(kind),
                   ),
                 ),
               ],
@@ -274,58 +354,116 @@ class _SummaryStrip extends StatelessWidget {
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({
+/// Ficha de un tipo de sensor: dice su estado y, al tocarla, filtra la
+/// pantalla a ese tipo.
+class _KindChip extends StatelessWidget {
+  const _KindChip({
     required this.kind,
-    required this.on,
+    required this.state,
     required this.value,
+    required this.selected,
+    required this.onTap,
   });
 
   final SensorKind kind;
-  final bool on;
+  final SensorConnectionState state;
   final String? value;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final meta = _meta(kind);
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
-      decoration: BoxDecoration(
-        color: CcColors.surfaceInset,
+    final on = state.isConnected;
+    final warn = state.isReconnecting;
+    final reading = on && value != null ? '$value ${kind.unit}' : '—';
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${kind.shortLabel}, ${on ? 'conectado' : 'sin conectar'}',
+      child: Material(
+        color: selected
+            ? meta.color.withValues(alpha: 0.13)
+            : CcColors.surfaceInset,
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: CcColors.lineSoft),
-      ),
-      child: Column(
-        children: [
-          Icon(meta.icon, size: 16, color: on ? meta.color : CcColors.inkFaint),
-          const SizedBox(height: 4),
-          Text(
-            on ? (value ?? '—') : '—',
-            style: CcType.displayStyle(
-              size: 13,
-              color: on ? CcColors.ink : CcColors.inkFaint,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(11),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.fromLTRB(4, 9, 4, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: selected
+                    ? meta.color.withValues(alpha: 0.75)
+                    : CcColors.lineSoft,
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      meta.icon,
+                      size: 16,
+                      color: on || selected ? meta.color : CcColors.inkFaint,
+                    ),
+                    if (on || warn) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: warn ? CcColors.warn : CcColors.ok,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  kind.shortLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: CcType.label(
+                    size: 11,
+                    color: selected ? CcColors.ink : CcColors.inkDim,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    reading,
+                    maxLines: 1,
+                    style: CcType.displayStyle(
+                      size: 12,
+                      color: on ? CcColors.ink : CcColors.inkFaint,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            kind.unit,
-            style: CcType.label(size: 9, color: CcColors.inkFaint),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// --- Tarjeta de un sensor ----------------------------------------
+// --- Tarjeta del tipo elegido --------------------------------------
 
 class _SlotCard extends StatelessWidget {
   const _SlotCard({
+    super.key,
     required this.kind,
     required this.state,
     required this.liveValue,
-    required this.expanded,
-    required this.onToggleExpand,
+    required this.takenBy,
     required this.onRescan,
     required this.onDeviceTap,
     required this.onDisconnect,
@@ -338,8 +476,7 @@ class _SlotCard extends StatelessWidget {
   final SensorKind kind;
   final SensorConnectionState state;
   final String? liveValue;
-  final bool expanded;
-  final VoidCallback onToggleExpand;
+  final Map<String, SensorKind> takenBy;
   final VoidCallback onRescan;
   final void Function(DiscoveredDevice) onDeviceTap;
   final VoidCallback onDisconnect;
@@ -362,32 +499,20 @@ class _SlotCard extends StatelessWidget {
         border: Border.all(
           color: warn
               ? CcColors.warn.withValues(alpha: 0.45)
-              : (expanded ? meta.color.withValues(alpha: 0.4) : CcColors.line),
+              : meta.color.withValues(alpha: 0.4),
         ),
       ),
       child: Column(
         children: [
-          InkWell(
-            onTap: onToggleExpand,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(13),
-              child: _Header(
-                kind: kind,
-                state: state,
-                liveValue: liveValue,
-                expanded: expanded,
-                onScan: onToggleExpand,
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.all(13),
+            child: _Header(kind: kind, state: state, liveValue: liveValue),
           ),
-          if (expanded) ...[
-            const Divider(height: 1, color: CcColors.lineSoft),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(13, 12, 13, 14),
-              child: _body(context),
-            ),
-          ],
+          const Divider(height: 1, color: CcColors.lineSoft),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(13, 12, 13, 14),
+            child: _body(context),
+          ),
         ],
       ),
     );
@@ -439,6 +564,7 @@ class _SlotCard extends StatelessWidget {
         return _ScanBody(
           kind: kind,
           state: state,
+          takenBy: takenBy,
           onRescan: onRescan,
           onDeviceTap: onDeviceTap,
         );
@@ -451,15 +577,11 @@ class _Header extends StatelessWidget {
     required this.kind,
     required this.state,
     required this.liveValue,
-    required this.expanded,
-    required this.onScan,
   });
 
   final SensorKind kind;
   final SensorConnectionState state;
   final String? liveValue;
-  final bool expanded;
-  final VoidCallback onScan;
 
   @override
   Widget build(BuildContext context) {
@@ -501,29 +623,11 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 6),
         if (connected && liveValue != null) ...[
+          const SizedBox(width: 6),
           _LiveValue(kind: kind, value: liveValue!),
           const SizedBox(width: 4),
-        ] else if (!expanded &&
-            !connected &&
-            state.status == SensorConnectionStatus.disconnected)
-          OutlinedButton(
-            onPressed: onScan,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: CcColors.blue,
-              side: const BorderSide(color: CcColors.blue),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text('Buscar'),
-          ),
-        Icon(
-          expanded ? Icons.expand_less : Icons.expand_more,
-          color: CcColors.inkFaint,
-          size: 22,
-        ),
+        ],
       ],
     );
   }
@@ -533,7 +637,8 @@ class _Header extends StatelessWidget {
     return switch (state.status) {
       SensorConnectionStatus.connected => name ?? 'Conectado',
       SensorConnectionStatus.connecting => 'Conectando…',
-      SensorConnectionStatus.scanning => 'Buscando sensores cerca…',
+      SensorConnectionStatus.scanning =>
+        'Buscando sensores de ${kind.shortLabel.toLowerCase()} cerca…',
       SensorConnectionStatus.reconnecting => 'Señal perdida — reintentando',
       SensorConnectionStatus.disconnected => 'Sin conectar',
     };
@@ -571,12 +676,14 @@ class _ScanBody extends StatelessWidget {
   const _ScanBody({
     required this.kind,
     required this.state,
+    required this.takenBy,
     required this.onRescan,
     required this.onDeviceTap,
   });
 
   final SensorKind kind;
   final SensorConnectionState state;
+  final Map<String, SensorKind> takenBy;
   final VoidCallback onRescan;
   final void Function(DiscoveredDevice) onDeviceTap;
 
@@ -585,6 +692,7 @@ class _ScanBody extends StatelessWidget {
     final meta = _meta(kind);
     final devices = state.discoveredDevices;
     final scanning = state.isScanning;
+    final what = kind.shortLabel.toLowerCase();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,7 +701,7 @@ class _ScanBody extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Dispositivos cerca',
+              'Sensores de $what cerca',
               style: CcType.label(size: 11, color: CcColors.inkDim),
             ),
             TextButton.icon(
@@ -605,7 +713,7 @@ class _ScanBody extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               icon: const Icon(Icons.refresh, size: 15),
-              label: const Text('Volver a buscar'),
+              label: Text(devices.isEmpty ? 'Buscar' : 'Volver a buscar'),
             ),
           ],
         ),
@@ -628,7 +736,8 @@ class _ScanBody extends StatelessWidget {
             child: Text(
               scanning
                   ? 'Buscando… Asegúrate de que el sensor esté encendido y cerca.'
-                  : 'Ningún sensor encontrado. Toca "Volver a buscar".',
+                  : 'Ningún sensor de $what encontrado. Enciéndelo, '
+                        'acércalo al teléfono y toca "Buscar".',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: CcColors.inkDim,
@@ -642,8 +751,34 @@ class _ScanBody extends StatelessWidget {
             _DeviceRow(
               kind: kind,
               device: device,
+              takenBy: takenBy[device.id],
               onTap: () => onDeviceTap(device),
             ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(
+                Icons.filter_alt_outlined,
+                size: 13,
+                color: CcColors.inkFaint,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _filterNote(kind),
+                style: const TextStyle(
+                  color: CcColors.inkFaint,
+                  fontSize: 11,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -653,47 +788,61 @@ class _DeviceRow extends StatelessWidget {
   const _DeviceRow({
     required this.kind,
     required this.device,
+    required this.takenBy,
     required this.onTap,
   });
 
   final SensorKind kind;
   final DiscoveredDevice device;
+
+  /// Tipo en el que este mismo aparato ya está conectado, si lo está.
+  final SensorKind? takenBy;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final meta = _meta(kind);
+    final taken = takenBy;
     return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        child: Row(
-          children: [
-            Icon(meta.icon, size: 18, color: meta.color),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    device.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: CcType.label(size: 13, color: CcColors.ink),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    device.id,
-                    style: CcType.label(size: 10, color: CcColors.inkFaint),
-                  ),
-                ],
+      onTap: taken == null ? onTap : null,
+      child: Opacity(
+        opacity: taken == null ? 1 : 0.5,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          child: Row(
+            children: [
+              Icon(meta.icon, size: 18, color: meta.color),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      device.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: CcType.label(size: 13, color: CcColors.ink),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      taken == null
+                          ? device.id
+                          : 'Ya conectado como ${taken.shortLabel.toLowerCase()}',
+                      style: CcType.label(size: 10, color: CcColors.inkFaint),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            _SignalBars(bars: _signal(device.rssi).bars, color: meta.color),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, size: 16, color: CcColors.inkFaint),
-          ],
+              const SizedBox(width: 10),
+              _SignalBars(bars: _signal(device.rssi).bars, color: meta.color),
+              const SizedBox(width: 8),
+              Icon(
+                taken == null ? Icons.chevron_right : Icons.link,
+                size: 16,
+                color: CcColors.inkFaint,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -764,11 +913,12 @@ class _ConnectedDetail extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onSwitchSensor,
                 style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   foregroundColor: CcColors.inkDim,
                   side: const BorderSide(color: CcColors.line),
                 ),
                 icon: const Icon(Icons.swap_horiz, size: 16),
-                label: const Text('Cambiar sensor'),
+                label: const Text('Cambiar'),
               ),
             ),
             const SizedBox(width: 9),
@@ -776,6 +926,7 @@ class _ConnectedDetail extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onDisconnect,
                 style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   foregroundColor: CcColors.danger,
                   side: BorderSide(
                     color: CcColors.danger.withValues(alpha: 0.4),
@@ -914,6 +1065,7 @@ class _ReconnectBody extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: onRetry,
                 style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   backgroundColor: CcColors.orange,
                   foregroundColor: Colors.white,
                 ),
@@ -926,6 +1078,7 @@ class _ReconnectBody extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onDisconnect,
                 style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   foregroundColor: CcColors.danger,
                   side: BorderSide(
                     color: CcColors.danger.withValues(alpha: 0.4),

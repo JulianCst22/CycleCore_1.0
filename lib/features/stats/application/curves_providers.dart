@@ -56,9 +56,11 @@ final curvesSampleProvider = StateProvider<bool>((ref) => false);
 /// Curvas de un ciclista aficionado fuerte (CP ~285 W, FC máx ~190).
 MeanMaxCurve _sampleCurve(CurveKind kind) {
   const power = {
+    1: 1180,
+    3: 1090,
     5: 960,
     10: 870,
-    15: 790,
+    20: 700,
     30: 610,
     60: 470,
     120: 405,
@@ -69,11 +71,16 @@ MeanMaxCurve _sampleCurve(CurveKind kind) {
     1200: 294,
     1800: 281,
     3600: 262,
+    5400: 248,
+    7200: 236,
+    18000: 198,
   };
   const heartRate = {
+    1: 188,
+    3: 188,
     5: 186,
     10: 186,
-    15: 185,
+    20: 185,
     30: 184,
     60: 183,
     120: 181,
@@ -84,6 +91,9 @@ MeanMaxCurve _sampleCurve(CurveKind kind) {
     1200: 171,
     1800: 168,
     3600: 163,
+    5400: 160,
+    7200: 157,
+    18000: 148,
   };
   final values = kind == CurveKind.power ? power : heartRate;
   return MeanMaxCurve.fromPoints({
@@ -115,19 +125,18 @@ final periodBestCurveProvider =
 final learnedClimbingCadenceProvider = Provider<double?>((ref) {
   _keepCurvesInSync(ref);
   final since = DateTime.now().subtract(const Duration(days: 90));
-  final cadences = ref
-      .watch(climbingCadencesProvider(since))
-      .valueOrNull;
+  final cadences = ref.watch(climbingCadencesProvider(since)).valueOrNull;
   return cadences == null ? null : learnedClimbingCadence(cadences);
 });
 
-final climbingCadencesProvider =
-    StreamProvider.family<List<double>, DateTime?>((ref, since) {
-      _keepCurvesInSync(ref);
-      return ref
-          .watch(activityCurvesRepositoryProvider)
-          .watchClimbingCadences(since: since);
-    });
+final climbingCadencesProvider = StreamProvider.family<List<double>, DateTime?>(
+  (ref, since) {
+    _keepCurvesInSync(ref);
+    return ref
+        .watch(activityCurvesRepositoryProvider)
+        .watchClimbingCadences(since: since);
+  },
+);
 
 /// Curvas de una actividad guardada.
 final activityCurvesProvider =

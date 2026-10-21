@@ -3312,8 +3312,8 @@ class $DownloadedRoadRegionsTable extends DownloadedRoadRegions
 
 class DownloadedRoadRegion extends DataClass
     implements Insertable<DownloadedRoadRegion> {
-  /// Id de la región en el catálogo de `RoadRegionId`, ej.
-  /// "norte_de_santander".
+  /// Id de la región en el catálogo `regiones.json`, ej.
+  /// "norte-de-santander".
   final String regionId;
   final String filePath;
   final int sizeBytes;
@@ -8267,6 +8267,635 @@ class BikesCompanion extends UpdateCompanion<BikeRow> {
   }
 }
 
+class $BaselineEffortsTable extends BaselineEfforts
+    with TableInfo<$BaselineEffortsTable, BaselineEffort> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BaselineEffortsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _segmentIdMeta = const VerificationMeta(
+    'segmentId',
+  );
+  @override
+  late final GeneratedColumn<int> segmentId = GeneratedColumn<int>(
+    'segment_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+    'completed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _avgSpeedKmhMeta = const VerificationMeta(
+    'avgSpeedKmh',
+  );
+  @override
+  late final GeneratedColumn<double> avgSpeedKmh = GeneratedColumn<double>(
+    'avg_speed_kmh',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _avgHeartRateMeta = const VerificationMeta(
+    'avgHeartRate',
+  );
+  @override
+  late final GeneratedColumn<int> avgHeartRate = GeneratedColumn<int>(
+    'avg_heart_rate',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _avgPowerMeta = const VerificationMeta(
+    'avgPower',
+  );
+  @override
+  late final GeneratedColumn<int> avgPower = GeneratedColumn<int>(
+    'avg_power',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _splitsJsonMeta = const VerificationMeta(
+    'splitsJson',
+  );
+  @override
+  late final GeneratedColumn<String> splitsJson = GeneratedColumn<String>(
+    'splits_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _sourceNameMeta = const VerificationMeta(
+    'sourceName',
+  );
+  @override
+  late final GeneratedColumn<String> sourceName = GeneratedColumn<String>(
+    'source_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    segmentId,
+    completedAt,
+    durationSeconds,
+    avgSpeedKmh,
+    avgHeartRate,
+    avgPower,
+    splitsJson,
+    sourceName,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'baseline_efforts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BaselineEffort> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('segment_id')) {
+      context.handle(
+        _segmentIdMeta,
+        segmentId.isAcceptableOrUnknown(data['segment_id']!, _segmentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_segmentIdMeta);
+    }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_completedAtMeta);
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_durationSecondsMeta);
+    }
+    if (data.containsKey('avg_speed_kmh')) {
+      context.handle(
+        _avgSpeedKmhMeta,
+        avgSpeedKmh.isAcceptableOrUnknown(
+          data['avg_speed_kmh']!,
+          _avgSpeedKmhMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_avgSpeedKmhMeta);
+    }
+    if (data.containsKey('avg_heart_rate')) {
+      context.handle(
+        _avgHeartRateMeta,
+        avgHeartRate.isAcceptableOrUnknown(
+          data['avg_heart_rate']!,
+          _avgHeartRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('avg_power')) {
+      context.handle(
+        _avgPowerMeta,
+        avgPower.isAcceptableOrUnknown(data['avg_power']!, _avgPowerMeta),
+      );
+    }
+    if (data.containsKey('splits_json')) {
+      context.handle(
+        _splitsJsonMeta,
+        splitsJson.isAcceptableOrUnknown(data['splits_json']!, _splitsJsonMeta),
+      );
+    }
+    if (data.containsKey('source_name')) {
+      context.handle(
+        _sourceNameMeta,
+        sourceName.isAcceptableOrUnknown(data['source_name']!, _sourceNameMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BaselineEffort map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BaselineEffort(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      segmentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}segment_id'],
+      )!,
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_at'],
+      )!,
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      )!,
+      avgSpeedKmh: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}avg_speed_kmh'],
+      )!,
+      avgHeartRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}avg_heart_rate'],
+      ),
+      avgPower: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}avg_power'],
+      ),
+      splitsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}splits_json'],
+      )!,
+      sourceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_name'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BaselineEffortsTable createAlias(String alias) {
+    return $BaselineEffortsTable(attachedDatabase, alias);
+  }
+}
+
+class BaselineEffort extends DataClass implements Insertable<BaselineEffort> {
+  final int id;
+  final int segmentId;
+
+  /// Cuándo terminó ese paso por el segmento.
+  final DateTime completedAt;
+  final int durationSeconds;
+  final double avgSpeedKmh;
+  final int? avgHeartRate;
+  final int? avgPower;
+
+  /// Curva tiempo-distancia, mismo formato que `SegmentEfforts.splitsJson`.
+  final String splitsJson;
+
+  /// De qué archivo salió (nombre del GPX o de la salida).
+  final String? sourceName;
+  final DateTime createdAt;
+  const BaselineEffort({
+    required this.id,
+    required this.segmentId,
+    required this.completedAt,
+    required this.durationSeconds,
+    required this.avgSpeedKmh,
+    this.avgHeartRate,
+    this.avgPower,
+    required this.splitsJson,
+    this.sourceName,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['segment_id'] = Variable<int>(segmentId);
+    map['completed_at'] = Variable<DateTime>(completedAt);
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['avg_speed_kmh'] = Variable<double>(avgSpeedKmh);
+    if (!nullToAbsent || avgHeartRate != null) {
+      map['avg_heart_rate'] = Variable<int>(avgHeartRate);
+    }
+    if (!nullToAbsent || avgPower != null) {
+      map['avg_power'] = Variable<int>(avgPower);
+    }
+    map['splits_json'] = Variable<String>(splitsJson);
+    if (!nullToAbsent || sourceName != null) {
+      map['source_name'] = Variable<String>(sourceName);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  BaselineEffortsCompanion toCompanion(bool nullToAbsent) {
+    return BaselineEffortsCompanion(
+      id: Value(id),
+      segmentId: Value(segmentId),
+      completedAt: Value(completedAt),
+      durationSeconds: Value(durationSeconds),
+      avgSpeedKmh: Value(avgSpeedKmh),
+      avgHeartRate: avgHeartRate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avgHeartRate),
+      avgPower: avgPower == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avgPower),
+      splitsJson: Value(splitsJson),
+      sourceName: sourceName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceName),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory BaselineEffort.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BaselineEffort(
+      id: serializer.fromJson<int>(json['id']),
+      segmentId: serializer.fromJson<int>(json['segmentId']),
+      completedAt: serializer.fromJson<DateTime>(json['completedAt']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      avgSpeedKmh: serializer.fromJson<double>(json['avgSpeedKmh']),
+      avgHeartRate: serializer.fromJson<int?>(json['avgHeartRate']),
+      avgPower: serializer.fromJson<int?>(json['avgPower']),
+      splitsJson: serializer.fromJson<String>(json['splitsJson']),
+      sourceName: serializer.fromJson<String?>(json['sourceName']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'segmentId': serializer.toJson<int>(segmentId),
+      'completedAt': serializer.toJson<DateTime>(completedAt),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'avgSpeedKmh': serializer.toJson<double>(avgSpeedKmh),
+      'avgHeartRate': serializer.toJson<int?>(avgHeartRate),
+      'avgPower': serializer.toJson<int?>(avgPower),
+      'splitsJson': serializer.toJson<String>(splitsJson),
+      'sourceName': serializer.toJson<String?>(sourceName),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  BaselineEffort copyWith({
+    int? id,
+    int? segmentId,
+    DateTime? completedAt,
+    int? durationSeconds,
+    double? avgSpeedKmh,
+    Value<int?> avgHeartRate = const Value.absent(),
+    Value<int?> avgPower = const Value.absent(),
+    String? splitsJson,
+    Value<String?> sourceName = const Value.absent(),
+    DateTime? createdAt,
+  }) => BaselineEffort(
+    id: id ?? this.id,
+    segmentId: segmentId ?? this.segmentId,
+    completedAt: completedAt ?? this.completedAt,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    avgSpeedKmh: avgSpeedKmh ?? this.avgSpeedKmh,
+    avgHeartRate: avgHeartRate.present ? avgHeartRate.value : this.avgHeartRate,
+    avgPower: avgPower.present ? avgPower.value : this.avgPower,
+    splitsJson: splitsJson ?? this.splitsJson,
+    sourceName: sourceName.present ? sourceName.value : this.sourceName,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  BaselineEffort copyWithCompanion(BaselineEffortsCompanion data) {
+    return BaselineEffort(
+      id: data.id.present ? data.id.value : this.id,
+      segmentId: data.segmentId.present ? data.segmentId.value : this.segmentId,
+      completedAt: data.completedAt.present
+          ? data.completedAt.value
+          : this.completedAt,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      avgSpeedKmh: data.avgSpeedKmh.present
+          ? data.avgSpeedKmh.value
+          : this.avgSpeedKmh,
+      avgHeartRate: data.avgHeartRate.present
+          ? data.avgHeartRate.value
+          : this.avgHeartRate,
+      avgPower: data.avgPower.present ? data.avgPower.value : this.avgPower,
+      splitsJson: data.splitsJson.present
+          ? data.splitsJson.value
+          : this.splitsJson,
+      sourceName: data.sourceName.present
+          ? data.sourceName.value
+          : this.sourceName,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BaselineEffort(')
+          ..write('id: $id, ')
+          ..write('segmentId: $segmentId, ')
+          ..write('completedAt: $completedAt, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('avgSpeedKmh: $avgSpeedKmh, ')
+          ..write('avgHeartRate: $avgHeartRate, ')
+          ..write('avgPower: $avgPower, ')
+          ..write('splitsJson: $splitsJson, ')
+          ..write('sourceName: $sourceName, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    segmentId,
+    completedAt,
+    durationSeconds,
+    avgSpeedKmh,
+    avgHeartRate,
+    avgPower,
+    splitsJson,
+    sourceName,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BaselineEffort &&
+          other.id == this.id &&
+          other.segmentId == this.segmentId &&
+          other.completedAt == this.completedAt &&
+          other.durationSeconds == this.durationSeconds &&
+          other.avgSpeedKmh == this.avgSpeedKmh &&
+          other.avgHeartRate == this.avgHeartRate &&
+          other.avgPower == this.avgPower &&
+          other.splitsJson == this.splitsJson &&
+          other.sourceName == this.sourceName &&
+          other.createdAt == this.createdAt);
+}
+
+class BaselineEffortsCompanion extends UpdateCompanion<BaselineEffort> {
+  final Value<int> id;
+  final Value<int> segmentId;
+  final Value<DateTime> completedAt;
+  final Value<int> durationSeconds;
+  final Value<double> avgSpeedKmh;
+  final Value<int?> avgHeartRate;
+  final Value<int?> avgPower;
+  final Value<String> splitsJson;
+  final Value<String?> sourceName;
+  final Value<DateTime> createdAt;
+  const BaselineEffortsCompanion({
+    this.id = const Value.absent(),
+    this.segmentId = const Value.absent(),
+    this.completedAt = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.avgSpeedKmh = const Value.absent(),
+    this.avgHeartRate = const Value.absent(),
+    this.avgPower = const Value.absent(),
+    this.splitsJson = const Value.absent(),
+    this.sourceName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  BaselineEffortsCompanion.insert({
+    this.id = const Value.absent(),
+    required int segmentId,
+    required DateTime completedAt,
+    required int durationSeconds,
+    required double avgSpeedKmh,
+    this.avgHeartRate = const Value.absent(),
+    this.avgPower = const Value.absent(),
+    this.splitsJson = const Value.absent(),
+    this.sourceName = const Value.absent(),
+    required DateTime createdAt,
+  }) : segmentId = Value(segmentId),
+       completedAt = Value(completedAt),
+       durationSeconds = Value(durationSeconds),
+       avgSpeedKmh = Value(avgSpeedKmh),
+       createdAt = Value(createdAt);
+  static Insertable<BaselineEffort> custom({
+    Expression<int>? id,
+    Expression<int>? segmentId,
+    Expression<DateTime>? completedAt,
+    Expression<int>? durationSeconds,
+    Expression<double>? avgSpeedKmh,
+    Expression<int>? avgHeartRate,
+    Expression<int>? avgPower,
+    Expression<String>? splitsJson,
+    Expression<String>? sourceName,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (segmentId != null) 'segment_id': segmentId,
+      if (completedAt != null) 'completed_at': completedAt,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (avgSpeedKmh != null) 'avg_speed_kmh': avgSpeedKmh,
+      if (avgHeartRate != null) 'avg_heart_rate': avgHeartRate,
+      if (avgPower != null) 'avg_power': avgPower,
+      if (splitsJson != null) 'splits_json': splitsJson,
+      if (sourceName != null) 'source_name': sourceName,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  BaselineEffortsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? segmentId,
+    Value<DateTime>? completedAt,
+    Value<int>? durationSeconds,
+    Value<double>? avgSpeedKmh,
+    Value<int?>? avgHeartRate,
+    Value<int?>? avgPower,
+    Value<String>? splitsJson,
+    Value<String?>? sourceName,
+    Value<DateTime>? createdAt,
+  }) {
+    return BaselineEffortsCompanion(
+      id: id ?? this.id,
+      segmentId: segmentId ?? this.segmentId,
+      completedAt: completedAt ?? this.completedAt,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      avgSpeedKmh: avgSpeedKmh ?? this.avgSpeedKmh,
+      avgHeartRate: avgHeartRate ?? this.avgHeartRate,
+      avgPower: avgPower ?? this.avgPower,
+      splitsJson: splitsJson ?? this.splitsJson,
+      sourceName: sourceName ?? this.sourceName,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (segmentId.present) {
+      map['segment_id'] = Variable<int>(segmentId.value);
+    }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (avgSpeedKmh.present) {
+      map['avg_speed_kmh'] = Variable<double>(avgSpeedKmh.value);
+    }
+    if (avgHeartRate.present) {
+      map['avg_heart_rate'] = Variable<int>(avgHeartRate.value);
+    }
+    if (avgPower.present) {
+      map['avg_power'] = Variable<int>(avgPower.value);
+    }
+    if (splitsJson.present) {
+      map['splits_json'] = Variable<String>(splitsJson.value);
+    }
+    if (sourceName.present) {
+      map['source_name'] = Variable<String>(sourceName.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BaselineEffortsCompanion(')
+          ..write('id: $id, ')
+          ..write('segmentId: $segmentId, ')
+          ..write('completedAt: $completedAt, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('avgSpeedKmh: $avgSpeedKmh, ')
+          ..write('avgHeartRate: $avgHeartRate, ')
+          ..write('avgPower: $avgPower, ')
+          ..write('splitsJson: $splitsJson, ')
+          ..write('sourceName: $sourceName, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8292,6 +8921,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $BikesTable bikes = $BikesTable(this);
+  late final $BaselineEffortsTable baselineEfforts = $BaselineEffortsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8310,6 +8942,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     activityCurvePoints,
     coachingAdvices,
     bikes,
+    baselineEfforts,
   ];
 }
 
@@ -12306,6 +12939,313 @@ typedef $$BikesTableProcessedTableManager =
       BikeRow,
       PrefetchHooks Function()
     >;
+typedef $$BaselineEffortsTableCreateCompanionBuilder =
+    BaselineEffortsCompanion Function({
+      Value<int> id,
+      required int segmentId,
+      required DateTime completedAt,
+      required int durationSeconds,
+      required double avgSpeedKmh,
+      Value<int?> avgHeartRate,
+      Value<int?> avgPower,
+      Value<String> splitsJson,
+      Value<String?> sourceName,
+      required DateTime createdAt,
+    });
+typedef $$BaselineEffortsTableUpdateCompanionBuilder =
+    BaselineEffortsCompanion Function({
+      Value<int> id,
+      Value<int> segmentId,
+      Value<DateTime> completedAt,
+      Value<int> durationSeconds,
+      Value<double> avgSpeedKmh,
+      Value<int?> avgHeartRate,
+      Value<int?> avgPower,
+      Value<String> splitsJson,
+      Value<String?> sourceName,
+      Value<DateTime> createdAt,
+    });
+
+class $$BaselineEffortsTableFilterComposer
+    extends Composer<_$AppDatabase, $BaselineEffortsTable> {
+  $$BaselineEffortsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get segmentId => $composableBuilder(
+    column: $table.segmentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get avgSpeedKmh => $composableBuilder(
+    column: $table.avgSpeedKmh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get avgHeartRate => $composableBuilder(
+    column: $table.avgHeartRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get avgPower => $composableBuilder(
+    column: $table.avgPower,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get splitsJson => $composableBuilder(
+    column: $table.splitsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BaselineEffortsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BaselineEffortsTable> {
+  $$BaselineEffortsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get segmentId => $composableBuilder(
+    column: $table.segmentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get avgSpeedKmh => $composableBuilder(
+    column: $table.avgSpeedKmh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get avgHeartRate => $composableBuilder(
+    column: $table.avgHeartRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get avgPower => $composableBuilder(
+    column: $table.avgPower,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get splitsJson => $composableBuilder(
+    column: $table.splitsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BaselineEffortsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BaselineEffortsTable> {
+  $$BaselineEffortsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get segmentId =>
+      $composableBuilder(column: $table.segmentId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get avgSpeedKmh => $composableBuilder(
+    column: $table.avgSpeedKmh,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get avgHeartRate => $composableBuilder(
+    column: $table.avgHeartRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get avgPower =>
+      $composableBuilder(column: $table.avgPower, builder: (column) => column);
+
+  GeneratedColumn<String> get splitsJson => $composableBuilder(
+    column: $table.splitsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceName => $composableBuilder(
+    column: $table.sourceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$BaselineEffortsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BaselineEffortsTable,
+          BaselineEffort,
+          $$BaselineEffortsTableFilterComposer,
+          $$BaselineEffortsTableOrderingComposer,
+          $$BaselineEffortsTableAnnotationComposer,
+          $$BaselineEffortsTableCreateCompanionBuilder,
+          $$BaselineEffortsTableUpdateCompanionBuilder,
+          (
+            BaselineEffort,
+            BaseReferences<
+              _$AppDatabase,
+              $BaselineEffortsTable,
+              BaselineEffort
+            >,
+          ),
+          BaselineEffort,
+          PrefetchHooks Function()
+        > {
+  $$BaselineEffortsTableTableManager(
+    _$AppDatabase db,
+    $BaselineEffortsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BaselineEffortsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BaselineEffortsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BaselineEffortsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> segmentId = const Value.absent(),
+                Value<DateTime> completedAt = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<double> avgSpeedKmh = const Value.absent(),
+                Value<int?> avgHeartRate = const Value.absent(),
+                Value<int?> avgPower = const Value.absent(),
+                Value<String> splitsJson = const Value.absent(),
+                Value<String?> sourceName = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => BaselineEffortsCompanion(
+                id: id,
+                segmentId: segmentId,
+                completedAt: completedAt,
+                durationSeconds: durationSeconds,
+                avgSpeedKmh: avgSpeedKmh,
+                avgHeartRate: avgHeartRate,
+                avgPower: avgPower,
+                splitsJson: splitsJson,
+                sourceName: sourceName,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int segmentId,
+                required DateTime completedAt,
+                required int durationSeconds,
+                required double avgSpeedKmh,
+                Value<int?> avgHeartRate = const Value.absent(),
+                Value<int?> avgPower = const Value.absent(),
+                Value<String> splitsJson = const Value.absent(),
+                Value<String?> sourceName = const Value.absent(),
+                required DateTime createdAt,
+              }) => BaselineEffortsCompanion.insert(
+                id: id,
+                segmentId: segmentId,
+                completedAt: completedAt,
+                durationSeconds: durationSeconds,
+                avgSpeedKmh: avgSpeedKmh,
+                avgHeartRate: avgHeartRate,
+                avgPower: avgPower,
+                splitsJson: splitsJson,
+                sourceName: sourceName,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BaselineEffortsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BaselineEffortsTable,
+      BaselineEffort,
+      $$BaselineEffortsTableFilterComposer,
+      $$BaselineEffortsTableOrderingComposer,
+      $$BaselineEffortsTableAnnotationComposer,
+      $$BaselineEffortsTableCreateCompanionBuilder,
+      $$BaselineEffortsTableUpdateCompanionBuilder,
+      (
+        BaselineEffort,
+        BaseReferences<_$AppDatabase, $BaselineEffortsTable, BaselineEffort>,
+      ),
+      BaselineEffort,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12342,4 +13282,6 @@ class $AppDatabaseManager {
       $$CoachingAdvicesTableTableManager(_db, _db.coachingAdvices);
   $$BikesTableTableManager get bikes =>
       $$BikesTableTableManager(_db, _db.bikes);
+  $$BaselineEffortsTableTableManager get baselineEfforts =>
+      $$BaselineEffortsTableTableManager(_db, _db.baselineEfforts);
 }

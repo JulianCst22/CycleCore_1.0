@@ -304,6 +304,8 @@ class VoiceEngine {
         return 'turn_sharp_right';
       case VoiceEventType.navigationUTurn:
         return 'u_turn';
+      case VoiceEventType.navigationRerouted:
+        return 'nav_rerouted';
       case VoiceEventType.navigationArrived:
         return 'arrived';
       case VoiceEventType.segmentEntered:

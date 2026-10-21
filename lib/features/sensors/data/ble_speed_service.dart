@@ -16,6 +16,7 @@ import 'fbp_sensor_link.dart';
 class BleSpeedService implements BleSensorService<CyclingSpeedCadenceReading> {
   static final Guid _serviceUuid = Guid('1816');
   static final Guid _measurementCharUuid = Guid('2A5B');
+  static final Guid _featureCharUuid = Guid('2A5C');
 
   @override
   Stream<List<DiscoveredDevice>> scan({
@@ -27,14 +28,25 @@ class BleSpeedService implements BleSensorService<CyclingSpeedCadenceReading> {
   Future<void> stopScan() => fbpStopScan();
 
   @override
-  Future<SensorLink<CyclingSpeedCadenceReading>> connect(String deviceId) =>
-      fbpConnect(
-        deviceId,
-        serviceUuid: _serviceUuid,
-        characteristicUuid: _measurementCharUuid,
-        parse: parseCyclingSpeedCadenceMeasurement,
-        missingServiceMessage:
-            'Este dispositivo no expone el servicio estándar de velocidad/'
-            'cadencia (0x1816).',
-      );
+  Future<SensorLink<CyclingSpeedCadenceReading>> connect(
+    String deviceId,
+  ) => fbpConnect(
+    deviceId,
+    serviceUuid: _serviceUuid,
+    characteristicUuid: _measurementCharUuid,
+    parse: parseCyclingSpeedCadenceMeasurement,
+    missingServiceMessage:
+        'Este dispositivo no expone el servicio estándar de velocidad/'
+        'cadencia (0x1816).',
+    verify: (read) async {
+      final raw = await read(_featureCharUuid);
+      // Si el sensor no deja leer sus capacidades se le da el
+      // beneficio de la duda: la primera lectura dirá si sirve.
+      if (raw != null && !parseCscFeature(raw).wheel) {
+        throw StateError(
+          'Ese sensor no mide la rueda: es de cadencia. Conéctalo en Cadencia.',
+        );
+      }
+    },
+  );
 }
