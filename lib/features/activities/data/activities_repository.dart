@@ -20,6 +20,9 @@ class AltitudeReadjustResult {
   final int approxPoints;
   final int totalPoints;
 
+  /// La forma del perfil salió del barómetro grabado en cada punto.
+  final bool barometric;
+
   const AltitudeReadjustResult({
     required this.gainMeters,
     required this.lossMeters,
@@ -27,6 +30,7 @@ class AltitudeReadjustResult {
     required this.hgtPoints,
     required this.approxPoints,
     required this.totalPoints,
+    this.barometric = false,
   });
 
   /// Fracción de puntos con una fuente confiable (GPX o HGT).
@@ -145,6 +149,7 @@ class ActivitiesRepository {
   Future<AltitudeReadjustResult> readjustAltitude({
     required int activityId,
     required ElevationResolver resolver,
+    bool preload = true,
   }) async {
     final activity = await database.getActivityById(activityId);
     if (activity == null) {
@@ -155,7 +160,7 @@ class ActivitiesRepository {
       throw StateError('La actividad no tiene trazado para ajustar.');
     }
 
-    await resolver.preload();
+    if (preload) await resolver.preload();
 
     final routePoints = <RoutePoint>[
       for (final pt in points)
@@ -167,6 +172,7 @@ class ActivitiesRepository {
           bearingDegrees: 0,
           accuracyMeters: 0,
           timestamp: DateTime.fromMillisecondsSinceEpoch(0),
+          pressureHpa: pt.pressureHpa,
         ),
     ];
     final cumulative = [
@@ -206,7 +212,37 @@ class ActivitiesRepository {
       hgtPoints: result.countFrom(ElevationSource.hgt),
       approxPoints: result.approximatePointCount,
       totalPoints: points.length,
+      barometric: result.barometric,
     );
+  }
+
+  /// "Ajustar altimetría" de todas las actividades guardadas, una a la
+  /// vez y dejando respirar a la interfaz entre una y otra. Se detiene
+  /// en cuanto [cancelled] devuelve true. Devuelve cuántas ajustó.
+  ///
+  /// Hace falta cuando cambia la forma de medir (o las teselas): el
+  /// desnivel guardado alimenta las calorías, el récord de desnivel y
+  /// los totales de la semana, y una actividad vieja seguía con el
+  /// número inflado hasta que alguien tocara el botón en cada una.
+  Future<int> readjustAllAltitudes({
+    required ElevationResolver resolver,
+    bool Function()? cancelled,
+  }) async {
+    await resolver.preload();
+    final activities = await database.watchAllActivities().first;
+    var done = 0;
+    for (final activity in activities) {
+      if (cancelled?.call() ?? false) break;
+      if (activity.routePoints.length < 2) continue;
+      await readjustAltitude(
+        activityId: activity.id,
+        resolver: resolver,
+        preload: false,
+      );
+      done++;
+      await Future<void>.delayed(Duration.zero);
+    }
+    return done;
   }
 
   /// Copia cada foto elegida a `<documentos_app>/activity_photos/`, para

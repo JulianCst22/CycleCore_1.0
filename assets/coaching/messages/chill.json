@@ -485,13 +485,13 @@
     {
       "id": "chill.mo.reserva.2",
       "slot": "motivo",
-      "text": "faltan {desnivel} metros",
+      "text": "faltan {kmRestantes} kilómetros",
       "diagnoses": [
         "C8",
         "C2"
       ],
       "values": [
-        "desnivel"
+        "kmRestantes"
       ]
     },
     {
@@ -560,7 +560,12 @@
     {
       "id": "chill.mo.generico.1",
       "slot": "motivo",
-      "text": "falta subida"
+      "text": "falta subida",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "chill.mo.generico.2",
@@ -570,7 +575,12 @@
     {
       "id": "chill.mo.generico.3",
       "slot": "motivo",
-      "text": "todavía falta"
+      "text": "todavía falta",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "chill.mo.remate.1",

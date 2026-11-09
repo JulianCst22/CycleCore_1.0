@@ -5,6 +5,8 @@
 /// importar. Todo lo que no se exporta acá es detalle interno.
 library;
 
+export 'application/altitude_history_sync.dart'
+    show altitudeHistorySyncProvider;
 export 'presentation/activities_list_screen.dart';
 export 'presentation/activity_profile_extension_points.dart';
 export 'presentation/save_activity_screen.dart';

@@ -4,7 +4,8 @@ import 'gpx_track_repository.dart';
 
 /// Punto único de la cadena de prioridades de elevación:
 ///
-///   1. GPX  (`GpxTrackRepository`)  -- barométrico, lo más fiable.
+///   1. GPX  (`GpxTrackRepository`)  -- barométrico: su forma, al nivel
+///      del HGT cuando lo hay.
 ///   2. HGT  (`ElevationRepository`) -- grilla SRTM ~30 m.
 ///   3. nada -- el llamador usa el GPS/barómetro fusionado en vivo.
 ///
@@ -18,11 +19,13 @@ class ElevationResolver implements ElevationLookup {
 
   ElevationResolver(this.gpxTracks, this.dem);
 
-  /// Carga a memoria los catálogos de ambas fuentes. Llamar antes de
-  /// grabar o de re-aplanar una actividad.
+  /// Carga a memoria los catálogos de ambas fuentes y ancla los GPX al
+  /// modelo de elevación (ver `GpxTrackRepository.anchorTo`). Llamar
+  /// antes de grabar o de re-aplanar una actividad.
   Future<void> preload() async {
     await gpxTracks.preload();
     await dem.preloadCatalog();
+    gpxTracks.anchorTo(dem.elevationAtSync);
   }
 
   @override

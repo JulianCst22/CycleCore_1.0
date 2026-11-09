@@ -485,13 +485,13 @@
     {
       "id": "coach.mo.reserva.2",
       "slot": "motivo",
-      "text": "faltan {desnivel} metros",
+      "text": "faltan {kmRestantes} kilómetros",
       "diagnoses": [
         "C8",
         "C2"
       ],
       "values": [
-        "desnivel"
+        "kmRestantes"
       ]
     },
     {
@@ -560,7 +560,12 @@
     {
       "id": "coach.mo.generico.1",
       "slot": "motivo",
-      "text": "queda trabajo"
+      "text": "queda trabajo",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "coach.mo.generico.2",
@@ -570,7 +575,12 @@
     {
       "id": "coach.mo.generico.3",
       "slot": "motivo",
-      "text": "falta montaña"
+      "text": "falta montaña",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "coach.mo.remate.1",

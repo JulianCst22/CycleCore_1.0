@@ -4,7 +4,8 @@ import 'dart:math';
 /// expuesto SOLO para poder instrumentar/depurar -- no lo usa la
 /// lógica de negocio normal, solo el AltitudeDebugLogger.
 class AltitudeFusionDebugSnapshot {
-  final double gpsAltitude;
+  /// `null` si la posición llegó sin altura.
+  final double? gpsAltitude;
   final double? smoothedPressureHpa;
   final double? barometricAltitude;
   final double barometricDeltaRaw;
@@ -57,11 +58,23 @@ class AltitudeFusionService {
         (1.0 - pow(pressureHpa / _seaLevelPressureHpa, 1 / 5.255));
   }
 
-  double fuse({required double gpsAltitude, double? pressureHpa}) {
+  /// [gpsAltitude] es `null` cuando la posición llegó sin altura (una
+  /// fijación por red o wifi, que Android reporta como 0 m): tomarla
+  /// como lectura arrastraría la altitud hacia el nivel del mar.
+  /// [fallbackAltitude] es la referencia confiable del punto (GPX/HGT),
+  /// si la hay: con ella se arranca y hacia ella se corrige cuando el GPS
+  /// no trae altura.
+  double fuse({
+    required double? gpsAltitude,
+    double? pressureHpa,
+    double? fallbackAltitude,
+  }) {
     final now = DateTime.now();
+    final anchor = gpsAltitude ?? fallbackAltitude;
 
     if (pressureHpa == null) {
-      _fusedAltitude = gpsAltitude;
+      final altitude = anchor ?? _fusedAltitude ?? 0;
+      _fusedAltitude = altitude;
       _lastUpdateTime = now;
       _lastDebugSnapshot = AltitudeFusionDebugSnapshot(
         gpsAltitude: gpsAltitude,
@@ -69,9 +82,9 @@ class AltitudeFusionService {
         barometricAltitude: null,
         barometricDeltaRaw: 0,
         barometricDeltaClamped: 0,
-        fusedAltitude: gpsAltitude,
+        fusedAltitude: altitude,
       );
-      return gpsAltitude;
+      return altitude;
     }
 
     _smoothedPressureHpa = _smoothedPressureHpa == null
@@ -82,7 +95,7 @@ class AltitudeFusionService {
     final barometricAltitude = _pressureToAltitude(_smoothedPressureHpa!);
 
     if (_fusedAltitude == null || _lastBarometricAltitude == null) {
-      _fusedAltitude = gpsAltitude;
+      _fusedAltitude = _fusedAltitude ?? anchor ?? barometricAltitude;
       _lastBarometricAltitude = barometricAltitude;
       _lastUpdateTime = now;
       _lastDebugSnapshot = AltitudeFusionDebugSnapshot(
@@ -112,9 +125,10 @@ class AltitudeFusionService {
 
     final predicted = _fusedAltitude! + barometricDelta;
 
-    _fusedAltitude =
-        (_complementaryAlpha * predicted) +
-        ((1 - _complementaryAlpha) * gpsAltitude);
+    _fusedAltitude = anchor == null
+        ? predicted
+        : (_complementaryAlpha * predicted) +
+              ((1 - _complementaryAlpha) * anchor);
     _lastBarometricAltitude = barometricAltitude;
     _lastUpdateTime = now;
 

@@ -54,6 +54,21 @@ class ElevationSettingsScreen extends ConsumerWidget {
             const _SectionLabel('TESELAS DESCARGADAS'),
             const SizedBox(height: 8),
             const _DownloadedTilesList(),
+            const SizedBox(height: 28),
+            const _SectionLabel('DATOS DE ELEVACIÓN'),
+            const SizedBox(height: 8),
+            // Atribución que exigen las licencias de FABDEM (CC BY-NC-SA
+            // 4.0) y de Copernicus.
+            const _InfoCard(
+              icon: Icons.info_outline,
+              message: 'FABDEM V1-2 (Hawker et al., 2022, Universidad de '
+                  'Bristol / Fathom), licencia CC BY-NC-SA 4.0: el '
+                  'modelo Copernicus sin edificios ni árboles. Producido '
+                  'con Copernicus WorldDEM-30 © DLR e.V. 2010-2014 y © '
+                  'Airbus Defence and Space GmbH 2014-2018, provisto bajo '
+                  'COPERNICUS por la Unión Europea y la ESA; todos los '
+                  'derechos reservados.',
+            ),
           ],
         ),
       ),
@@ -239,8 +254,8 @@ class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
             allDownloaded
                 ? 'Ya tenés todas las teselas de esta zona -- las '
                     'pendientes se calculan con precisión profesional.'
-                : 'Faltan ${_missing!.length} teselas para cubrir tu '
-                    'zona actual.',
+                : 'Faltan o hay que actualizar ${_missing!.length} '
+                    'teselas para cubrir tu zona actual.',
             style: const TextStyle(
               color: AppColors.textSecondaryOnPanel,
               fontSize: 12.5,

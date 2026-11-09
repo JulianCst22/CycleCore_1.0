@@ -51,6 +51,13 @@ final class ReplayResult {
       if (row.advice.speak) row,
   ];
 
+  /// De esos avisos, los que fueron turno de compañía (sin urgencia, solo
+  /// porque se cumplió el intervalo).
+  List<ReplayRow> get turns => [
+    for (final row in rows)
+      if (row.advice.verdict.isTurn) row,
+  ];
+
   /// Percentil [p] de lo que tardaron las inferencias, en microsegundos.
   int? inferenceMicros(double p) {
     if (rows.isEmpty) return null;

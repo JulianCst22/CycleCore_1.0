@@ -86,6 +86,7 @@ ActivitySummary buildActivitySummary({
         powerWatts: carriedPower,
         cadenceRpm: carriedCadence,
         isElevationApproximate: flattened.isApproximate[i],
+        pressureHpa: point.pressureHpa,
       ),
     );
   }

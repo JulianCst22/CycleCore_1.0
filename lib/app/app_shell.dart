@@ -42,6 +42,9 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(appTabIndexProvider);
+    // El historial se vuelve a medir solo cuando cambia cómo se mide la
+    // altimetría (ver `altitudeHistorySyncProvider`).
+    ref.listen(altitudeHistorySyncProvider, (_, _) {});
 
     return Scaffold(
       body: FadeIndexedStack(

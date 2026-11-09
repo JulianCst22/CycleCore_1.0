@@ -122,6 +122,12 @@ class RoutePointSnapshot {
   /// defecto para actividades grabadas antes de la Fase 1.
   final bool isElevationApproximate;
 
+  /// Presión del barómetro (hPa) cuando se grabó el punto, o `null` sin
+  /// barómetro (o en actividades anteriores a este campo). Es lo que
+  /// permite a "Ajustar altimetría" volver a sacar la forma del perfil
+  /// del barómetro, como al guardar.
+  final double? pressureHpa;
+
   const RoutePointSnapshot({
     required this.latitude,
     required this.longitude,
@@ -135,6 +141,7 @@ class RoutePointSnapshot {
     this.powerWatts,
     this.cadenceRpm,
     this.isElevationApproximate = false,
+    this.pressureHpa,
   });
 
   Map<String, dynamic> toJson() => {
@@ -150,6 +157,7 @@ class RoutePointSnapshot {
         'pw': powerWatts,
         'cad': cadenceRpm,
         'approx': isElevationApproximate,
+        if (pressureHpa != null) 'p': pressureHpa,
       };
 
   factory RoutePointSnapshot.fromJson(Map<String, dynamic> json) {
@@ -173,6 +181,7 @@ class RoutePointSnapshot {
       // -- se asumen "no aproximadas" (comportamiento previo, sin
       // marcar nada especial en el gráfico).
       isElevationApproximate: (json['approx'] as bool?) ?? false,
+      pressureHpa: (json['p'] as num?)?.toDouble(),
     );
   }
 
@@ -196,6 +205,7 @@ class RoutePointSnapshot {
       cadenceRpm: cadenceRpm,
       isElevationApproximate:
           isElevationApproximate ?? this.isElevationApproximate,
+      pressureHpa: pressureHpa,
     );
   }
 }

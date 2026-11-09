@@ -485,13 +485,13 @@
     {
       "id": "hype.mo.reserva.2",
       "slot": "motivo",
-      "text": "quedan {desnivel} metros",
+      "text": "quedan {kmRestantes} kilómetros",
       "diagnoses": [
         "C8",
         "C2"
       ],
       "values": [
-        "desnivel"
+        "kmRestantes"
       ]
     },
     {
@@ -560,7 +560,12 @@
     {
       "id": "hype.mo.generico.1",
       "slot": "motivo",
-      "text": "queda montaña"
+      "text": "queda montaña",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "hype.mo.generico.2",
@@ -570,7 +575,12 @@
     {
       "id": "hype.mo.generico.3",
       "slot": "motivo",
-      "text": "falta carrera"
+      "text": "falta carrera",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "hype.mo.remate.1",

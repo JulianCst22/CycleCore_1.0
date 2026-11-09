@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../../core/database/database.dart';
 import '../domain/athlete.dart';
 import '../domain/replay/ride_recording.dart';
+import '../domain/variables/labels.dart' show Goal;
 
 /// Saca una salida guardada en el formato que el motor sabe reproducir.
 ///
@@ -28,13 +29,15 @@ class RideExportRepository {
     ].take(limit).toList();
   }
 
-  /// Arma la grabación de [activityId] con el ciclista [athlete].
+  /// Arma la grabación de [activityId] con el ciclista [athlete] y el
+  /// modo [goal] con el que subió.
   ///
   /// Los puntos del trazado ya vienen con las llaves que lee
   /// [RideRecording]; lo único que hay que poner es quién pedaleaba.
   Future<RideRecording?> recordingOf(
     int activityId, {
     required CoachAthlete athlete,
+    Goal goal = Goal.pr,
   }) async {
     final activity = await database.getActivityById(activityId);
     if (activity == null) return null;
@@ -54,6 +57,7 @@ class RideExportRepository {
         'preferredCadence': athlete.preferredCadence.toDouble(),
       },
       'terrainSource': 'ownActivity',
+      'goal': goal.name,
       'points': points,
     });
   }
@@ -62,8 +66,13 @@ class RideExportRepository {
   Future<String?> exportJson(
     int activityId, {
     required CoachAthlete athlete,
+    Goal goal = Goal.pr,
   }) async {
-    final recording = await recordingOf(activityId, athlete: athlete);
+    final recording = await recordingOf(
+      activityId,
+      athlete: athlete,
+      goal: goal,
+    );
     if (recording == null) return null;
     return const JsonEncoder.withIndent('  ').convert(recording.toJson());
   }

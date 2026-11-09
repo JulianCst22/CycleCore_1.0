@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../core/database/database.dart';
+import '../../../core/geo/geo.dart';
 import '../domain/altitude_fusion/altitude_fusion_filter.dart';
 import '../domain/altitude_fusion/altitude_source_reading.dart';
 import '../domain/slope_plausibility/slope_plausibility_filter.dart';
@@ -166,6 +167,9 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   final Ref _ref;
   final AltitudeFusionService _altitudeFusion = AltitudeFusionService();
 
+  /// Desnivel que se ve en vivo, contado como el del resumen final.
+  GainCounter _gainCounter = GainCounter();
+
   // Ventana de TIEMPO (no de distancia) -- ver LiveSlopeCalculator
   // para el porqué. Reemplaza a SlopeWindowCalculator SOLO acá, en el
   // cockpit en vivo; el aplanado post-actividad (Fase 1) sigue usando
@@ -313,6 +317,8 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     _journal.resume(snapshot);
 
     final points = snapshot.routePoints;
+    _gainCounter = GainCounter(gainMeters: snapshot.liveElevationGainMeters);
+    if (points.isNotEmpty) _gainCounter.add(points.last.altitude);
     _activeSegmentStartedAt = DateTime.now();
     state = RouteRecordingState(
       isRecording: true,
@@ -355,6 +361,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     await _elevation.preload();
 
     _altitudeFusion.reset();
+    _gainCounter = GainCounter();
     _slopeCalculator.reset();
     _altitudeFusionFilter.reset();
     _slopePlausibility.reset();
@@ -578,9 +585,14 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
         .resolve(position.latitude, position.longitude)
         .altitudeMeters;
 
+    // Una posición sin altura (por red o wifi, que Android reporta como
+    // 0 m y sin precisión vertical) no es una lectura de altitud.
+    final gpsHasAltitude =
+        position.altitude != 0 || position.altitudeAccuracy > 0;
     final realtimeAltitude = _altitudeFusion.fuse(
-      gpsAltitude: position.altitude,
+      gpsAltitude: gpsHasAltitude ? position.altitude : null,
       pressureHpa: _lastPressureHpa,
+      fallbackAltitude: refAltitude,
     );
 
     final fusionResult = _altitudeFusionFilter.fuse(
@@ -607,15 +619,10 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       bearingDegrees: position.heading,
       accuracyMeters: position.accuracy,
       timestamp: DateTime.now(),
+      pressureHpa: _lastPressureHpa,
     );
 
-    double addedElevationGain = 0;
-    if (previous != null) {
-      final altitudeDelta = newPoint.altitude - previous.altitude;
-      if (altitudeDelta > 0) {
-        addedElevationGain = altitudeDelta;
-      }
-    }
+    _gainCounter.add(newPoint.altitude);
 
     // --- Distancia y velocidad: sensor de velocidad BLE con
     // prioridad, GPS como respaldo. El offset se recalcula solo cuando
@@ -694,7 +701,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     state = state.copyWith(
       points: [...state.points, newPoint],
       cumulativeDistanceMeters: newCumulativeDistance,
-      elevationGainMeters: state.elevationGainMeters + addedElevationGain,
+      elevationGainMeters: _gainCounter.gainMeters,
       currentSlopePercent: trustedSlope,
       displaySlopePercent: displaySlope,
       currentSpeedKmh: clampedSpeedKmh,

@@ -14,12 +14,12 @@ import 'ride_replay.dart' show replayRide;
 /// vivirla: el ciclista, el perfil del terreno, el récord y las lecturas
 /// segundo a segundo.
 ///
-/// Es la entrada de [replayRide] y de las herramientas de la tesis. El
-/// formato es el JSON que ya guarda la app, así que una actividad
-/// exportada del teléfono se reproduce tal cual: los puntos traen
-/// `secondsFromStart`, `distanceFromStartMeters`, `powerWatts`,
-/// `heartRateBpm` y `cadenceRpm`, y de ahí sale también el perfil si el
-/// archivo no trae uno aparte.
+/// Es la entrada de [replayRide] y de las herramientas de la tesis. Lee
+/// dos formatos de punto: el de reproducción (`second`, `alongMeters`,
+/// `power`, `heartRate`, `cadence`, `speed` en m/s) y el que guarda la
+/// app en cada actividad (`t`, `dist`, `pw`, `hr`, `cad`, `speed` en
+/// km/h), así que una actividad exportada del teléfono se reproduce tal
+/// cual. De ahí sale también el perfil si el archivo no trae uno aparte.
 final class RideRecording {
   final String name;
   final CoachAthlete athlete;
@@ -281,6 +281,7 @@ final class RideRecording {
           second: _numOrNull(e, const [
             'second',
             'secondsFromStart',
+            't',
             'segundo',
           ]),
           meters: _num(e, const [
@@ -289,12 +290,18 @@ final class RideRecording {
             'dist',
             'distance',
           ]),
-          power: _numOrNull(e, const ['power', 'powerWatts']),
-          heartRate: _numOrNull(e, const ['heartRate', 'heartRateBpm']),
-          cadence: _numOrNull(e, const ['cadence', 'cadenceRpm']),
+          power: _numOrNull(e, const ['power', 'powerWatts', 'pw']),
+          heartRate: _numOrNull(e, const ['heartRate', 'heartRateBpm', 'hr']),
+          cadence: _numOrNull(e, const ['cadence', 'cadenceRpm', 'cad']),
           speed: _speedOf(e),
         ),
-    ]..sort((a, b) => (a.second ?? 0).compareTo(b.second ?? 0));
+    ];
+    // Dos fijaciones del GPS pueden caer en el mismo segundo: la
+    // distancia, que solo crece, desempata.
+    raw.sort((a, b) {
+      final bySecond = (a.second ?? 0).compareTo(b.second ?? 0);
+      return bySecond != 0 ? bySecond : a.meters.compareTo(b.meters);
+    });
 
     final ticks = <RideTick>[];
     double? previousClock;
@@ -302,6 +309,19 @@ final class RideRecording {
       final clock = point.second ?? (previousClock ?? -1) + 1;
       // Hueco corto: se repite la última lectura hasta llegar al punto.
       final gap = previousClock == null ? 1 : (clock - previousClock).round();
+      // Mismo segundo que el anterior: manda la lectura más nueva, sin
+      // inventar un segundo de más.
+      if (previousClock != null && gap < 1) {
+        ticks[ticks.length - 1] = RideTick(
+          second: ticks.length - 1,
+          alongMeters: point.meters,
+          power: point.power,
+          heartRate: point.heartRate,
+          cadence: point.cadence,
+          speed: point.speed,
+        );
+        continue;
+      }
       if (previousClock != null && gap > 1 && gap <= pauseGapSeconds) {
         final last = ticks.last;
         for (var i = 1; i < gap; i++) {
@@ -335,9 +355,12 @@ final class RideRecording {
   }
 
   /// Velocidad en m/s: el archivo puede traerla en km/h (como la guarda
-  /// la app) o ya en metros por segundo.
+  /// la app: `speed` en un punto de actividad, que se reconoce porque
+  /// trae su segundo en `t`) o ya en metros por segundo.
   static double? _speedOf(Map<String, dynamic> json) {
-    final kmh = _numOrNull(json, const ['speedKmh', 'velocidadKmh']);
+    final kmh =
+        _numOrNull(json, const ['speedKmh', 'velocidadKmh']) ??
+        (json.containsKey('t') ? _numOrNull(json, const ['speed']) : null);
     if (kmh != null) return kmh / 3.6;
     return _numOrNull(json, const ['speed', 'speedMetersPerSecond']);
   }

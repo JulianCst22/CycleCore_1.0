@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -27,6 +28,11 @@ class ElevationRepository {
   /// Teselas que el ciclista pidió no volver a ofrecer al grabar (por
   /// ejemplo, porque su servidor no las tiene).
   static const _declinedKey = 'elevation_tiles_declined_v1';
+
+  /// De qué modelo de elevación es cada tesela descargada (nombre ->
+  /// `AppConfig.elevationDataset`). Las que no aparecen son de antes de
+  /// existir este registro: SRTM.
+  static const _datasetsKey = 'elevation_tile_datasets_v1';
 
   final AppDatabase database;
   final SrtmTileReader _reader = SrtmTileReader();
@@ -85,16 +91,44 @@ class ElevationRepository {
       radiusKm: radiusKm,
     );
 
+    final datasets = await _datasets();
     final missing = <SrtmTileId>[];
     for (final tile in needed) {
       final entry = await database.getTile(tile.fileName);
-      // Registrada pero sin archivo (se borró, o la descarga quedó a
-      // medias): para la app es lo mismo que no tenerla.
-      if (entry == null || !await File(entry.filePath).exists()) {
+      // Registrada pero sin archivo, con un archivo incompleto o de un
+      // modelo anterior: se vuelve a ofrecer.
+      if (entry == null ||
+          !await _isComplete(entry.filePath) ||
+          datasets[tile.fileName] != AppConfig.elevationDataset) {
         missing.add(tile);
       }
     }
     return missing;
+  }
+
+  Future<Map<String, String>> _datasets() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_datasetsKey);
+    if (raw == null) return {};
+    try {
+      return (jsonDecode(raw) as Map<String, dynamic>).cast<String, String>();
+    } on FormatException {
+      return {};
+    }
+  }
+
+  Future<void> _recordDataset(SrtmTileId tile) async {
+    final prefs = await SharedPreferences.getInstance();
+    final datasets = await _datasets()
+      ..[tile.fileName] = AppConfig.elevationDataset;
+    await prefs.setString(_datasetsKey, jsonEncode(datasets));
+  }
+
+  /// El archivo existe y mide lo que mide una tesela SRTM completa.
+  static Future<bool> _isComplete(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) return false;
+    return SrtmTileReader.sideForLength(await file.length()) != null;
   }
 
   /// Teselas que el ciclista pidió no volver a ofrecer antes de grabar.
@@ -134,6 +168,13 @@ class ElevationRepository {
         '(HTTP ${response.statusCode}).',
       );
     }
+    final bytes = response.bodyBytes;
+    if (SrtmTileReader.sideForLength(bytes.length) == null) {
+      throw Exception(
+        'La tesela ${tile.fileName} llegó incompleta '
+        '(${bytes.length} bytes). Vuelve a descargarla.',
+      );
+    }
 
     final docsDir = await getApplicationDocumentsDirectory();
     final tilesDir = Directory(p.join(docsDir.path, 'elevation_tiles'));
@@ -141,9 +182,16 @@ class ElevationRepository {
       await tilesDir.create(recursive: true);
     }
 
+    // Se escribe aparte y se renombra al final: si la app se cierra a
+    // mitad de la escritura, la tesela anterior (o ninguna) sigue ahí,
+    // nunca un archivo a medias con el nombre bueno.
     final filePath = p.join(tilesDir.path, tile.fileName);
-    await File(filePath).writeAsBytes(response.bodyBytes);
+    final partial = File('$filePath.descargando');
+    await partial.writeAsBytes(bytes, flush: true);
+    await partial.rename(filePath);
+    _reader.forget(filePath);
     await _forgetDeclined(tile);
+    await _recordDataset(tile);
 
     await database.upsertTile(
       DownloadedElevationTilesCompanion.insert(
@@ -182,6 +230,7 @@ class ElevationRepository {
   Future<void> deleteTile(String tileName) async {
     final entry = await database.getTile(tileName);
     if (entry != null) {
+      _reader.forget(entry.filePath);
       final file = File(entry.filePath);
       if (await file.exists()) await file.delete();
     }

@@ -67,6 +67,8 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
             '$pct% de los puntos con fuente precisa '
             '(${result.gpxPoints} GPX · ${result.hgtPoints} HGT · '
             '${result.approxPoints} aproximados).\n'
+            '${result.barometric ? 'Forma del perfil: barómetro del '
+                'teléfono; nivel: modelo de elevación.\n' : ''}'
             'El perfil, los colores de pendiente del mapa y la altitud '
             'de la actividad ya quedaron con los datos nuevos.';
       });
@@ -111,7 +113,10 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
     final points = activity.routePoints;
     final loss = points.length < 2
         ? 0.0
-        : computeGainLoss(points.map((p) => p.altitude).toList()).lossMeters;
+        : computeRouteGainLoss(
+            [for (final p in points) p.altitude],
+            [for (final p in points) p.distanceFromStartMeters],
+          ).lossMeters;
     final approx = points.where((p) => p.isElevationApproximate).length;
 
     return ListView(

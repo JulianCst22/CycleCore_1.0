@@ -378,8 +378,10 @@ class CoachingController extends StateNotifier<CoachingLiveState> {
     state = state.copyWith(spoken: message, spokenAt: advice.second);
     // El seguimiento («vas bien, sostén esos 285 vatios») compara vatios
     // contra vatios: con potencia estimada la diferencia es ruido de la
-    // estimación, no si el ciclista hizo caso.
-    _pendingTarget = advice.features.powerIsEstimated
+    // estimación, no si el ciclista hizo caso. Tras un turno tampoco va:
+    // el turno ya es el aviso de compañía, y treinta segundos después
+    // sonaría a lo mismo dicho dos veces.
+    _pendingTarget = advice.features.powerIsEstimated || advice.verdict.isTurn
         ? null
         : advice.power?.spoken;
     _pendingFollowUpAt = preferences.detail == CoachingDetail.completo

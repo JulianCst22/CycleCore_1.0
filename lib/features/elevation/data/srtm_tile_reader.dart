@@ -7,7 +7,8 @@ import 'dart:io';
 /// Formato SRTM: grilla cuadrada de enteros de 16 bits con signo,
 /// big-endian, fila por fila de norte a sur, columna por columna de
 /// oeste a este. El tamaño del lado (1201 para SRTM3 ~90m, 3601 para
-/// SRTM1 ~30m) se deduce del tamaño del archivo -- no hay que asumirlo.
+/// SRTM1 ~30m) se deduce del tamaño del archivo, y un archivo que no
+/// mide exactamente eso se rechaza (ver [sideForLength]).
 ///
 /// Todo es SÍNCRONO a propósito: son lecturas de disco locales, muy
 /// rápidas, y así se puede llamar directo desde `_onNewPosition` sin
@@ -15,6 +16,22 @@ import 'dart:io';
 class SrtmTileReader {
   static const int _maxOpenHandles = 3;
   final LinkedHashMap<String, RandomAccessFile> _openHandles = LinkedHashMap();
+
+  /// Lados de las grillas SRTM que existen: SRTM1 (~30 m) y SRTM3
+  /// (~90 m).
+  static const List<int> _validSides = [3601, 1201];
+
+  /// Lado de la grilla de un archivo de [bytes], o `null` si ese tamaño
+  /// no es el de una tesela completa. Antes el lado se sacaba con la
+  /// raíz del tamaño, así que un archivo cortado a medias daba un lado
+  /// falso y, con él, alturas de OTRO lugar de la tesela: suaves y
+  /// creíbles, pero equivocadas.
+  static int? sideForLength(int bytes) {
+    for (final side in _validSides) {
+      if (bytes == side * side * 2) return side;
+    }
+    return null;
+  }
 
   /// Altitud interpolada (metros) en (lat, lng), o null si el archivo no
   /// existe o el dato en esa coordenada es un "hueco" conocido de SRTM.
@@ -28,9 +45,8 @@ class SrtmTileReader {
     final raf = _openHandle(filePath);
     if (raf == null) return null;
 
-    final fileLength = raf.lengthSync();
-    final side = _integerSqrt(fileLength ~/ 2);
-    if (side < 2) return null;
+    final side = sideForLength(raf.lengthSync());
+    if (side == null) return null;
 
     // Fila 0 = borde norte (lat = tileLatFloor + 1); última fila = borde
     // sur (lat = tileLatFloor). Columna 0 = borde oeste.
@@ -74,17 +90,6 @@ class SrtmTileReader {
     return signed.toDouble();
   }
 
-  int _integerSqrt(int value) {
-    if (value <= 1) return value;
-    var x = value;
-    var y = (x + 1) ~/ 2;
-    while (y < x) {
-      x = y;
-      y = (x + value ~/ x) ~/ 2;
-    }
-    return x;
-  }
-
   RandomAccessFile? _openHandle(String filePath) {
     final cached = _openHandles.remove(filePath);
     if (cached != null) {
@@ -105,6 +110,11 @@ class SrtmTileReader {
     _openHandles[filePath] = raf;
     return raf;
   }
+
+  /// Suelta el archivo de [filePath] si estaba abierto: se reemplazó o
+  /// se borró en disco, y el manejador viejo seguiría leyendo el
+  /// archivo anterior.
+  void forget(String filePath) => _openHandles.remove(filePath)?.closeSync();
 
   void closeAll() {
     for (final raf in _openHandles.values) {

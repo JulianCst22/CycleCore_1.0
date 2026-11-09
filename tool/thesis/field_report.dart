@@ -41,10 +41,10 @@ List<FieldRide> replayFolder(
       continue;
     }
     if (!recording.hasPower) {
-      stderr.writeln(
-        '  ${file.uri.pathSegments.last}: sin potencia, no se reproduce',
+      stdout.writeln(
+        '  ${file.uri.pathSegments.last}: sin potencia, se reproduce con '
+        'la potencia estimada',
       );
-      continue;
     }
     rides.add((
       file: file.uri.pathSegments.last,

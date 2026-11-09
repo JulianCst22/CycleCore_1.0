@@ -9,7 +9,12 @@ import '../domain/route_point.dart';
 enum RecordingSampleKind {
   heartRate('hr'),
   power('power'),
-  cadence('cadence');
+  cadence('cadence'),
+
+  /// Presión del barómetro de un punto GPS, con el mismo instante que el
+  /// punto: así vuelve a su punto al recuperar la grabación, sin agregar
+  /// una columna a `RecordingPoints`.
+  pressure('pressure');
 
   final String wire;
   const RecordingSampleKind(this.wire);
@@ -101,6 +106,10 @@ class RecordingJournal {
         speedKmh: entry.speedKmh,
       ),
     );
+    final pressure = p.pressureHpa;
+    if (pressure != null) {
+      _addSample(RecordingSampleKind.pressure, p.timestamp, pressure);
+    }
   }
 
   void addHeartRate(HeartRateSample sample) => _addSample(
@@ -225,6 +234,7 @@ class RecordingJournal {
     final heartRate = <HeartRateSample>[];
     final power = <PowerSample>[];
     final cadence = <CadenceSample>[];
+    final pressureAt = <int, double>{};
 
     for (final s in samples) {
       final at = DateTime.fromMillisecondsSinceEpoch(s.timestampMillis);
@@ -235,6 +245,8 @@ class RecordingJournal {
           power.add(PowerSample(timestamp: at, watts: s.value.round()));
         case RecordingSampleKind.cadence:
           cadence.add(CadenceSample(timestamp: at, rpm: s.value));
+        case RecordingSampleKind.pressure:
+          pressureAt[s.timestampMillis] = s.value;
         case null:
           break;
       }
@@ -258,6 +270,7 @@ class RecordingJournal {
               bearingDegrees: p.bearingDegrees,
               accuracyMeters: p.accuracyMeters,
               timestamp: DateTime.fromMillisecondsSinceEpoch(p.timestampMillis),
+              pressureHpa: pressureAt[p.timestampMillis],
             ),
             distanceMeters: p.distanceMeters,
             speedKmh: p.speedKmh,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -136,6 +138,13 @@ class SegmentDetectionController extends StateNotifier<SegmentLiveState> {
   bool _wasRecording = false;
   int _lastTickPointCount = 0;
 
+  /// Escucha la tabla de segmentos mientras se graba (ver
+  /// [_watchSegmentChanges]) y huella de los que se están vigilando,
+  /// para no recargar cuando nada cambió.
+  StreamSubscription<List<Segment>>? _segmentsWatch;
+  int? _watchedSignature;
+  Future<void> _reloads = Future.value();
+
   SegmentDetectionController(this._ref, {SegmentDetector? detector})
       : _detector = detector ?? const SegmentDetector(),
         super(const SegmentLiveState()) {
@@ -191,6 +200,43 @@ class SegmentDetectionController extends StateNotifier<SegmentLiveState> {
       log: _ref.read(rideSensorLogProvider),
     );
     _publishActiveRun();
+    _watchSegmentChanges();
+  }
+
+  /// Un segmento creado o bajado a mitad de la salida (un GPX importado
+  /// en el camino) se vigila desde ese momento. Antes la lista se leía
+  /// una sola vez al darle Grabar: en la primera salida al campo un
+  /// segmento importado en La Calera no se detectó al pasar por él y
+  /// solo apareció al revisar la actividad ya guardada.
+  ///
+  /// Recargar no toca el estado del detector: si se va dentro de un
+  /// segmento, se sigue en él; si ese segmento se borró o se desactivó,
+  /// el detector lo abandona solo (motivo `removed`).
+  void _watchSegmentChanges() {
+    _segmentsWatch?.cancel();
+    final repo = _ref.read(segmentsRepositoryProvider);
+    _segmentsWatch = repo.watchAllSegments().listen(_onSegmentsChanged);
+  }
+
+  void _onSegmentsChanged(List<Segment> all) {
+    if (!_wasRecording) return;
+    final active = [for (final s in all) if (s.isActive) s];
+    if (_signatureOf(active) == _watchedSignature) return;
+    // En fila: dos cambios seguidos no recargan a la vez.
+    _reloads = _reloads.then((_) async {
+      if (!_wasRecording) return;
+      await _loadWatchedSegments();
+      if (_wasRecording) _publishActiveRun();
+    });
+  }
+
+  /// Cambia si entra o sale un segmento, o si se edita su trazado. No
+  /// depende del orden: la lista vigilada y el stream no ordenan igual.
+  static int _signatureOf(List<Segment> segments) {
+    final sorted = [...segments]..sort((a, b) => a.id.compareTo(b.id));
+    return Object.hashAll([
+      for (final s in sorted) ...[s.id, s.profileJson],
+    ]);
   }
 
   /// Reconstruye los esfuerzos de una grabación recuperada que se va a
@@ -212,6 +258,7 @@ class SegmentDetectionController extends StateNotifier<SegmentLiveState> {
   Future<void> _loadWatchedSegments() async {
     final repo = _ref.read(segmentsRepositoryProvider);
     final segments = await repo.getActiveSegments();
+    _watchedSignature = _signatureOf(segments);
 
     final watched = <DetectorSegment>[];
     for (final s in segments) {
@@ -238,6 +285,7 @@ class SegmentDetectionController extends StateNotifier<SegmentLiveState> {
   }
 
   void _resetRuntimeState() {
+    _stopWatchingSegmentChanges();
     _detState = SegmentDetectorState.initial;
     _watched = const [];
     _meta.clear();
@@ -250,11 +298,18 @@ class SegmentDetectionController extends StateNotifier<SegmentLiveState> {
   /// pendientes -- se llama al terminar de grabar, cuando todavía falta
   /// que `RideScreen` los vuelque a la BD.
   void _resetRuntime() {
+    _stopWatchingSegmentChanges();
     _detState = SegmentDetectorState.initial;
     _watched = const [];
     _meta.clear();
     _lastTickPointCount = 0;
     if (state.active != null) state = const SegmentLiveState();
+  }
+
+  void _stopWatchingSegmentChanges() {
+    _segmentsWatch?.cancel();
+    _segmentsWatch = null;
+    _watchedSignature = null;
   }
 
   void _tick(RouteRecordingState rec) {
@@ -419,6 +474,12 @@ class SegmentDetectionController extends StateNotifier<SegmentLiveState> {
 
   /// El usuario descartó la actividad -- se tiran los esfuerzos.
   void discardPendingEfforts() => _pending.clear();
+
+  @override
+  void dispose() {
+    _segmentsWatch?.cancel();
+    super.dispose();
+  }
 }
 
 final segmentDetectionProvider =

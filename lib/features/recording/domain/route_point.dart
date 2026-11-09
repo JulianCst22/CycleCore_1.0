@@ -37,6 +37,12 @@ class RoutePoint {
 
   final DateTime timestamp;
 
+  /// Presión del barómetro (hPa) en este punto, o `null` si el teléfono
+  /// no tiene barómetro o todavía no había lectura. Al guardar la
+  /// actividad da la FORMA del perfil (ver `BarometricProfile`); la
+  /// altitud fusionada de arriba ya trae mezclados GPS y DEM.
+  final double? pressureHpa;
+
   const RoutePoint({
     required this.latitude,
     required this.longitude,
@@ -45,6 +51,7 @@ class RoutePoint {
     required this.bearingDegrees,
     required this.accuracyMeters,
     required this.timestamp,
+    this.pressureHpa,
   });
 
   @override

@@ -485,13 +485,13 @@
     {
       "id": "zen.mo.reserva.2",
       "slot": "motivo",
-      "text": "faltan {desnivel} metros",
+      "text": "faltan {kmRestantes} kilómetros",
       "diagnoses": [
         "C8",
         "C2"
       ],
       "values": [
-        "desnivel"
+        "kmRestantes"
       ]
     },
     {
@@ -560,7 +560,12 @@
     {
       "id": "zen.mo.generico.1",
       "slot": "motivo",
-      "text": "queda subida"
+      "text": "queda subida",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "zen.mo.generico.2",
@@ -570,7 +575,12 @@
     {
       "id": "zen.mo.generico.3",
       "slot": "motivo",
-      "text": "falta camino"
+      "text": "falta camino",
+      "phases": [
+        "arranque",
+        "primerTercio",
+        "medio"
+      ]
     },
     {
       "id": "zen.mo.remate.1",

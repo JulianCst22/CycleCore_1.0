@@ -41,12 +41,14 @@ Future<void> main(List<String> args) async {
   final recording = options.recordingPath == null
       ? simulatedPatiosRide()
       : RideRecording.parse(File(options.recordingPath!).readAsStringSync());
+  // Sin potenciómetro el coach estima la potencia con la velocidad y la
+  // pendiente (igual que en la calle), así que la salida se reproduce
+  // igual; solo hay que saberlo al leer los vatios.
   if (!recording.hasPower) {
-    stderr.writeln(
-      'La grabación no trae potencia: sin potenciómetro el coach no habla.',
+    stdout.writeln(
+      'La grabación no trae potencia: el coach la estima con la velocidad '
+      'y la pendiente, y no dice vatios.',
     );
-    exitCode = 1;
-    return;
   }
   final bank = MessageBank.parse(
     File('assets/coaching/messages/${options.persona}.json').readAsStringSync(),

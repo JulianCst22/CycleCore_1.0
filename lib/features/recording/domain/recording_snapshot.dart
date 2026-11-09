@@ -1,4 +1,5 @@
 import '../../../core/database/database.dart';
+import '../../../core/geo/geo.dart';
 
 import 'route_point.dart';
 
@@ -85,16 +86,15 @@ class RecordingSnapshot {
   double get maxSpeedKmh =>
       points.fold(0, (max, p) => p.speedKmh > max ? p.speedKmh : max);
 
-  /// Desnivel positivo tal como se venía acumulando en vivo (suma de
-  /// subidas entre puntos consecutivos). Solo para el cockpit al
-  /// reanudar -- el resumen final lo recalcula el aplanado.
+  /// Desnivel positivo tal como se venía contando en vivo (ver
+  /// `GainCounter`). Solo para el cockpit al reanudar -- el resumen
+  /// final lo recalcula el aplanado.
   double get liveElevationGainMeters {
-    var gain = 0.0;
-    for (var i = 1; i < points.length; i++) {
-      final delta = points[i].point.altitude - points[i - 1].point.altitude;
-      if (delta > 0) gain += delta;
+    final counter = GainCounter();
+    for (final p in points) {
+      counter.add(p.point.altitude);
     }
-    return gain;
+    return counter.gainMeters;
   }
 
   List<RoutePoint> get routePoints => [for (final p in points) p.point];

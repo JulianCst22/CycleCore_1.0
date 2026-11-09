@@ -133,19 +133,27 @@ final class MessageComposer {
     final action = advice.decision.advisedAdjustment;
 
     final said = <String>{};
-    MessagePiece? pick(PieceSlot slot) => _pick(
-      slot: slot,
-      exclude: said,
-      situation: situation,
-      register: register,
-      goal: goal,
-      adjustment: action,
-      diagnosis: diagnosis,
-      numbers: numbers,
-      second: second,
-      hints: advice.hints,
-      riderName: riderName,
-    );
+    // Un mismo número no se dice dos veces en una frase («quedan tres
+    // kilómetros, ... faltan tres kilómetros»).
+    final saidValues = <MessageValue>{};
+    MessagePiece? pick(PieceSlot slot) {
+      final piece = _pick(
+        slot: slot,
+        exclude: said,
+        excludeValues: saidValues,
+        situation: situation,
+        register: register,
+        goal: goal,
+        adjustment: action,
+        diagnosis: diagnosis,
+        numbers: numbers,
+        second: second,
+        hints: advice.hints,
+        riderName: riderName,
+      );
+      if (piece != null) saidValues.addAll(piece.values);
+      return piece;
+    }
 
     final urgency = advice.urgency?.lo ?? 0;
     final format = formatFor(advice, second: second, urgency: urgency);
@@ -384,6 +392,9 @@ final class MessageComposer {
 
     /// Familias ya dichas en esta frase.
     Set<String> exclude = const {},
+
+    /// Números ya dichos en esta frase.
+    Set<MessageValue> excludeValues = const {},
     String? riderName,
   }) {
     final hasName = riderName != null && riderName.isNotEmpty;
@@ -406,6 +417,12 @@ final class MessageComposer {
           piece,
     ];
     if (candidates.isEmpty) return null;
+
+    // Mejor una pieza que no repita un número ya dicho; si todas lo
+    // repiten, se repite antes que dejar la frase a medias.
+    if (candidates.any((p) => !p.values.any(excludeValues.contains))) {
+      candidates.removeWhere((p) => p.values.any(excludeValues.contains));
+    }
 
     // Una pieza escrita para este tono dice más que una genérica.
     final specific = [

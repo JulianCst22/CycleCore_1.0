@@ -12,6 +12,7 @@ import '../../../core/physiology/physiology.dart';
 import '../../../core/ui/ui.dart';
 import '../application/coaching_controller.dart';
 import '../application/coaching_providers.dart';
+import '../application/coaching_settings_providers.dart';
 import '../data/ride_export_repository.dart';
 import '../domain/advice/governor.dart';
 import '../domain/advice/targets.dart';
@@ -141,7 +142,11 @@ Future<void> _exportRide(BuildContext context, WidgetRef ref) async {
   );
   if (ride == null) return;
   try {
-    final json = await repository.exportJson(ride.id, athlete: athlete);
+    final json = await repository.exportJson(
+      ride.id,
+      athlete: athlete,
+      goal: ref.read(coachingPreferencesProvider).goal,
+    );
     if (json == null) {
       say('Esa salida no tiene puntos suficientes para reproducirla.');
       return;
@@ -541,6 +546,7 @@ class _Verdict extends StatelessWidget {
 
   static String _reason(GovernorReason reason) => switch (reason) {
     GovernorReason.speak => 'habla',
+    GovernorReason.turno => 'turno',
     GovernorReason.lowUrgency => 'sin urgencia',
     GovernorReason.noSituation => 'sin situación',
     GovernorReason.tooSoon => 'muy pronto',

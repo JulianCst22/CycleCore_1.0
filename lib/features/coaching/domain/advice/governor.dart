@@ -53,6 +53,10 @@ Register registerOf(
 /// Por qué el gobernador decidió hablar o callar.
 enum GovernorReason {
   speak,
+
+  /// Le tocaba el turno: nada urgente, pero ya pasó el intervalo que
+  /// eligió el ciclista y se dice el consejo del momento en tono suave.
+  turno,
   lowUrgency,
   noSituation,
   tooSoon,
@@ -73,12 +77,16 @@ final class GovernorVerdict {
     required this.register,
   });
 
-  bool get speak => reason == GovernorReason.speak;
+  bool get speak =>
+      reason == GovernorReason.speak || reason == GovernorReason.turno;
+
+  /// Es un turno de compañía, no un consejo que la urgencia pidió.
+  bool get isTurn => reason == GovernorReason.turno;
 }
 
-/// Decide si se habla y con qué tono. Callar es la salida normal.
+/// Decide si se habla y con qué tono.
 ///
-/// Se habla solo si, a la vez:
+/// Un consejo sale cuando, a la vez:
 ///  1. el extremo inferior de la urgencia supera el umbral (en tipo-2 hay
 ///     que estar seguro de que es urgente); con la potencia estimada, el
 ///     centro del intervalo (ver
@@ -87,6 +95,12 @@ final class GovernorVerdict {
 ///  3. la situación no se dijo hace poco,
 ///  4. si la situación cambió, la nueva supera a la anterior por un
 ///     margen (histéresis).
+///
+/// Sin urgencia, el coach igual habla una vez por intervalo de [pace]
+/// (el turno): en la primera salida al campo, yendo parejo, la urgencia
+/// nunca pasó el umbral y en 28 minutos de subida habló dos veces. El
+/// intervalo que elige el ciclista es una promesa de compañía, no solo
+/// una espera mínima entre consejos.
 final class CoachingGovernor {
   final CoachingParameters parameters;
 
@@ -98,6 +112,11 @@ final class CoachingGovernor {
   double? _lastSpokenMeters;
   SituationKey? _lastSituation;
   final _spokenAt = <SituationKey, int>{};
+
+  /// Dónde empezó la sesión: el primer turno se cuenta desde acá, para
+  /// no pisar el aviso de entrada al segmento.
+  int? _firstSecond;
+  double? _firstMeters;
 
   CoachingGovernor([
     this.parameters = const CoachingParameters(),
@@ -120,15 +139,35 @@ final class CoachingGovernor {
       register: register,
     );
 
+    _firstSecond ??= second;
+    _firstMeters ??= alongMeters;
+
     final urgency = decision.urgency.centroid;
-    if (urgency == null) return verdict(GovernorReason.lowUrgency);
-    final level = powerIsEstimated && parameters.urgencyAtMidpointWhenEstimated
-        ? urgency.mid
-        : urgency.lo;
-    if (level <= parameters.urgencyThreshold) {
-      return verdict(GovernorReason.lowUrgency);
+    if (urgency == null ||
+        (powerIsEstimated && parameters.urgencyAtMidpointWhenEstimated
+                ? urgency.mid
+                : urgency.lo) <=
+            parameters.urgencyThreshold) {
+      final last = _lastSpokenAt;
+      if (best == null ||
+          !_turnDue(second, alongMeters) ||
+          (last != null && second - last < parameters.minGapSeconds)) {
+        return verdict(GovernorReason.lowUrgency);
+      }
+      // El turno solo marca el reloj: no cuenta como «esta situación ya
+      // se dijo», para que un consejo de verdad no quede bloqueado por
+      // repetido justo después.
+      _lastSpokenAt = second;
+      _lastSpokenMeters = alongMeters;
+      return verdict(GovernorReason.turno);
     }
     if (best == null) return verdict(GovernorReason.noSituation);
+    // Recién entrado al segmento la potencia base todavía no llena su
+    // ventana: con seis segundos de datos el motor leía «vas sobrado» y
+    // pedía subir fuerte, encima del aviso de entrada al segmento.
+    if (second < parameters.basePowerWindowSeconds) {
+      return verdict(GovernorReason.tooSoon);
+    }
 
     final urgent = urgency.lo >= parameters.urgentUrgency;
     final last = _lastSpokenAt;
@@ -138,16 +177,26 @@ final class CoachingGovernor {
     if (!urgent && _tooSoonForPace(second, alongMeters)) {
       return verdict(GovernorReason.tooSoon);
     }
+    GovernorReason? held;
     final sameAt = _spokenAt[best.key];
     if (sameAt != null && second - sameAt < parameters.repeatWindowSeconds) {
-      return verdict(GovernorReason.repeated);
-    }
-    final previous = _lastSituation;
-    if (previous != null && previous != best.key) {
-      final margin = best.activation.mid - table.of(previous).mid;
-      if (margin < parameters.situationHysteresis) {
-        return verdict(GovernorReason.hysteresis);
+      held = GovernorReason.repeated;
+    } else {
+      final previous = _lastSituation;
+      if (previous != null && previous != best.key) {
+        final margin = best.activation.mid - table.of(previous).mid;
+        if (margin < parameters.situationHysteresis) {
+          held = GovernorReason.hysteresis;
+        }
       }
+    }
+    if (held != null) {
+      // Repetido o sin margen sobre lo anterior no es consejo nuevo,
+      // pero si ya se cumplió el intervalo el turno se da igual.
+      if (!_turnDue(second, alongMeters)) return verdict(held);
+      _lastSpokenAt = second;
+      _lastSpokenMeters = alongMeters;
+      return verdict(GovernorReason.turno);
     }
 
     _lastSpokenAt = second;
@@ -169,10 +218,26 @@ final class CoachingGovernor {
     return meters != null && last != null && alongMeters - last < meters;
   }
 
+  /// Si ya pasó un intervalo entero desde lo último que se dijo (o desde
+  /// que empezó la sesión, si todavía no se dijo nada).
+  bool _turnDue(int second, double alongMeters) {
+    final seconds = pace.seconds;
+    if (seconds != null) {
+      final since = _lastSpokenAt ?? _firstSecond ?? second;
+      return second - since >= seconds;
+    }
+    final meters = pace.meters;
+    if (meters == null) return false;
+    final since = _lastSpokenMeters ?? _firstMeters ?? alongMeters;
+    return alongMeters - since >= meters;
+  }
+
   void reset() {
     _lastSpokenAt = null;
     _lastSpokenMeters = null;
     _lastSituation = null;
     _spokenAt.clear();
+    _firstSecond = null;
+    _firstMeters = null;
   }
 }

@@ -37,6 +37,7 @@ String replayAdvicesCsv(ReplayResult result) {
       'urgencia_hi',
       'palabras',
       'frase',
+      'tipo',
     ],
   ];
   for (final row in result.advices) {
@@ -70,6 +71,7 @@ String replayAdvicesCsv(ReplayResult result) {
       _round(urgency?.hi, 3),
       row.message?.wordCount,
       row.message?.text,
+      advice.verdict.isTurn ? 'turno' : 'consejo',
     ]);
   }
   return _csv(rows);
@@ -180,6 +182,7 @@ String replaySummaryCsv(Iterable<ReplayResult> results) {
       'peor_brecha_pct',
       'micros_p50',
       'micros_p95',
+      'turnos',
     ],
   ];
   for (final result in results) {
@@ -199,6 +202,7 @@ String replaySummaryCsv(Iterable<ReplayResult> results) {
       _round(physics.worst * 100, 1),
       result.inferenceMicros(0.5),
       result.inferenceMicros(0.95),
+      result.turns.length,
     ]);
   }
   return _csv(rows);

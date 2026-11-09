@@ -302,8 +302,10 @@ class _ShareCard extends StatelessWidget {
       case _Style.altimetria:
         final loss = points.length < 2
             ? 0.0
-            : computeGainLoss(points.map((p) => p.altitude).toList())
-                .lossMeters;
+            : computeRouteGainLoss(
+                [for (final p in points) p.altitude],
+                [for (final p in points) p.distanceFromStartMeters],
+              ).lossMeters;
         return Column(
           children: [
             Expanded(child: ShareElevationArt(points: points)),

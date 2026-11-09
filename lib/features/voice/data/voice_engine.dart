@@ -49,6 +49,9 @@ class VoiceEngine {
   /// Prioridad de lo que se está diciendo ahora; `null` si hay silencio.
   VoicePriority? _speaking;
 
+  /// Qué frase puso esa prioridad (ver [_speakWith]).
+  Object? _speakingToken;
+
   /// Voces reales del dispositivo en español, obtenidas una sola vez
   /// al iniciar. Se usa para repartir voces distintas entre
   /// personas en vez de que todas terminen sonando igual con la
@@ -164,18 +167,67 @@ class VoiceEngine {
   /// Habla un evento real de grabación con la voz seleccionada
   /// actualmente (llamar esto desde donde inicias/pausas/reanudas/
   /// terminas la actividad).
+  ///
+  /// Los eventos también respetan las prioridades: antes cortaban lo
+  /// que estuviera sonando sin mirar, y un consejo del coach podía pisar
+  /// un giro de navegación (o al revés). Un evento solo espera a algo
+  /// más importante; a lo del mismo nivel lo releva, porque un «entraste
+  /// al segmento» que se calla ya no sirve después.
   Future<void> speakEvent(VoiceEventType event) async {
     await init();
     final phrase = _randomLine(_current.id, event);
     if (phrase == null) return;
+    final priority = _priorityOf(event);
+    final current = _speaking;
+    if (current != null && current.index > priority.index) return;
 
     if (_current.source == VoiceSourceType.audioPack) {
       final played = await _tryPlayAudioPack(_current.id, event);
       if (played) return;
       // No había audio disponible para este evento: seguimos con TTS.
     }
-    await _safeCall(() => _tts.stop());
-    await _safeCall(() => _tts.speak(phrase));
+    await _speakWith(priority, () async {
+      await _safeCall(() => _tts.stop());
+      await _safeCall(
+        () => _tts.speak(phrase),
+        timeout: _speakTimeoutFor(phrase),
+      );
+    });
+  }
+
+  /// Un giro llega tarde si espera: ya se pasó la calle. El resto de
+  /// eventos (actividad, segmentos, llegada) es normal.
+  static VoicePriority _priorityOf(VoiceEventType event) => switch (event) {
+    VoiceEventType.navigationTurnLeft ||
+    VoiceEventType.navigationTurnRight ||
+    VoiceEventType.navigationTurnSlightLeft ||
+    VoiceEventType.navigationTurnSlightRight ||
+    VoiceEventType.navigationTurnSharpLeft ||
+    VoiceEventType.navigationTurnSharpRight ||
+    VoiceEventType.navigationUTurn ||
+    VoiceEventType.navigationRerouted => VoicePriority.urgente,
+    _ => VoicePriority.normal,
+  };
+
+  /// Marca lo que suena con [priority] mientras dura [speak]. La marca
+  /// es de ESTA frase: si otra la cortó, al terminar no borra la de la
+  /// nueva (antes bastaba con que fueran del mismo nivel para que la
+  /// cortada dejara la voz como «libre» con la otra todavía hablando).
+  Future<void> _speakWith(
+    VoicePriority priority,
+    Future<void> Function() speak,
+  ) async {
+    final token = Object();
+    _speaking = priority;
+    _speakingToken = token;
+    try {
+      await speak();
+    } finally {
+      if (identical(_speakingToken, token)) {
+        _speaking = null;
+        _speakingToken = null;
+      }
+    }
   }
 
   /// Dice un texto armado en el momento (los consejos del coach, que no
@@ -195,8 +247,7 @@ class VoiceEngine {
     await init();
     final current = _speaking;
     if (current != null && current.index >= priority.index) return;
-    _speaking = priority;
-    try {
+    await _speakWith(priority, () async {
       if (chime != null) await _tryPlayChime(chime);
       await _safeCall(() => _tts.stop());
       // Con `awaitSpeakCompletion` el `speak` termina cuando termina la
@@ -204,9 +255,7 @@ class VoiceEngine {
       // de 6 s se daba por terminada a la mitad y cualquier otro aviso
       // la cortaba. El tope crece con el largo de la frase.
       await _safeCall(() => _tts.speak(text), timeout: _speakTimeoutFor(text));
-    } finally {
-      if (_speaking == priority) _speaking = null;
-    }
+    });
   }
 
   /// Cuánto puede tardar en decirse [text]: unas 2,5 palabras por
