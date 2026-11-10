@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database.dart';
+import '../../elevation/elevation.dart' show ElevationDataset;
 import '../data/activities_repository.dart';
 import '../domain/weekly_summary.dart';
 
@@ -29,3 +30,11 @@ final activityByIdProvider = StreamProvider.autoDispose
 final weeklySummaryProvider = Provider<AsyncValue<WeeklySummary>>((ref) {
   return ref.watch(activitiesListProvider).whenData(computeWeeklySummary);
 });
+
+/// Con qué modelo de elevación se midió una actividad (para la insignia
+/// Premium). `null` si es de antes de poder elegirlo. "Ajustar
+/// altimetría" la invalida al cambiar de modelo.
+final activityElevationDatasetProvider = FutureProvider.autoDispose
+    .family<ElevationDataset?, int>((ref, id) {
+      return ref.read(activitiesRepositoryProvider).elevationDatasetOf(id);
+    });

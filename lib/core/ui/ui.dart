@@ -14,3 +14,4 @@ export 'theme/cc_type.dart';
 export 'theme/cyclecore_palette.dart';
 export 'widgets/activity_summary_block.dart';
 export 'widgets/auth_text_field.dart';
+export 'widgets/premium_badge.dart';

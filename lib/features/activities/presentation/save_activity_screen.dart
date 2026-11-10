@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/database/database.dart';
 import '../../../core/ui/ui.dart';
 import '../../bikes/bikes.dart';
+import '../../elevation/elevation.dart' show elevationResolverProvider;
 import '../../gamification/gamification.dart';
 import '../application/activities_providers.dart';
 
@@ -192,6 +193,7 @@ class _SaveActivityScreenState extends ConsumerState<SaveActivityScreen> {
         bikeId: _bikeId,
         notes: notes,
         temporaryPhotoPaths: _newPhotos.map((f) => f.path).toList(),
+        elevationDataset: ref.read(elevationResolverProvider).dataset,
       );
       // Avisa a quien nos construyó (ver `onActivitySaved`) que ya hay
       // id -- típicamente para volcar los esfuerzos de segmento

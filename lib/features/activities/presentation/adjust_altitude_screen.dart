@@ -29,6 +29,10 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
   String? _statusMessage;
   bool _statusOk = false;
 
+  /// Modelo con el que se va a re-procesar: el de la actividad o, si es
+  /// de antes de poder elegirlo, el elegido en Ajustes.
+  ElevationDataset? _dataset;
+
   @override
   void initState() {
     super.initState();
@@ -38,9 +42,15 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
   Future<void> _load() async {
     final db = ref.read(appDatabaseProvider);
     final activity = await db.getActivityById(widget.activityId);
+    final dataset = _dataset ??
+        await ref
+            .read(activitiesRepositoryProvider)
+            .elevationDatasetOf(widget.activityId) ??
+        ref.read(elevationDatasetProvider);
     if (!mounted) return;
     setState(() {
       _activity = activity;
+      _dataset = dataset;
       _loading = false;
     });
   }
@@ -54,14 +64,16 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
       final result =
           await ref.read(activitiesRepositoryProvider).readjustAltitude(
                 activityId: widget.activityId,
-                resolver: ref.read(elevationResolverProvider),
+                resolver: ref.read(elevationResolverForProvider(_dataset!)),
               );
+      ref.invalidate(activityElevationDatasetProvider(widget.activityId));
       await _load();
       if (!mounted) return;
       final pct = (result.reliableFraction * 100).round();
+      final label = _dataset!.label;
       setState(() {
         _statusOk = pct >= 80;
-        _statusMessage = 'Listo. Desnivel: '
+        _statusMessage = 'Listo, con $label. Desnivel: '
             '+${result.gainMeters.toStringAsFixed(0)} m / '
             '−${result.lossMeters.toStringAsFixed(0)} m.\n'
             '$pct% de los puntos con fuente precisa '
@@ -69,6 +81,9 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
             '${result.approxPoints} aproximados).\n'
             '${result.barometric ? 'Forma del perfil: barómetro del '
                 'teléfono; nivel: modelo de elevación.\n' : ''}'
+            '${result.hgtPoints == 0 ? 'No hay teselas de $label para '
+                'esta zona: elige $label en Ajustes › Elevación y '
+                'descárgalas.\n' : ''}'
             'El perfil, los colores de pendiente del mapa y la altitud '
             'de la actividad ya quedaron con los datos nuevos.';
       });
@@ -155,6 +170,41 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
         _StatRow(
           label: 'Puntos aproximados',
           value: '$approx de ${points.length}',
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'MODELO DE ELEVACIÓN',
+          style: TextStyle(
+            color: AppColors.textSecondaryOnPanel,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final dataset in ElevationDataset.values)
+              ChoiceChip(
+                selected: dataset == _dataset,
+                onSelected: _processing
+                    ? null
+                    : (_) => setState(() => _dataset = dataset),
+                selectedColor: AppColors.primary.withValues(alpha: 0.18),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(dataset.label),
+                    if (dataset.isPremium) ...[
+                      const SizedBox(width: 6),
+                      const PremiumBadge(),
+                    ],
+                  ],
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 20),
         const Text(

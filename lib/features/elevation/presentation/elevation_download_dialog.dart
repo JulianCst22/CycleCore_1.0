@@ -102,6 +102,19 @@ class _ElevationDownloadDialogContentState
             'precisión, sin depender del barómetro del celular.',
             style: const TextStyle(color: CcColors.inkDim, height: 1.35),
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                'Modelo: ${ref.watch(elevationDatasetProvider).label}',
+                style: const TextStyle(color: CcColors.ink, fontSize: 13),
+              ),
+              if (ref.watch(elevationDatasetProvider).isPremium) ...[
+                const SizedBox(width: 8),
+                const PremiumBadge(),
+              ],
+            ],
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 6,

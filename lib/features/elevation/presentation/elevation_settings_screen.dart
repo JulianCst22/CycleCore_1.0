@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/elevation_repository.dart';
+import '../domain/elevation_dataset.dart';
 import '../domain/srtm_tile_naming.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/platform/platform.dart';
@@ -33,6 +35,10 @@ class ElevationSettingsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
+            const _SectionLabel('MODELO DE ELEVACIÓN'),
+            const SizedBox(height: 8),
+            const _DatasetSelector(),
+            const SizedBox(height: 28),
             const _SectionLabel('TU ZONA ACTUAL'),
             const SizedBox(height: 8),
             positionAsync.when(
@@ -57,17 +63,24 @@ class ElevationSettingsScreen extends ConsumerWidget {
             const SizedBox(height: 28),
             const _SectionLabel('DATOS DE ELEVACIÓN'),
             const SizedBox(height: 8),
-            // Atribución que exigen las licencias de FABDEM (CC BY-NC-SA
-            // 4.0) y de Copernicus.
+            // Atribución y aviso que exigen las licencias de Copernicus
+            // (artículo 6) y de FABDEM (CC BY-NC-SA 4.0).
+            const _InfoCard(
+              icon: Icons.info_outline,
+              message: 'Producido con Copernicus WorldDEM-30 © DLR e.V. '
+                  '2010-2014 y © Airbus Defence and Space GmbH 2014-2018, '
+                  'provisto bajo COPERNICUS por la Unión Europea y la ESA; '
+                  'todos los derechos reservados. Los organismos a cargo '
+                  'del programa Copernicus no asumen ninguna '
+                  'responsabilidad por el uso de Copernicus WorldDEM-30.',
+            ),
+            const SizedBox(height: 8),
             const _InfoCard(
               icon: Icons.info_outline,
               message: 'FABDEM V1-2 (Hawker et al., 2022, Universidad de '
-                  'Bristol / Fathom), licencia CC BY-NC-SA 4.0: el '
-                  'modelo Copernicus sin edificios ni árboles. Producido '
-                  'con Copernicus WorldDEM-30 © DLR e.V. 2010-2014 y © '
-                  'Airbus Defence and Space GmbH 2014-2018, provisto bajo '
-                  'COPERNICUS por la Unión Europea y la ESA; todos los '
-                  'derechos reservados.',
+                  'Bristol / Fathom), licencia CC BY-NC-SA 4.0, solo uso '
+                  'no comercial: el modelo Copernicus sin edificios ni '
+                  'árboles.',
             ),
           ],
         ),
@@ -172,6 +185,7 @@ class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
       centerLat: widget.lat,
       centerLng: widget.lng,
       radiusKm: _radiusKm,
+      dataset: ref.read(elevationDatasetProvider),
     );
     if (mounted) setState(() => _missing = missing);
   }
@@ -187,6 +201,7 @@ class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
           .read(elevationRepositoryProvider)
           .downloadTiles(
             _missing!,
+            dataset: ref.read(elevationDatasetProvider),
             onProgress: (p) => setState(() => _progress = p),
           );
       await _loadMissing();
@@ -209,6 +224,12 @@ class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Al cambiar de modelo se revisan las teselas de ese modelo.
+    ref.listen(elevationDatasetProvider, (_, _) {
+      setState(() => _missing = null);
+      _loadMissing();
+    });
+    final dataset = ref.watch(elevationDatasetProvider);
     if (_missing == null) {
       return const _InfoCard(icon: null, message: 'Revisando teselas…', loading: true);
     }
@@ -238,7 +259,7 @@ class _CurrentZoneCardState extends ConsumerState<_CurrentZoneCard> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Elevación de tu zona (radio de '
+                  '${dataset.label}: tu zona (radio de '
                   '${elevationDownloadRadiusKm.round()} km)',
                   style: const TextStyle(
                     color: AppColors.textPrimaryOnPanel,
@@ -320,6 +341,8 @@ class _DownloadedTilesList extends ConsumerWidget {
         return Column(
           children: tiles.map((tile) {
             final sizeMb = (tile.sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+            final key = ElevationRepository.splitKey(tile.tileName);
+            final dataset = ElevationDataset.byId(key.datasetId);
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Material(
@@ -340,7 +363,7 @@ class _DownloadedTilesList extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              tile.tileName,
+                              key.fileName,
                               style: const TextStyle(
                                 color: AppColors.textPrimaryOnPanel,
                                 fontWeight: FontWeight.w600,
@@ -348,12 +371,23 @@ class _DownloadedTilesList extends ConsumerWidget {
                                 fontFamily: 'monospace',
                               ),
                             ),
-                            Text(
-                              '$sizeMb MB',
-                              style: const TextStyle(
-                                color: AppColors.textSecondaryOnPanel,
-                                fontSize: 11.5,
-                              ),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    '${dataset?.label ?? 'SRTM (anterior, '
+                                        'ya no se usa)'} · $sizeMb MB',
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondaryOnPanel,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ),
+                                if (dataset?.isPremium ?? false) ...[
+                                  const SizedBox(width: 6),
+                                  const PremiumBadge(),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -374,6 +408,116 @@ class _DownloadedTilesList extends ConsumerWidget {
           }).toList(),
         );
       },
+    );
+  }
+}
+
+/// Qué modelo de elevación usar: Copernicus (estándar) o FABDEM
+/// (premium). Cambiarlo solo afecta a las salidas nuevas; una salida ya
+/// guardada se cambia en "Ajustar altimetría".
+class _DatasetSelector extends ConsumerWidget {
+  const _DatasetSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(elevationDatasetProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final dataset in ElevationDataset.values) ...[
+          _DatasetOption(
+            dataset: dataset,
+            selected: dataset == selected,
+            onTap: () =>
+                ref.read(elevationDatasetProvider.notifier).select(dataset),
+          ),
+          const SizedBox(height: 8),
+        ],
+        const Text(
+          'Cambiar el modelo solo afecta a las salidas nuevas. Para una '
+          'salida ya guardada, usa "Ajustar altimetría" en la actividad.',
+          style: TextStyle(color: AppColors.textSecondaryOnPanel, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _DatasetOption extends StatelessWidget {
+  final ElevationDataset dataset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DatasetOption({
+    required this.dataset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.primary : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                color: selected
+                    ? AppColors.primary
+                    : AppColors.textSecondaryOnPanel,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            dataset.label,
+                            style: const TextStyle(
+                              color: AppColors.textPrimaryOnPanel,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                        ),
+                        if (dataset.isPremium) ...[
+                          const SizedBox(width: 8),
+                          const PremiumBadge(),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      dataset.summary,
+                      style: const TextStyle(
+                        color: AppColors.textSecondaryOnPanel,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -5,49 +5,50 @@ import '../../elevation/elevation.dart';
 import 'activities_providers.dart';
 
 /// Versión de la forma de medir la altimetría de una actividad. Subirla
-/// hace que el historial entero se vuelva a medir la próxima vez que se
-/// abra la app.
+/// hace que el historial entero se vuelva a medir (con el modelo elegido
+/// en Ajustes) la próxima vez que se abra la app.
 ///
 /// 2: desnivel sobre la distancia (remuestreo, promedio de 200 m,
 ///    umbral de 10 m), GPX anclado al modelo, tramos sin modelo
 ///    enganchados y barómetro (noviembre de 2026).
 const int altitudeAlgorithmVersion = 2;
 
-const _fingerprintKey = 'altitude_history_fingerprint_v1';
+const _versionKey = 'altitude_history_version_v1';
 
-/// Vuelve a medir la altimetría de todas las actividades guardadas
-/// cuando cambia algo que la mide: la versión de arriba o las teselas
-/// descargadas (una tesela nueva, o la misma de otro modelo). Lo que ya
-/// se midió con lo mismo no se repite: se guarda una huella.
+/// De antes: una huella que también incluía las teselas descargadas.
+/// Solo se lee para no repetir la pasada de la versión 2.
+const _legacyFingerprintKey = 'altitude_history_fingerprint_v1';
+
+/// Vuelve a medir la altimetría de todas las actividades guardadas cuando
+/// cambia la forma de medir ([altitudeAlgorithmVersion]). Cambiar de
+/// modelo o bajar teselas NO la dispara: eso solo afecta a las salidas
+/// nuevas, y una guardada se cambia a mano en "Ajustar altimetría".
 ///
 /// Espera unos segundos antes de empezar, para no competir con el
-/// arranque de la app y para que una descarga de varias teselas cuente
-/// como un solo cambio; si en ese rato algo cambia de nuevo, esta pasada
-/// se cancela y la siguiente la reemplaza.
+/// arranque de la app; si en ese rato se descarta, la pasada se cancela.
 final altitudeHistorySyncProvider = FutureProvider<int>((ref) async {
-  final tiles = ref.watch(downloadedElevationTilesProvider).valueOrNull;
-  if (tiles == null) return 0;
-  final sorted = [...tiles]..sort((a, b) => a.tileName.compareTo(b.tileName));
-  final fingerprint = [
-    'v$altitudeAlgorithmVersion',
-    for (final t in sorted)
-      '${t.tileName}:${t.sizeBytes}:${t.downloadedAt.millisecondsSinceEpoch}',
-  ].join('|');
-
   final prefs = await SharedPreferences.getInstance();
-  if (prefs.getString(_fingerprintKey) == fingerprint) return 0;
+  var done = prefs.getInt(_versionKey);
+  final legacy = prefs.getString(_legacyFingerprintKey);
+  if (done == null &&
+      legacy != null &&
+      legacy.startsWith('v$altitudeAlgorithmVersion')) {
+    done = altitudeAlgorithmVersion;
+    await prefs.setInt(_versionKey, done);
+  }
+  if (done != null && done >= altitudeAlgorithmVersion) return 0;
 
   var cancelled = false;
   ref.onDispose(() => cancelled = true);
   await Future<void>.delayed(const Duration(seconds: 10));
   if (cancelled) return 0;
 
-  final done = await ref
+  final count = await ref
       .read(activitiesRepositoryProvider)
       .readjustAllAltitudes(
         resolver: ref.read(elevationResolverProvider),
         cancelled: () => cancelled,
       );
-  if (!cancelled) await prefs.setString(_fingerprintKey, fingerprint);
-  return done;
+  if (!cancelled) await prefs.setInt(_versionKey, altitudeAlgorithmVersion);
+  return count;
 });

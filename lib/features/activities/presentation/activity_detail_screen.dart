@@ -270,6 +270,7 @@ class _ActivityDetailBody extends ConsumerWidget {
               // al deslizar el dedo). ---
               if (hasRoute) ...[
                 const SizedBox(height: 26),
+                _ElevationModelLine(activityId: activity.id),
                 ActivityChartsCard(points: routePoints),
               ],
 
@@ -1032,6 +1033,40 @@ class _MenuRow extends StatelessWidget {
           style: const TextStyle(color: AppColors.textPrimaryOnPanel),
         ),
       ],
+    );
+  }
+}
+
+/// Con qué modelo de elevación quedó medida la salida; con FABDEM lleva la
+/// insignia Premium. No se muestra en las salidas de antes de poder
+/// elegirlo.
+class _ElevationModelLine extends ConsumerWidget {
+  final int activityId;
+
+  const _ElevationModelLine({required this.activityId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dataset = ref
+        .watch(activityElevationDatasetProvider(activityId))
+        .valueOrNull;
+    if (dataset == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.terrain_outlined, size: 16, color: CcColors.inkDim),
+          const SizedBox(width: 6),
+          Text(
+            'Altimetría medida con ${dataset.label}',
+            style: const TextStyle(color: CcColors.inkDim, fontSize: 12),
+          ),
+          if (dataset.isPremium) ...[
+            const SizedBox(width: 8),
+            const PremiumBadge(),
+          ],
+        ],
+      ),
     );
   }
 }
