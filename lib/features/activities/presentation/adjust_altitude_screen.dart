@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/ui/ui.dart';
 import '../../elevation/elevation.dart';
+import '../../recording/recording.dart' show ProfileSourceShares;
 import '../../../core/geo/geo.dart';
 import '../application/activities_providers.dart';
 
@@ -29,9 +30,16 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
   String? _statusMessage;
   bool _statusOk = false;
 
-  /// Modelo con el que se va a re-procesar: el de la actividad o, si es
-  /// de antes de poder elegirlo, el elegido en Ajustes.
-  ElevationDataset? _dataset;
+  /// "barómetro 62 % · Copernicus 31 % · GPX 7 %", sin las que no pesaron.
+  static String _shares(ProfileSourceShares shares) {
+    String pct(double v) => '${(v * 100).round()} %';
+    return [
+      if (shares.barometer >= 0.005) 'barómetro ${pct(shares.barometer)}',
+      if (shares.model >= 0.005) 'Copernicus ${pct(shares.model)}',
+      if (shares.gpx >= 0.005) 'GPX ${pct(shares.gpx)}',
+      if (shares.live >= 0.005) 'altitud en vivo ${pct(shares.live)}',
+    ].join(' · ');
+  }
 
   @override
   void initState() {
@@ -42,15 +50,9 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
   Future<void> _load() async {
     final db = ref.read(appDatabaseProvider);
     final activity = await db.getActivityById(widget.activityId);
-    final dataset = _dataset ??
-        await ref
-            .read(activitiesRepositoryProvider)
-            .elevationDatasetOf(widget.activityId) ??
-        ref.read(elevationDatasetProvider);
     if (!mounted) return;
     setState(() {
       _activity = activity;
-      _dataset = dataset;
       _loading = false;
     });
   }
@@ -64,26 +66,20 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
       final result =
           await ref.read(activitiesRepositoryProvider).readjustAltitude(
                 activityId: widget.activityId,
-                resolver: ref.read(elevationResolverForProvider(_dataset!)),
+                resolver: ref.read(elevationResolverProvider),
               );
-      ref.invalidate(activityElevationDatasetProvider(widget.activityId));
       await _load();
       if (!mounted) return;
       final pct = (result.reliableFraction * 100).round();
-      final label = _dataset!.label;
       setState(() {
         _statusOk = pct >= 80;
-        _statusMessage = 'Listo, con $label. Desnivel: '
+        _statusMessage = 'Listo. Desnivel: '
             '+${result.gainMeters.toStringAsFixed(0)} m / '
             '−${result.lossMeters.toStringAsFixed(0)} m.\n'
             '$pct% de los puntos con fuente precisa '
             '(${result.gpxPoints} GPX · ${result.hgtPoints} HGT · '
             '${result.approxPoints} aproximados).\n'
-            '${result.barometric ? 'Forma del perfil: barómetro del '
-                'teléfono; nivel: modelo de elevación.\n' : ''}'
-            '${result.hgtPoints == 0 ? 'No hay teselas de $label para '
-                'esta zona: elige $label en Ajustes › Elevación y '
-                'descárgalas.\n' : ''}'
+            'Fusión difusa: ${_shares(result.shares)}.\n'
             'El perfil, los colores de pendiente del mapa y la altitud '
             'de la actividad ya quedaron con los datos nuevos.';
       });
@@ -170,41 +166,6 @@ class _AdjustAltitudeScreenState extends ConsumerState<AdjustAltitudeScreen> {
         _StatRow(
           label: 'Puntos aproximados',
           value: '$approx de ${points.length}',
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'MODELO DE ELEVACIÓN',
-          style: TextStyle(
-            color: AppColors.textSecondaryOnPanel,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.6,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final dataset in ElevationDataset.values)
-              ChoiceChip(
-                selected: dataset == _dataset,
-                onSelected: _processing
-                    ? null
-                    : (_) => setState(() => _dataset = dataset),
-                selectedColor: AppColors.primary.withValues(alpha: 0.18),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(dataset.label),
-                    if (dataset.isPremium) ...[
-                      const SizedBox(width: 6),
-                      const PremiumBadge(),
-                    ],
-                  ],
-                ),
-              ),
-          ],
         ),
         const SizedBox(height: 20),
         const Text(

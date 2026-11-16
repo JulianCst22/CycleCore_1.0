@@ -9,6 +9,7 @@ export 'application/auto_pause_providers.dart';
 export 'application/ride_sensor_log.dart';
 export 'application/route_recording_providers.dart';
 export 'domain/activity_altitude_flattener.dart';
+export 'domain/altitude_fusion/profile_fusion.dart' show ProfileSourceShares;
 export 'domain/recording_snapshot.dart';
 export 'domain/route_point.dart';
 export 'presentation/recording_recovery_dialog.dart';

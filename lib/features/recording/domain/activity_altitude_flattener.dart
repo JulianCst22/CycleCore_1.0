@@ -1,12 +1,12 @@
 import '../../../core/geo/geo.dart';
 import '../../elevation/elevation.dart';
-import 'barometric_profile.dart';
+import 'altitude_fusion/profile_fusion.dart';
 import 'route_point.dart';
 
-/// Resultado de "aplanar" la altimetría de una actividad completa
-/// contra la cadena de prioridades de elevación (GPX > HGT > fusión en
-/// vivo), en vez de confiar en la altitud fusionada GPS+barómetro que
-/// se usó en tiempo real.
+/// Resultado de "aplanar" la altimetría de una actividad completa con la
+/// capa 3 difusa (barómetro, Copernicus, GPX y altitud en vivo pesados
+/// tramo por tramo), en vez de confiar en la altitud que se calculó en
+/// tiempo real.
 ///
 /// Los arreglos quedan alineados índice a índice con la lista de
 /// `RoutePoint` original.
@@ -18,17 +18,20 @@ class FlattenedAltitudeResult {
   /// pueda decir "X% con GPX, Y% con HGT, Z% aproximado".
   final List<ElevationSource> sources;
 
-  /// true en los puntos donde NINGUNA fuente confiable tenía dato y se
-  /// tuvo que caer a la altitud fusionada en vivo. Equivale a
-  /// `sources[i] == ElevationSource.none`.
+  /// true en los puntos sin Copernicus ni GPX: su forma salió del
+  /// barómetro o de la altitud en vivo, y su nivel de los puntos vecinos
+  /// que sí tenían modelo. Equivale a `sources[i] == ElevationSource.none`.
   final List<bool> isApproximate;
 
   final double elevationGainMeters;
   final double elevationLossMeters;
 
-  /// true si la forma del perfil salió del barómetro (y el nivel del
-  /// modelo de elevación) -- ver `barometricProfile`.
+  /// true si el barómetro fue una de las fuentes (había presión en
+  /// suficientes puntos).
   final bool barometric;
+
+  /// Cuánto pesó cada fuente en la forma del perfil (capa 3).
+  final ProfileSourceShares shares;
 
   const FlattenedAltitudeResult({
     required this.altitudes,
@@ -38,6 +41,7 @@ class FlattenedAltitudeResult {
     required this.elevationGainMeters,
     required this.elevationLossMeters,
     this.barometric = false,
+    this.shares = const ProfileSourceShares(),
   });
 
   static const empty = FlattenedAltitudeResult(
@@ -53,24 +57,18 @@ class FlattenedAltitudeResult {
   int countFrom(ElevationSource s) => sources.where((x) => x == s).length;
 }
 
-/// Aplana la altimetría de una actividad contra la cadena de
-/// prioridades de elevación (`ElevationResolver`):
-///
-///   1. **GPX** -- si la actividad pasa cerca de un track GPX conocido
-///      (segmento importado o del catálogo), su altitud barométrica.
-///   2. **HGT** -- grilla SRTM descargada.
-///   3. **Fusión en vivo** -- el GPS/barómetro que se usó grabando; el
-///      punto queda marcado como aproximado.
+/// Aplana la altimetría de una actividad con las fuentes que haya en cada
+/// punto: el barómetro grabado, Copernicus, el GPX importado que pase
+/// por ahí y la altitud que se calculó en vivo. La capa 3 difusa
+/// (`ProfileFusionFilter`) decide cuánto pesa cada una tramo por tramo.
 ///
 /// Se ejecuta al terminar de grabar (`finishRecording`) y de nuevo cada
 /// vez que el usuario toca "Ajustar altimetría" (útil tras descargar
 /// teselas HGT o importar un GPX del recorrido).
 ///
 /// Algoritmo:
-///  1. Altitud por punto según la cadena de prioridades. Los tramos
-///     sin GPX ni HGT conservan la forma de la altitud en vivo, pero
-///     su nivel se engancha a los puntos confiables de los extremos
-///     (ver [_anchorUnresolvedRuns]).
+///  1. Perfil de la capa 3: los cambios de altura de las fuentes,
+///     pesados con lógica difusa, al nivel de Copernicus.
 ///  2. **Clamp de pendiente físicamente plausible** entre puntos
 ///     consecutivos ([maxPlausibleGradePercent]) -- corta el efecto
 ///     "costura" al cambiar de fuente y los outliers puntuales.
@@ -114,48 +112,35 @@ class ActivityAltitudeFlattener {
     );
     if (points.isEmpty) return FlattenedAltitudeResult.empty;
 
-    // --- Paso 1: altitud por punto según GPX > HGT > fusión en vivo. ---
-    final rawAltitudes = <double>[];
+    // --- Paso 1: perfil de la capa 3 (fuentes pesadas con lógica difusa). ---
     final sources = <ElevationSource>[];
     final isApproximate = <bool>[];
-
+    final model = <double?>[];
+    final gpx = <double?>[];
     for (final point in points) {
-      final resolved = resolver.resolve(point.latitude, point.longitude);
-      if (resolved.altitudeMeters != null) {
-        rawAltitudes.add(resolved.altitudeMeters!);
-        sources.add(resolved.source);
-        isApproximate.add(false);
-      } else {
-        rawAltitudes.add(point.altitude);
-        sources.add(ElevationSource.none);
-        isApproximate.add(true);
-      }
-    }
-    // Con barómetro, su forma manda y el nivel lo pone el modelo; sin
-    // él, los tramos sin modelo se enganchan a sus extremos.
-    final barometric = barometricProfile(
-      pressures: [for (final p in points) p.pressureHpa],
-      distances: cumulativeDistanceMeters,
-      reference: [
-        for (var i = 0; i < points.length; i++)
-          sources[i] == ElevationSource.none ? null : rawAltitudes[i],
-      ],
-      fallback: [for (final p in points) p.altitude],
-    );
-    if (barometric != null) {
-      final hasReference = sources.any((s) => s != ElevationSource.none);
-      for (var i = 0; i < points.length; i++) {
-        rawAltitudes[i] = barometric[i];
-        isApproximate[i] = !hasReference;
-      }
-    } else {
-      _anchorUnresolvedRuns(
-        rawAltitudes,
-        sources,
-        points,
-        cumulativeDistanceMeters,
+      final samples = resolver.samples(point.latitude, point.longitude);
+      model.add(samples.model);
+      gpx.add(samples.gpx);
+      sources.add(
+        samples.gpx != null
+            ? ElevationSource.gpx
+            : (samples.model != null
+                ? ElevationSource.hgt
+                : ElevationSource.none),
       );
+      isApproximate.add(samples.gpx == null && samples.model == null);
     }
+    final fusion = ProfileFusionFilter().fuse(
+      ProfileSources(
+        distances: cumulativeDistanceMeters,
+        model: model,
+        gpx: gpx,
+        pressures: [for (final p in points) p.pressureHpa],
+        live: [for (final p in points) p.altitude],
+        speeds: [for (final p in points) p.speedMetersPerSecond],
+      ),
+    );
+    final rawAltitudes = fusion.altitudes;
 
     // --- Paso 2: clamp de pendiente físicamente plausible. ---
     final clampedAltitudes =
@@ -195,58 +180,11 @@ class ActivityAltitudeFlattener {
       slopePercents: slopePercents,
       sources: sources,
       isApproximate: isApproximate,
-      barometric: barometric != null,
+      barometric: fusion.barometric,
+      shares: fusion.shares,
       elevationGainMeters: gl.gainMeters,
       elevationLossMeters: gl.lossMeters,
     );
-  }
-
-  /// Tramos sin GPX ni HGT: la altitud en vivo (barómetro + GPS) trae
-  /// bien la forma, pero su nivel puede derivar cientos de metros (en la
-  /// salida a La Calera del 28-oct-2026 quedó 800-1.000 m por debajo).
-  /// Se corre el tramo para que empalme con el punto confiable de cada
-  /// extremo: con los dos, el corrimiento va de uno a otro según la
-  /// distancia; con uno solo, es constante. Sin ningún punto confiable
-  /// en la salida no hay a qué engancharse y se deja tal cual.
-  void _anchorUnresolvedRuns(
-    List<double> altitudes,
-    List<ElevationSource> sources,
-    List<RoutePoint> points,
-    List<double> distances,
-  ) {
-    var i = 0;
-    while (i < altitudes.length) {
-      if (sources[i] != ElevationSource.none) {
-        i++;
-        continue;
-      }
-      var j = i;
-      while (j + 1 < altitudes.length &&
-          sources[j + 1] == ElevationSource.none) {
-        j++;
-      }
-      final left = i - 1;
-      final right = j + 1;
-      final double? offsetLeft =
-          left >= 0 ? altitudes[left] - points[left].altitude : null;
-      final double? offsetRight = right < altitudes.length
-          ? altitudes[right] - points[right].altitude
-          : null;
-      if (offsetLeft != null || offsetRight != null) {
-        final span = offsetLeft != null && offsetRight != null
-            ? distances[right] - distances[left]
-            : 0.0;
-        for (var k = i; k <= j; k++) {
-          var offset = offsetLeft ?? offsetRight!;
-          if (offsetLeft != null && offsetRight != null && span > 0) {
-            final t = (distances[k] - distances[left]) / span;
-            offset = offsetLeft + (offsetRight - offsetLeft) * t;
-          }
-          altitudes[k] = points[k].altitude + offset;
-        }
-      }
-      i = j + 1;
-    }
   }
 
   List<double> _clampImplausibleSteps(

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/database/database.dart';
 import '../../elevation/elevation.dart';
@@ -21,11 +20,11 @@ class AltitudeReadjustResult {
   final int approxPoints;
   final int totalPoints;
 
-  /// La forma del perfil salió del barómetro grabado en cada punto.
+  /// El barómetro grabado en cada punto fue una de las fuentes.
   final bool barometric;
 
-  /// Modelo de elevación con que se midió.
-  final ElevationDataset? dataset;
+  /// Cuánto pesó cada fuente en el perfil (capa 3 difusa).
+  final ProfileSourceShares shares;
 
   const AltitudeReadjustResult({
     required this.gainMeters,
@@ -35,7 +34,7 @@ class AltitudeReadjustResult {
     required this.approxPoints,
     required this.totalPoints,
     this.barometric = false,
-    this.dataset,
+    this.shares = const ProfileSourceShares(),
   });
 
   /// Fracción de puntos con una fuente confiable (GPX o HGT).
@@ -45,42 +44,9 @@ class AltitudeReadjustResult {
 }
 
 class ActivitiesRepository {
-  /// Con qué modelo de elevación se midió cada actividad (id -> modelo).
-  /// Va en preferencias y no en la base: es una etiqueta para mostrar
-  /// (la insignia Premium), no un dato de la salida.
-  static const _elevationDatasetsKey = 'activity_elevation_dataset_v1';
-
   final AppDatabase database;
 
   ActivitiesRepository(this.database);
-
-  /// Modelo de elevación con que se midió [activityId], o `null` si es de
-  /// antes de poder elegirlo.
-  Future<ElevationDataset?> elevationDatasetOf(int activityId) async {
-    final datasets = await _elevationDatasets();
-    return ElevationDataset.byId(datasets['$activityId'] as String?);
-  }
-
-  Future<Map<String, dynamic>> _elevationDatasets() async {
-    final prefs = await SharedPreferences.getInstance();
-    try {
-      return jsonDecode(prefs.getString(_elevationDatasetsKey) ?? '{}')
-          as Map<String, dynamic>;
-    } on FormatException {
-      return {};
-    }
-  }
-
-  Future<void> _recordElevationDataset(
-    int activityId,
-    ElevationDataset? dataset,
-  ) async {
-    if (dataset == null) return;
-    final datasets = await _elevationDatasets()
-      ..['$activityId'] = dataset.id;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_elevationDatasetsKey, jsonEncode(datasets));
-  }
 
   Stream<List<Activity>> watchActivities() => database.watchAllActivities();
 
@@ -99,7 +65,6 @@ class ActivitiesRepository {
     int? bikeId,
     String? notes,
     List<String> temporaryPhotoPaths = const [],
-    ElevationDataset? elevationDataset,
   }) async {
     final persistedPhotoPaths = await _persistPhotos(temporaryPhotoPaths);
 
@@ -128,9 +93,7 @@ class ActivitiesRepository {
       photoPathsJson: Value(jsonEncode(persistedPhotoPaths)),
     );
 
-    final id = await database.insertActivity(companion);
-    await _recordElevationDataset(id, elevationDataset);
-    return id;
+    return database.insertActivity(companion);
   }
 
   /// Actualiza los datos editables de una actividad ya guardada (título,
@@ -209,7 +172,8 @@ class ActivitiesRepository {
           latitude: pt.latitude,
           longitude: pt.longitude,
           altitude: pt.rawAltitude ?? pt.altitude,
-          speedMetersPerSecond: 0,
+          // La capa 3 desconfía del barómetro a alta velocidad.
+          speedMetersPerSecond: pt.speedKmh / 3.6,
           bearingDegrees: 0,
           accuracyMeters: 0,
           timestamp: DateTime.fromMillisecondsSinceEpoch(0),
@@ -245,7 +209,6 @@ class ActivitiesRepository {
         elevationGainMeters: Value(result.elevationGainMeters),
       ),
     );
-    await _recordElevationDataset(activityId, resolver.dataset);
 
     return AltitudeReadjustResult(
       gainMeters: result.elevationGainMeters,
@@ -255,7 +218,7 @@ class ActivitiesRepository {
       approxPoints: result.approximatePointCount,
       totalPoints: points.length,
       barometric: result.barometric,
-      dataset: resolver.dataset,
+      shares: result.shares,
     );
   }
 

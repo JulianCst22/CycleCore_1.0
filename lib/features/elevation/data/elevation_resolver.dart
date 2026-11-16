@@ -1,4 +1,3 @@
-import '../domain/elevation_dataset.dart';
 import '../domain/elevation_lookup.dart';
 import 'elevation_repository.dart';
 import 'gpx_track_repository.dart';
@@ -7,8 +6,7 @@ import 'gpx_track_repository.dart';
 ///
 ///   1. GPX  (`GpxTrackRepository`)  -- barométrico: su forma, al nivel
 ///      del HGT cuando lo hay.
-///   2. HGT  (`ElevationRepository`) -- grilla de ~30 m del modelo
-///      elegido (Copernicus o FABDEM).
+///   2. HGT  (`ElevationRepository`) -- grilla de Copernicus, ~30 m.
 ///   3. nada -- el llamador usa el GPS/barómetro fusionado en vivo.
 ///
 /// Lo consultan tanto el aplanado post-actividad
@@ -19,21 +17,14 @@ class ElevationResolver implements ElevationLookup {
   final GpxTrackRepository gpxTracks;
   final ElevationRepository dem;
 
-  /// Modelo fijo de este resolvedor (el de "Ajustar altimetría" con un
-  /// modelo elegido); `null` = el que eligió el ciclista en Ajustes.
-  final ElevationDataset? fixedDataset;
-
-  ElevationResolver(this.gpxTracks, this.dem, {this.fixedDataset});
-
-  /// Con qué modelo quedó cargado (el del último [preload]).
-  ElevationDataset? get dataset => dem.loadedDataset;
+  ElevationResolver(this.gpxTracks, this.dem);
 
   /// Carga a memoria los catálogos de ambas fuentes y ancla los GPX al
   /// modelo de elevación (ver `GpxTrackRepository.anchorTo`). Llamar
   /// antes de grabar o de re-aplanar una actividad.
   Future<void> preload() async {
     await gpxTracks.preload();
-    await dem.preloadCatalog(dataset: fixedDataset);
+    await dem.preloadCatalog();
     gpxTracks.anchorTo(dem.elevationAtSync);
   }
 
@@ -47,4 +38,10 @@ class ElevationResolver implements ElevationLookup {
 
     return ResolvedElevation.none;
   }
+
+  @override
+  ElevationSamples samples(double lat, double lng) => ElevationSamples(
+    gpx: gpxTracks.elevationAtSync(lat, lng),
+    model: dem.elevationAtSync(lat, lng),
+  );
 }

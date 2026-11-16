@@ -5,38 +5,35 @@ import '../../elevation/elevation.dart';
 import 'activities_providers.dart';
 
 /// Versión de la forma de medir la altimetría de una actividad. Subirla
-/// hace que el historial entero se vuelva a medir (con el modelo elegido
-/// en Ajustes) la próxima vez que se abra la app.
+/// hace que el historial entero se vuelva a medir.
 ///
 /// 2: desnivel sobre la distancia (remuestreo, promedio de 200 m,
-///    umbral de 10 m), GPX anclado al modelo, tramos sin modelo
-///    enganchados y barómetro (noviembre de 2026).
-const int altitudeAlgorithmVersion = 2;
+///    umbral de 10 m), GPX anclado al modelo y barómetro (nov. 2026).
+/// 3: solo Copernicus y capa 3 difusa (barómetro, Copernicus, GPX y
+///    altitud en vivo pesados tramo por tramo) (nov. 2026).
+const int altitudeAlgorithmVersion = 3;
 
-const _versionKey = 'altitude_history_version_v1';
-
-/// De antes: una huella que también incluía las teselas descargadas.
-/// Solo se lee para no repetir la pasada de la versión 2.
-const _legacyFingerprintKey = 'altitude_history_fingerprint_v1';
+const _fingerprintKey = 'altitude_history_fingerprint_v2';
 
 /// Vuelve a medir la altimetría de todas las actividades guardadas cuando
-/// cambia la forma de medir ([altitudeAlgorithmVersion]). Cambiar de
-/// modelo o bajar teselas NO la dispara: eso solo afecta a las salidas
-/// nuevas, y una guardada se cambia a mano en "Ajustar altimetría".
+/// cambia la forma de medir ([altitudeAlgorithmVersion]) o las teselas de
+/// Copernicus descargadas: una salida medida sin teselas de su zona se
+/// corrige sola en cuanto se bajan. Con lo mismo no se repite: se guarda
+/// una huella. Sin ninguna tesela no hace nada, para no medir el
+/// historial sin modelo justo antes de que se descarguen.
 ///
 /// Espera unos segundos antes de empezar, para no competir con el
-/// arranque de la app; si en ese rato se descarta, la pasada se cancela.
+/// arranque de la app y para que una descarga de varias teselas cuente
+/// como un solo cambio; si en ese rato algo cambia de nuevo, esta pasada
+/// se cancela y la siguiente la reemplaza.
 final altitudeHistorySyncProvider = FutureProvider<int>((ref) async {
+  final tiles = ref.watch(downloadedElevationTilesProvider).valueOrNull;
+  if (tiles == null || tiles.isEmpty) return 0;
+  final names = [for (final t in tiles) t.tileName]..sort();
+  final fingerprint = ['v$altitudeAlgorithmVersion', ...names].join('|');
+
   final prefs = await SharedPreferences.getInstance();
-  var done = prefs.getInt(_versionKey);
-  final legacy = prefs.getString(_legacyFingerprintKey);
-  if (done == null &&
-      legacy != null &&
-      legacy.startsWith('v$altitudeAlgorithmVersion')) {
-    done = altitudeAlgorithmVersion;
-    await prefs.setInt(_versionKey, done);
-  }
-  if (done != null && done >= altitudeAlgorithmVersion) return 0;
+  if (prefs.getString(_fingerprintKey) == fingerprint) return 0;
 
   var cancelled = false;
   ref.onDispose(() => cancelled = true);
@@ -49,6 +46,6 @@ final altitudeHistorySyncProvider = FutureProvider<int>((ref) async {
         resolver: ref.read(elevationResolverProvider),
         cancelled: () => cancelled,
       );
-  if (!cancelled) await prefs.setInt(_versionKey, altitudeAlgorithmVersion);
+  if (!cancelled) await prefs.setString(_fingerprintKey, fingerprint);
   return count;
 });

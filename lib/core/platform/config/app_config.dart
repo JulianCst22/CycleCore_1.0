@@ -18,17 +18,14 @@ class AppConfig {
   static const String filesBaseUrl =
       'https://github.com/JulianCst22/cyclecore-mapas/releases/download/mapas-v1';
 
-  /// Teselas de elevación (.hgt), un release por modelo, convertidas al
-  /// formato SRTM con `herramientas/dem_a_hgt.py` de "Servidor CycleCore".
-  /// Copernicus GLO-30 es el estándar (libre también para uso comercial);
-  /// FABDEM V1-2, el mismo sin edificios ni árboles, el premium (solo uso
-  /// no comercial). En la salida a La Calera del 28-oct-2026 dieron 956 m
-  /// y 925 m de desnivel contra 911 del Garmin; las SRTM de `mapas-v1`,
-  /// 986.
-  static const String copernicusTilesBaseUrl =
+  /// Teselas de elevación (.hgt), en su propio release: Copernicus GLO-30
+  /// (ESA / Unión Europea) convertido al formato SRTM con
+  /// `herramientas/dem_a_hgt.py` de "Servidor CycleCore". Su licencia
+  /// permite también el uso comercial, con aviso de origen. En la salida a
+  /// La Calera del 28-oct-2026 dio 956 m de desnivel contra 911 del
+  /// Garmin; las SRTM de `mapas-v1`, 986.
+  static const String elevationTilesBaseUrl =
       'https://github.com/JulianCst22/cyclecore-mapas/releases/download/elevacion-copernicus-v1';
-  static const String fabdemTilesBaseUrl =
-      'https://github.com/JulianCst22/cyclecore-mapas/releases/download/elevacion-fabdem-v1';
 
   /// Mapas de navegación por región: `regiones.json` y un
   /// `<región>.roadgraph.gz` por departamento. Los genera la carpeta
