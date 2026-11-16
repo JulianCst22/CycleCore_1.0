@@ -138,11 +138,12 @@ List<ControlSurface> defaultSurfaces({
         y: (variable: v.demand, from: 0, to: 100),
         steps: steps,
         held:
-            'objetivo récord · suficiencia 1,00 · desnivel 300 m · '
-            'avance 40 % · ventaja 0 s · torque 1,10',
+            'objetivo récord · suficiencia 1,00 · en el ritmo del modo · '
+            'desnivel 300 m · avance 40 % · ventaja 0 s · torque 1,10',
         load: (inputs) => inputs
           ..crisp(v.goal, Goal.pr.index.toDouble())
           ..crisp(v.sufficiency, 1.00)
+          ..crisp(v.planGap, 0)
           ..crisp(v.climbLeft, 300)
           ..crisp(v.phase, 40)
           ..crisp(v.recordPace, 0)

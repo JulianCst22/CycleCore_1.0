@@ -68,6 +68,32 @@ final class CoachingParameters {
   /// para lo que falta»: por debajo de eso, no alcanza.
   final double sufficiencyCeiling;
 
+  /// Cuánto puede apartarse el objetivo del ritmo del modo, en tanto
+  /// por uno. Dos de cada cien: menos que eso no se distingue al
+  /// pedalear.
+  final double planTolerance;
+
+  /// Grado de limitante (pulso o torque) desde el que el cuerpo manda
+  /// sobre el plan: el objetivo ya no se sostiene en el ritmo del modo
+  /// y baja lo que digan las reglas.
+  final double planOverrideLimiter;
+
+  /// Cuánto más pide el modo «a tope» en el tramo final, sobre el ritmo
+  /// que traía.
+  final double finalBoost;
+
+  /// Cada cuántos segundos habla el coach en el tramo final.
+  final int finalGapSeconds;
+
+  /// Tramo final: el último kilómetro, o esta parte de la subida cuando
+  /// es más larga que [longClimbMeters], o [shortClimbShare] cuando es
+  /// más corta que [shortClimbMeters].
+  final double finalMeters;
+  final double longClimbMeters;
+  final double longClimbShare;
+  final double shortClimbMeters;
+  final double shortClimbShare;
+
   // --- Gobernador ---
 
   /// Urgencia mínima para hablar (se compara con el extremo inferior).
@@ -161,6 +187,15 @@ final class CoachingParameters {
   const CoachingParameters({
     this.maxAdjustment = 0.20,
     this.sufficiencyCeiling = 1.0,
+    this.planTolerance = 0.02,
+    this.planOverrideLimiter = 0.75,
+    this.finalBoost = 0.05,
+    this.finalGapSeconds = 45,
+    this.finalMeters = 1000,
+    this.longClimbMeters = 20000,
+    this.longClimbShare = 0.10,
+    this.shortClimbMeters = 2000,
+    this.shortClimbShare = 1 / 3,
     this.physicsTolerance = 0.10,
     this.urgentUrgency = 0.80,
     this.highHeartRate = 0.85,

@@ -381,7 +381,12 @@ class CoachingController extends StateNotifier<CoachingLiveState> {
     // estimación, no si el ciclista hizo caso. Tras un turno tampoco va:
     // el turno ya es el aviso de compañía, y treinta segundos después
     // sonaría a lo mismo dicho dos veces.
-    _pendingTarget = advice.features.powerIsEstimated || advice.verdict.isTurn
+    // En el tramo final el coach ya habla cada cuarenta y cinco segundos:
+    // un seguimiento en medio sería hablar sin parar.
+    _pendingTarget =
+        advice.features.powerIsEstimated ||
+            advice.verdict.isTurn ||
+            advice.verdict.isFinalStretch
         ? null
         : advice.power?.spoken;
     _pendingFollowUpAt = preferences.detail == CoachingDetail.completo
@@ -405,6 +410,7 @@ class CoachingController extends StateNotifier<CoachingLiveState> {
       advice,
       second: advice.second,
       complying: (power - target).abs() <= complianceWatts,
+      below: power < target,
       riderName: _riderName(),
     );
     if (message == null) return;

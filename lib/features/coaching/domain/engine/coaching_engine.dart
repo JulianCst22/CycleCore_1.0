@@ -74,10 +74,22 @@ final class CoachingDecision {
   Adjustment? get advisedAdjustment {
     final value = adjustment.value;
     if (value == null) return null;
+    return adjustmentLabelOf(value);
+  }
+
+  /// Etiqueta del ajuste con más pertenencia en [value] (−100 a 100).
+  /// Sirve también para nombrar el ajuste que queda después de pasar
+  /// el consejo por los límites de la física.
+  Adjustment? adjustmentLabelOf(double value) {
+    // Los términos extremos son trapecios que caen a cero en ±85: más
+    // allá ninguna etiqueta tiene pertenencia y ganaría la primera
+    // («soltar mucho») aunque se esté pidiendo subir. Un ajuste más
+    // grande que el núcleo del extremo es ese extremo.
+    final inside = value.clamp(-70.0, 70.0);
     Adjustment? described;
     var best = -1.0;
     for (final e in adjustment.variable.terms.entries) {
-      final mu = e.value.mu(value);
+      final mu = e.value.mu(inside);
       if (mu > best && e.key is Adjustment) {
         best = mu;
         described = e.key as Adjustment;
@@ -194,6 +206,7 @@ final class CoachingEngine {
       ..degrees(v.demand, b[v.demand].activations.cast<Demand, Interval>())
       ..crisp(v.goal, goal.index.toDouble());
     load(decisionInputs, v.sufficiency, features.sufficiency);
+    load(decisionInputs, v.planGap, features.planGap);
     load(decisionInputs, v.climbLeft, features.climbLeft);
     load(decisionInputs, v.phase, features.progress);
     load(decisionInputs, v.recordPace, features.recordPace);

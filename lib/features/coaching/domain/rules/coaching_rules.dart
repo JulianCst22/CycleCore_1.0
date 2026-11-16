@@ -362,6 +362,39 @@ RuleBase decisionRules(CoachingVariables v) => RuleBase([
         'vaciar el tanque.',
   ),
 
+  // --- Ajuste: el ritmo del modo ---
+  //
+  // Hasta acá las reglas sabían si el ciclista estaba bien o mal, pero
+  // no a qué ritmo le tocaba ir ese día. Con un ciclista que hacía caso,
+  // «justo» no disparaba ninguna regla en fondo ni en duro, mandaba la
+  // más débil de las de soltar y el objetivo bajaba en escalera: llegaba
+  // con el 86 % de la reserva y más tarde que el que no hizo caso. Estas
+  // tres comparan la potencia que lleva con el ritmo del modo
+  // (`RideFeatures.planPower`). Solo aprietan a quien no está al límite
+  // ni reventado: a ese lo siguen mandando las reglas de arriba.
+  Rule(
+    id: 'C14',
+    when: All([
+      Is(v.planGap, PlanGapLevel.porDebajo),
+      Not(Is(v.effort, EffortState.alLimite)),
+      Not(Is(v.effort, EffortState.fundido)),
+    ]),
+    then: Consequent(v.adjustment, Adjustment.apretar),
+    rationale: 'Va por debajo del ritmo del modo y tiene con qué subirlo.',
+  ),
+  Rule(
+    id: 'C15',
+    when: Is(v.planGap, PlanGapLevel.enPlan),
+    then: Consequent(v.adjustment, Adjustment.mantener),
+    rationale: 'Va en el ritmo del modo: así está bien.',
+  ),
+  Rule(
+    id: 'C16',
+    when: Is(v.planGap, PlanGapLevel.porEncima),
+    then: Consequent(v.adjustment, Adjustment.soltar),
+    rationale: 'Va por encima del ritmo que pide el modo.',
+  ),
+
   // --- Cadencia ---
   Rule(
     id: 'K1',
@@ -484,5 +517,12 @@ RuleBase decisionRules(CoachingVariables v) => RuleBase([
     then: Consequent(v.urgency, Urgency.media),
     certainty: 0.6,
     rationale: 'Un muro por delante se avisa, vaya como vaya.',
+  ),
+  Rule(
+    id: 'U10',
+    when: Is(v.planGap, PlanGapLevel.porEncima),
+    then: Consequent(v.urgency, Urgency.media),
+    certainty: 0.7,
+    rationale: 'Se está pasando del ritmo del modo: vale la pena avisar.',
   ),
 ]);

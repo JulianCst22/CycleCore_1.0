@@ -302,10 +302,14 @@ final class EffortTracker {
   /// Es el camino que se usa en carretera: recorrer el conjunto una vez
   /// y sacar los percentiles por selección cuesta bastante menos que
   /// armar y ordenar tres listas en cada inferencia.
+  ///
+  /// [reserveFloor] es la fracción del tanque que el modo del día no
+  /// deja tocar (ver `Goal.reserveFloor`); cada atleta posible la
+  /// aplica sobre su propio W′.
   EnsembleBands ensembleBands({
     required double power,
     required double remainingSeconds,
-    double spendable = 1,
+    double reserveFloor = 0,
   }) {
     final n = _ensemble.length;
     final reserve = _reserveBuffer ??= Float64List(n);
@@ -314,20 +318,21 @@ final class EffortTracker {
     for (var i = 0; i < n; i++) {
       final a = _ensemble[i];
       final balance = a.balance.balance;
+      final keep = reserveFloor * a.balance.wPrime;
       reserve[i] = 100 * a.balance.fraction;
       enough[i] = sufficiency(
         balance: balance,
         power: Watts(a.beta * power),
         cp: a.balance.cp,
         remainingSeconds: remainingSeconds,
-        spendable: spendable,
+        keep: keep,
       );
       sustainable[i] =
           sustainablePower(
             balance: balance,
             cp: a.balance.cp,
             remainingSeconds: remainingSeconds,
-            spendable: spendable,
+            keep: keep,
           ) /
           a.beta;
     }

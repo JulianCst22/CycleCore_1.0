@@ -130,7 +130,10 @@ final class MessageComposer {
     final numbers = numbersOf(advice);
     final register = advice.register;
     final diagnosis = advice.diagnosis?.rule.id;
-    final action = advice.decision.advisedAdjustment;
+    // La acción es la que lleva al objetivo en vatios, no la etiqueta
+    // suelta de las reglas: si el ritmo del modo subió el objetivo, la
+    // frase no puede decir «afloja» y dar un número más alto.
+    final action = advice.action ?? advice.decision.advisedAdjustment;
 
     final said = <String>{};
     // Un mismo número no se dice dos veces en una frase («quedan tres
@@ -165,13 +168,39 @@ final class MessageComposer {
     // potenciómetro la reserva estimada es muy incierta— y a la acción la
     // empuja otra cosa (el remate, el terreno que viene): manda lo que hay
     // que hacer, y nombrar un estado que lo desmiente solo confunde.
-    final skipState = contradicts(situation.state, action);
+    // Tampoco se dice cuando es el que el modo buscaba: ir al límite en
+    // el tramo final de a tope no es una alarma, es el plan.
+    final skipState =
+        advice.expectedState || contradicts(situation.state, action);
     for (final slot in const [PieceSlot.estado, PieceSlot.accion]) {
       if (slot == PieceSlot.estado && skipState) continue;
       final piece = pick(slot);
       if (piece == null) return null;
       said.add(piece.family);
       core.add(piece);
+    }
+    // En el tramo final se habla seguido y con otro propósito: la frase
+    // no explica, empuja hacia lo que el modo busca al coronar. Sin
+    // segundo consejo ni motivo, que cada cuarenta y cinco segundos una
+    // frase larga ya no se oye.
+    if (advice.finalStretch) {
+      final meta = pick(PieceSlot.meta) ?? pick(PieceSlot.motivo);
+      if (meta == null) return null;
+      core.add(meta);
+      return _build(
+        opening: null,
+        core: core,
+        closing: pick(PieceSlot.cierre),
+        numbers: numbers,
+        register: register,
+        situation: situation,
+        urgency: urgency,
+        second: second,
+        format: format == MessageFormat.corto
+            ? MessageFormat.corto
+            : MessageFormat.normal,
+        riderName: riderName,
+      );
     }
     // El segundo consejo va pegado a la acción. En un aviso urgente no
     // hay tiempo para él, salvo en el tono «con matiz», donde el límite
@@ -260,10 +289,15 @@ final class MessageComposer {
 
   /// Mensaje corto de seguimiento: se usa cuando el consejo anterior
   /// sigue en pie y solo hay que decir si va bien o no.
+  ///
+  /// [below] dice para qué lado se quedó el que no cumple: con el ritmo
+  /// del modo el coach también pide subir, y «sigues por encima» al que
+  /// va corto es decirle lo contrario.
   SpokenMessage? followUp(
     Advice advice, {
     required int second,
     required bool complying,
+    bool below = false,
     Goal goal = Goal.pr,
     String? riderName,
   }) {
@@ -275,8 +309,12 @@ final class MessageComposer {
       situation: situation,
       register: advice.register,
       goal: goal,
-      adjustment: advice.decision.advisedAdjustment,
-      diagnosis: complying ? 'cumple' : 'no-cumple',
+      adjustment: advice.action ?? advice.decision.advisedAdjustment,
+      diagnosis: complying
+          ? 'cumple'
+          : below
+          ? 'no-cumple-abajo'
+          : 'no-cumple',
       numbers: numbers,
       second: second,
       hints: advice.hints,

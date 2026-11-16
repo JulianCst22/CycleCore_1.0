@@ -19,6 +19,7 @@ final class CoachingVariables {
   final LinguisticVariable<TorqueLevel> torque;
   final LinguisticVariable<ReserveLevel> reserve;
   final LinguisticVariable<SufficiencyLevel> sufficiency;
+  final LinguisticVariable<PlanGapLevel> planGap;
   final LinguisticVariable<DecouplingLevel> decoupling;
   final LinguisticVariable<VariabilityLevel> variability;
   final LinguisticVariable<EffortState> effort;
@@ -48,6 +49,7 @@ final class CoachingVariables {
         torque: {DataSource.power, DataSource.cadence},
         reserve: {DataSource.power},
         sufficiency: {DataSource.power},
+        planGap: {DataSource.power},
         decoupling: {DataSource.power, DataSource.heartRate},
         variability: {DataSource.power},
         gradientAhead: {DataSource.terrain},
@@ -64,6 +66,7 @@ final class CoachingVariables {
     required this.torque,
     required this.reserve,
     required this.sufficiency,
+    required this.planGap,
     required this.decoupling,
     required this.variability,
     required this.effort,
@@ -161,6 +164,18 @@ final class CoachingVariables {
           SufficiencyLevel.insuficiente: Trapezoid.leftShoulder(0.50, 0.85),
           SufficiencyLevel.justa: Trapezoid(0.50, 0.85, 1.05, 1.35),
           SufficiencyLevel.holgada: Trapezoid.rightShoulder(1.05, 1.35),
+        },
+      ),
+      // Tres vatios de cada cien es lo que se nota en la pierna y lo
+      // que distingue «voy en el ritmo» de «me estoy pasando».
+      planGap: measured(
+        name: 'desvío del ritmo del modo (%)',
+        min: -40,
+        max: 40,
+        terms: const {
+          PlanGapLevel.porDebajo: Trapezoid.leftShoulder(-6, -2),
+          PlanGapLevel.enPlan: Trapezoid(-6, -2, 2, 6),
+          PlanGapLevel.porEncima: Trapezoid.rightShoulder(2, 6),
         },
       ),
       decoupling: measured(
@@ -329,6 +344,7 @@ final class CoachingVariables {
     phase,
     demand,
     recordPace,
+    planGap,
     goal,
     adjustment,
     cadence,

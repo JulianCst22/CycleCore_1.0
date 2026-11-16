@@ -8,6 +8,14 @@ import 'message_values.dart';
 ///
 ///     [apertura] estado → acción [secundaria] → motivo [plan] [cierre]
 ///
+/// En el tramo final del segmento la frase cambia de propósito: ya no
+/// explica, empuja hacia lo que el modo busca al coronar
+///
+///     estado → acción → meta [cierre]
+///
+/// y la [meta] va etiquetada por modo: fondo termina firme y entero,
+/// duro exprime lo que queda sin vaciarse y a tope se vacía.
+///
 /// El núcleo (estado, acción, motivo) es lo único obligatorio; lo demás
 /// entra según el formato: la apertura y el cierre son el adorno de la
 /// persona, la [secundaria] es el segundo consejo concreto (la
@@ -23,6 +31,7 @@ enum PieceSlot {
   secundaria,
   motivo,
   plan,
+  meta,
   cierre,
   seguimiento,
 }
@@ -45,7 +54,8 @@ final class PieceTags {
   /// Reglas del motor que justifican el mensaje (los ids del
   /// diagnóstico, por ejemplo `C2`). Sirve para que el motivo diga lo
   /// que de verdad decidió el consejo. En las piezas de
-  /// [PieceSlot.seguimiento] lleva `cumple` o `no-cumple`.
+  /// [PieceSlot.seguimiento] lleva `cumple`, `no-cumple` (sigue por
+  /// encima del objetivo) o `no-cumple-abajo` (sigue por debajo).
   final Set<String> diagnoses;
 
   /// Aviso secundario que la pieza da por cierto. Una pieza que dice

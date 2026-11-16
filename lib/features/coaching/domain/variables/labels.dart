@@ -13,6 +13,9 @@ enum ReserveLevel { agotada, comprometida, sana }
 
 enum SufficiencyLevel { insuficiente, justa, holgada }
 
+/// Cómo va la potencia frente al ritmo que pide el modo del día.
+enum PlanGapLevel { porDebajo, enPlan, porEncima }
+
 enum DecouplingLevel { nula, incipiente, marcada }
 
 enum VariabilityLevel { pareja, irregular }
@@ -31,34 +34,47 @@ enum RecordPaceLevel { retrasado, enRitmo, adelante }
 
 /// Objetivo que el ciclista declara al entrar al segmento.
 ///
-/// Además de mover las reglas, cada objetivo dice qué parte de la
-/// reserva anaeróbica se puede gastar en este segmento. Esa fracción es
-/// la que decide con qué potencia se llega a la cima: el modo a tope
-/// llega vacío, el modo duro llega con un resto y el fondo casi no toca
-/// el tanque.
+/// Cada modo es un ritmo: una parte de la potencia con la que el
+/// ciclista subiría el segmento a tope. Esa potencia a tope sale del
+/// modelo de potencia crítica, `CP + reserva / tiempo que falta`, y la
+/// reserva anaeróbica es pequeña frente a una subida larga: repartida
+/// en veinte minutos son unos pocos vatios. Por eso los modos no se
+/// distinguen por cuánta reserva dejan (subirían casi igual), sino por
+/// su ritmo; la reserva queda como el límite que cada modo no cruza.
+///
+/// Con el ciclista de ejemplo, que a tope sube Patios en 20 minutos,
+/// duro son unos 21:30 y fondo unos 24.
 enum Goal {
-  /// Fondo: se entrena, no se compite. Trabaja cerca de la potencia
-  /// crítica y deja el tanque casi intacto.
-  recuperacion('Fondo', 0.35),
+  /// Fondo: ritmo tempo, por debajo del umbral. No baja la reserva del
+  /// 30 %.
+  recuperacion('Fondo', intensity: 0.83, reserveFloor: 0.30),
 
-  /// Duro: aprieta de verdad pero llega con algo guardado.
-  ritmo('Duro', 0.85),
+  /// Duro: ritmo de umbral. No baja la reserva del 10 %, que es donde
+  /// la literatura ubica lo «duro sin reventar» (Skiba et al., 2014) y
+  /// lo que se equivoca la medición del tanque.
+  ritmo('Duro', intensity: 0.93, reserveFloor: 0.10),
 
-  /// A tope: el tanque se vacía justo al coronar.
-  pr('A tope', 1.0);
+  /// A tope: todo lo que da el modelo, planeando gastar un 5 % más de
+  /// reserva de la calibrada; en el tramo final pide todavía más.
+  pr('A tope', intensity: 1.0, reserveFloor: -0.05);
 
   /// Cómo se llama el modo en la app.
   final String label;
 
-  /// Fracción de W′bal que este modo autoriza a gastar.
-  final double spendable;
+  /// Parte de la potencia a tope que pide este modo.
+  final double intensity;
 
-  const Goal(this.label, this.spendable);
+  /// Fracción del tanque (W′) por debajo de la cual este modo no deja
+  /// bajar la reserva. Negativa: se planea gastar más que el tanque
+  /// calibrado.
+  final double reserveFloor;
+
+  const Goal(this.label, {required this.intensity, required this.reserveFloor});
 
   String get description => switch (this) {
-    Goal.recuperacion => 'Trabajo cerca del umbral, sin vaciarte.',
-    Goal.ritmo => 'Aprietas fuerte y coronas con algo de resto.',
-    Goal.pr => 'Todo lo que tengas, dosificado para llegar justo.',
+    Goal.recuperacion => 'Ritmo tempo, controlado y sin vaciarte.',
+    Goal.ritmo => 'Ritmo de umbral y remate fuerte en el último tramo.',
+    Goal.pr => 'Todo lo que tengas y un poco más para llegar vacío.',
   };
 
   static Goal byName(String? name) {

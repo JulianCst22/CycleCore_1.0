@@ -53,6 +53,24 @@ final class RideFeatures {
   /// (F12) sin que el modo del día ensucie la comparación.
   final double? physicalSustainablePower;
 
+  /// Potencia con la que subiría lo que falta a tope: la que gasta el
+  /// tanque del modo «a tope» justo al coronar. Se corrige sola: si
+  /// gastó de más al principio baja, y si le sobra, sube.
+  final double? allOutPower;
+
+  /// Ritmo a tope del segmento entero (ver `allOutPaceOf`): no cambia
+  /// durante la subida. Es la vara de los modos duro y fondo.
+  final double? segmentPacePower;
+
+  /// Ritmo que pide el modo del día: en «a tope», [allOutPower]; en los
+  /// otros, su parte de [segmentPacePower] sin pasar de lo que deja la
+  /// reserva en el límite del modo. Es el ancla del objetivo en vatios.
+  final double? planPower;
+
+  /// Cuánto se aparta la potencia que lleva de [planPower], en tanto
+  /// por ciento (positivo = va por encima).
+  final UncertainValue? planGap;
+
   /// Banda de la potencia sostenible (±1σ del conjunto de atletas
   /// posibles). Su extremo inferior es el objetivo prudente: por debajo
   /// de ahí se pierde tiempo sin ganar reserva.
@@ -87,6 +105,10 @@ final class RideFeatures {
     this.heartRate,
     this.sustainablePower,
     this.physicalSustainablePower,
+    this.allOutPower,
+    this.segmentPacePower,
+    this.planPower,
+    this.planGap,
     this.sustainablePowerBand,
     this.timeToExhaustion,
     this.terrain,
@@ -106,6 +128,8 @@ final class RideFeatures {
     required ReferenceEffort? reference,
     required double alongMeters,
     required CoachAthlete athlete,
+    double? segmentPace,
+    double? modePlan,
     Goal goal = Goal.pr,
     CoachingParameters parameters = const CoachingParameters(),
   }) {
@@ -187,6 +211,9 @@ final class RideFeatures {
     UncertainValue? sufficiencyValue;
     double? sustainable;
     double? physicalSustainable;
+    double? allOut;
+    double? plan;
+    UncertainValue? planGap;
     UncertainValue? sustainableBand;
     double? exhaustion;
     // Las tres magnitudes del conjunto de atletas posibles salen de una
@@ -196,8 +223,10 @@ final class RideFeatures {
         : effort.ensembleBands(
             power: base,
             remainingSeconds: remaining,
-            spendable: goal.spendable,
+            reserveFloor: goal.reserveFloor,
           );
+    final wPrime = model.wPrime.toDouble();
+    final keep = goal.reserveFloor * wPrime;
     if (power != null && bands != null) {
       reserve = _bandOf(effort.reservePercent, bands.reservePercent);
     }
@@ -207,23 +236,43 @@ final class RideFeatures {
         power: Watts(base),
         cp: model.cp,
         remainingSeconds: remaining,
-        spendable: goal.spendable,
+        keep: keep,
       );
       sufficiencyValue = _bandOf(nominal, bands.sufficiency);
       sustainable = energy.sustainablePower(
         balance: effort.balance,
         cp: model.cp,
         remainingSeconds: remaining,
-        spendable: goal.spendable,
+        keep: keep,
       );
       sustainableBand = _bandOf(sustainable, bands.sustainablePower);
-      physicalSustainable = goal.spendable == 1
-          ? sustainable
-          : energy.sustainablePower(
-              balance: effort.balance,
-              cp: model.cp,
-              remainingSeconds: remaining,
-            );
+      physicalSustainable = energy.sustainablePower(
+        balance: effort.balance,
+        cp: model.cp,
+        remainingSeconds: remaining,
+      );
+      // El ritmo del modo: su parte de la potencia a tope, y nunca más
+      // de lo que deja la reserva en el límite del modo.
+      allOut = energy.sustainablePower(
+        balance: effort.balance,
+        cp: model.cp,
+        remainingSeconds: remaining,
+        keep: Goal.pr.reserveFloor * wPrime,
+      );
+      // La sesión lo calcula con la física del perfil y el tramo final;
+      // sin ella (un instante suelto), la aproximación con el tiempo
+      // restante.
+      plan =
+          modePlan ??
+          (goal == Goal.pr
+              ? allOut
+              : math.min(
+                  goal.intensity * (segmentPace ?? allOut),
+                  sustainable,
+                ));
+      final gap = 100 * (base - plan) / plan;
+      final gapSigma = 100 * powerSigma * base / plan;
+      planGap = UncertainValue.symmetric(gap, gapSigma);
       exhaustion = energy.timeToExhaustion(
         balance: effort.balance,
         power: Watts(base),
@@ -261,6 +310,10 @@ final class RideFeatures {
       remainingSeconds: remaining,
       sustainablePower: sustainable,
       physicalSustainablePower: physicalSustainable,
+      allOutPower: allOut,
+      segmentPacePower: segmentPace,
+      planPower: plan,
+      planGap: planGap,
       sustainablePowerBand: sustainableBand,
       timeToExhaustion: exhaustion,
       terrain: terrain,

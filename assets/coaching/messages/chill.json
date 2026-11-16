@@ -721,7 +721,8 @@
       "slot": "seguimiento",
       "text": "va en {potenciaActual} vatios todavía",
       "diagnoses": [
-        "no-cumple"
+        "no-cumple",
+        "no-cumple-abajo"
       ],
       "values": [
         "potenciaActual"
@@ -855,6 +856,30 @@
       ]
     },
     {
+      "id": "chill.sg.nocumpleabajo.1",
+      "slot": "seguimiento",
+      "text": "todavía va corto",
+      "diagnoses": [
+        "no-cumple-abajo"
+      ]
+    },
+    {
+      "id": "chill.sg.nocumpleabajo.2",
+      "slot": "seguimiento",
+      "text": "aún no sube",
+      "diagnoses": [
+        "no-cumple-abajo"
+      ]
+    },
+    {
+      "id": "chill.sg.nocumpleabajo.3",
+      "slot": "seguimiento",
+      "text": "todavía va bajito",
+      "diagnoses": [
+        "no-cumple-abajo"
+      ]
+    },
+    {
       "id": "chill.sc.respira.1",
       "slot": "secundaria",
       "text": "respira hondo, tranquilo",
@@ -938,6 +963,9 @@
       "text": "suelta lo que te quede",
       "hints": [
         "apretar"
+      ],
+      "goals": [
+        "pr"
       ]
     },
     {
@@ -946,6 +974,81 @@
       "text": "ya no hay que guardar nada",
       "hints": [
         "apretar"
+      ],
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "chill.meta.pr.1",
+      "slot": "meta",
+      "text": "ya casi, déjalo todo aquí",
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "chill.meta.pr.2",
+      "slot": "meta",
+      "text": "lo que quede, a los pedales",
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "chill.meta.pr.3",
+      "slot": "meta",
+      "text": "vacíate tranquilo, que ya llegamos",
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "chill.meta.ritmo.1",
+      "slot": "meta",
+      "text": "aprieta un poco, sin quemarte",
+      "goals": [
+        "ritmo"
+      ]
+    },
+    {
+      "id": "chill.meta.ritmo.2",
+      "slot": "meta",
+      "text": "dale fuerte, pero que quede algo",
+      "goals": [
+        "ritmo"
+      ]
+    },
+    {
+      "id": "chill.meta.ritmo.3",
+      "slot": "meta",
+      "text": "exprime el final con cabeza",
+      "goals": [
+        "ritmo"
+      ]
+    },
+    {
+      "id": "chill.meta.recuperacion.1",
+      "slot": "meta",
+      "text": "llega entero, sin forzar",
+      "goals": [
+        "recuperacion"
+      ]
+    },
+    {
+      "id": "chill.meta.recuperacion.2",
+      "slot": "meta",
+      "text": "firme y tranquilo hasta arriba",
+      "goals": [
+        "recuperacion"
+      ]
+    },
+    {
+      "id": "chill.meta.recuperacion.3",
+      "slot": "meta",
+      "text": "controlado, que ya llegamos",
+      "goals": [
+        "recuperacion"
       ]
     },
     {

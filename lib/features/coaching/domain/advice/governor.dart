@@ -57,6 +57,10 @@ enum GovernorReason {
   /// Le tocaba el turno: nada urgente, pero ya pasó el intervalo que
   /// eligió el ciclista y se dice el consejo del momento en tono suave.
   turno,
+
+  /// Tramo final del segmento: se habla seguido para empujar al
+  /// ciclista a lo que el modo busca al coronar.
+  tramoFinal,
   lowUrgency,
   noSituation,
   tooSoon,
@@ -78,7 +82,12 @@ final class GovernorVerdict {
   });
 
   bool get speak =>
-      reason == GovernorReason.speak || reason == GovernorReason.turno;
+      reason == GovernorReason.speak ||
+      reason == GovernorReason.turno ||
+      reason == GovernorReason.tramoFinal;
+
+  /// Es un mensaje del tramo final.
+  bool get isFinalStretch => reason == GovernorReason.tramoFinal;
 
   /// Es un turno de compañía, no un consejo que la urgencia pidió.
   bool get isTurn => reason == GovernorReason.turno;
@@ -118,6 +127,9 @@ final class CoachingGovernor {
   int? _firstSecond;
   double? _firstMeters;
 
+  /// Ya se dijo el primer mensaje del tramo final.
+  bool _inFinalStretch = false;
+
   CoachingGovernor([
     this.parameters = const CoachingParameters(),
     this.pace = CoachingPace.cadaDosMinutos,
@@ -129,6 +141,7 @@ final class CoachingGovernor {
     required SituationTable table,
     double alongMeters = 0,
     bool powerIsEstimated = false,
+    bool finalStretch = false,
   }) {
     final register = registerOf(decision.adjustment, parameters);
     final best = table.best;
@@ -141,6 +154,25 @@ final class CoachingGovernor {
 
     _firstSecond ??= second;
     _firstMeters ??= alongMeters;
+
+    // En el tramo final manda el reloj, no la urgencia: un mensaje cada
+    // [CoachingParameters.finalGapSeconds], pase lo que pase, y el
+    // primero apenas se entra (si no se acaba de hablar).
+    if (finalStretch &&
+        best != null &&
+        second >= parameters.basePowerWindowSeconds) {
+      final last = _lastSpokenAt;
+      final gap = _inFinalStretch
+          ? parameters.finalGapSeconds
+          : parameters.minGapSeconds ~/ 2;
+      if (last != null && second - last < gap) {
+        return verdict(GovernorReason.tooSoon);
+      }
+      _inFinalStretch = true;
+      _lastSpokenAt = second;
+      _lastSpokenMeters = alongMeters;
+      return verdict(GovernorReason.tramoFinal);
+    }
 
     final urgency = decision.urgency.centroid;
     if (urgency == null ||
@@ -239,5 +271,6 @@ final class CoachingGovernor {
     _spokenAt.clear();
     _firstSecond = null;
     _firstMeters = null;
+    _inFinalStretch = false;
   }
 }

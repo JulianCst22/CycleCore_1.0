@@ -62,23 +62,23 @@ final class WPrimeBalance {
 /// Bajo CP no se gasta reserva: devuelve [cap]. También se recorta a
 /// [cap] por arriba y a 0 por abajo.
 ///
-/// [spendable] es la parte del tanque que el objetivo del día autoriza
-/// a gastar: con 1 se cuenta todo (llegar vacío) y con menos se razona
-/// como si el tanque fuera más pequeño, que es justo lo que significa
-/// guardar reserva para la cima.
+/// [keep] son los julios con los que hay que llegar al final: lo que
+/// se puede gastar es `W′bal − keep`. Con 0 se cuenta todo el tanque
+/// (llegar vacío); con un valor positivo se guarda esa reserva para la
+/// cima, y con uno negativo se planea pedir un poco más de lo que el
+/// tanque calibrado dice tener.
 double sufficiency({
   required Joules balance,
   required Watts power,
   required Watts cp,
   required double remainingSeconds,
-  double spendable = 1,
+  double keep = 0,
   double cap = 2,
 }) {
   assert(remainingSeconds >= 0);
-  assert(spendable > 0 && spendable <= 1);
   final excess = power - cp;
   if (excess <= 0 || remainingSeconds == 0) return cap;
-  final s = balance * spendable / (excess * remainingSeconds);
+  final s = (balance - keep) / (excess * remainingSeconds);
   return s.clamp(0, cap).toDouble();
 }
 
@@ -94,18 +94,19 @@ double? timeToExhaustion({
   return math.max(0, balance) / excess;
 }
 
-/// Potencia constante con la que se llega justo vacío al final:
-/// `CP + W′bal / t_restante`.
+/// Potencia constante con la que se llega al final con [keep] julios
+/// en el tanque: `CP + (W′bal − keep) / t_restante`. Con `keep = 0` se
+/// llega justo vacío.
 ///
-/// Con [spendable] menor que uno se llega con esa parte del tanque sin
-/// tocar, que es como se distinguen los modos de entrenamiento.
+/// Si al tanque ya le queda menos que [keep], lo sostenible es la
+/// potencia crítica: por encima se seguiría gastando lo que hay que
+/// guardar.
 Watts sustainablePower({
   required Joules balance,
   required Watts cp,
   required double remainingSeconds,
-  double spendable = 1,
+  double keep = 0,
 }) {
   assert(remainingSeconds > 0);
-  assert(spendable > 0 && spendable <= 1);
-  return Watts(cp + math.max(0, balance) * spendable / remainingSeconds);
+  return Watts(cp + math.max(0, balance - keep) / remainingSeconds);
 }

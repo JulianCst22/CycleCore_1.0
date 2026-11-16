@@ -64,12 +64,23 @@ final class Target {
 /// (ver `reserveDrivenAdjustmentRules`), el objetivo no baja de ahí: por
 /// debajo se pierde tiempo sin guardar nada. Nunca sube por encima de la
 /// potencia que ya lleva.
+///
+/// [plan] es el ritmo que pide el modo del día (`RideFeatures.planPower`,
+/// o lo que toque en el tramo final). El objetivo nunca lo pasa, y con
+/// [holdPlan] tampoco baja de él: el consejo se calcula sobre la
+/// potencia que el ciclista lleva, así que a uno que hacía caso cada
+/// «afloja un poco» le bajaba la base del siguiente y el objetivo caía
+/// en escalera aunque le sobrara reserva. Subir hasta el plan tiene un
+/// tope por mensaje: lo más que puede pedir el ajuste sobre lo que ya
+/// lleva.
 Target? powerTarget(
   OutputInference adjustment, {
   required double basePower,
   UncertainValue? sustainable,
   double? sufficiency,
   bool reserveDriven = false,
+  double? plan,
+  bool holdPlan = false,
   CoachingParameters parameters = const CoachingParameters(),
 }) {
   final centroid = adjustment.centroid;
@@ -93,24 +104,35 @@ Target? powerTarget(
       ? null
       : sustainable.value;
 
+  final planTop = plan == null ? null : plan * (1 + parameters.planTolerance);
+  final planBottom = plan == null || !holdPlan
+      ? null
+      : math.min(
+          plan * (1 - parameters.planTolerance),
+          basePower * (1 + parameters.maxAdjustment),
+        );
+
   double watts(double y) {
     var w = basePower * (1 + y / 100 * parameters.maxAdjustment);
     if (ceiling != null) w = math.min(w, ceiling);
     if (floor != null) w = math.max(w, floor);
+    if (planTop != null) w = math.min(w, planTop);
+    if (planBottom != null) w = math.max(w, planBottom);
     return w;
   }
 
   Interval? map(({double lo, double hi})? cut) =>
       cut == null ? null : Interval(watts(cut.lo), watts(cut.hi));
   final raw = basePower * (1 + centroid.mid / 100 * parameters.maxAdjustment);
+  final value = watts(centroid.mid);
   return _target(
-    value: watts(centroid.mid),
+    value: value,
     band: Interval(watts(centroid.lo), watts(centroid.hi)),
     range: map(adjustment.upperShape.alphaCut(0.5)),
     core: map(adjustment.lowerShape.alphaCut(0.7)),
     requested: raw,
-    limitedBySustainable: floor != null && raw < floor,
-    cappedBySustainable: ceiling != null && raw > ceiling,
+    limitedBySustainable: value > raw + 0.5,
+    cappedBySustainable: value < raw - 0.5,
   );
 }
 

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../core/fuzzy_type2/fuzzy_type2.dart';
 import '../../../core/geo/geo.dart';
 import '../../../core/physiology/physiology.dart' show cadenceInGear;
@@ -6,6 +8,7 @@ import 'advice/hints.dart';
 import 'advice/limiter.dart';
 import 'advice/pacing_plan.dart';
 import 'advice/physics_check.dart';
+import 'advice/segment_pace.dart';
 import 'advice/situation.dart';
 import 'advice/targets.dart';
 import 'athlete.dart';
@@ -53,6 +56,22 @@ final class Advice {
   /// dice la ecuación de la reserva (F12). `null` si falta alguno.
   final PhysicsCheck? physics;
 
+  /// Lo que al final se le pide con la potencia: la etiqueta del ajuste
+  /// que va de lo que lleva al objetivo en vatios. Casi siempre es la
+  /// que concluyeron las reglas; cambia cuando el ritmo del modo o la
+  /// reserva movieron el objetivo, para que el verbo de la frase y el
+  /// número digan lo mismo.
+  final Adjustment? action;
+
+  /// Va en el tramo final del segmento: el coach habla más seguido y
+  /// el mensaje busca lo que el modo quiere al coronar.
+  final bool finalStretch;
+
+  /// El estado bajo de reserva es el que el modo esperaba a esta
+  /// altura (va en su ritmo y le alcanza): no es una alarma, y la frase
+  /// no lo anuncia como si lo fuera.
+  final bool expectedState;
+
   const Advice({
     required this.second,
     required this.features,
@@ -67,6 +86,9 @@ final class Advice {
     this.plan = PacingPlan.finished,
     this.hints = const {},
     this.physics,
+    this.action,
+    this.finalStretch = false,
+    this.expectedState = false,
   });
 
   bool get speak => verdict.speak;
@@ -101,6 +123,13 @@ final class CoachingSession {
   final CoachingGovernor _governor;
   final PhysicsReview _physics = PhysicsReview();
   double _along = 0;
+
+  /// Ritmo a tope del segmento; se calcula una vez, al primer consejo.
+  late final double _segmentPace = allOutPaceOf(profile, athlete).power;
+
+  /// Ya va en el tramo final del segmento.
+  bool get _finalStretch =>
+      _along >= finalStretchStart(profile.totalDistanceMeters, parameters);
 
   CoachingSession({
     required this.athlete,
@@ -149,6 +178,8 @@ final class CoachingSession {
       reference: reference,
       alongMeters: _along,
       athlete: athlete,
+      segmentPace: _segmentPace,
+      modePlan: _modePlan(),
       goal: goal,
       parameters: parameters,
     );
@@ -172,12 +203,14 @@ final class CoachingSession {
     final decision = engine.decide(features, credibility, goal: goal);
     final table = SituationTable.of(decision);
     final limiter = limiterOf(features, parameters: parameters);
+    final finalStretch = _finalStretch;
     final verdict = _governor.consider(
       second: second,
       decision: decision,
       table: table,
       alongMeters: _along,
       powerIsEstimated: features.powerIsEstimated,
+      finalStretch: finalStretch,
     );
     final base = features.basePower;
     final pacing =
@@ -207,16 +240,40 @@ final class CoachingSession {
       speed: speed,
       parameters: parameters,
     );
+    // El cuerpo manda sobre el plan cuando el pulso o el torque están
+    // de verdad en el tope; en el tramo final de duro y a tope no: ahí
+    // lo que se busca es justamente llegar exigido.
+    final bodyOverrides =
+        (limiter.limiter == Limiter.pulso ||
+            limiter.limiter == Limiter.torque) &&
+        limiter.degree >= parameters.planOverrideLimiter;
+    final pushing = finalStretch && goal != Goal.recuperacion;
+    final modePlan = features.planPower;
     final power = base == null
         ? null
         : powerTarget(
             decision.adjustment,
             basePower: base,
             sustainable: features.sustainablePowerBand,
-            sufficiency: features.sufficiency?.value,
+            sufficiency: pushing ? null : features.sufficiency?.value,
             reserveDriven: _reserveDriven(decision),
+            plan: modePlan,
+            holdPlan: pushing || !bodyOverrides,
             parameters: parameters,
           );
+    final action = base == null || power == null
+        ? decision.advisedAdjustment
+        : decision.adjustmentLabelOf(
+            100 * (power.value / base - 1) / parameters.maxAdjustment,
+          );
+    final state = table.best?.key.state;
+    final expectedState =
+        (state == EffortState.alLimite || state == EffortState.fundido) &&
+        power != null &&
+        (pushing ||
+            (!bodyOverrides &&
+                (features.sufficiency?.value ?? 0) >=
+                    parameters.sufficiencyCeiling));
     // Los dos caminos se contrastan en cada evaluación, se hable o no:
     // es la verificación independiente de la especificación (F12). Va
     // contra el tanque entero, no contra el que deja libre el modo del
@@ -242,6 +299,9 @@ final class CoachingSession {
       limiter: limiter,
       plan: pacing,
       hints: hints,
+      action: action,
+      finalStretch: finalStretch,
+      expectedState: expectedState,
       targetHeartRate:
           !hints.contains(AdviceHint.respirar) || features.heartRate == null
           ? null
@@ -251,6 +311,43 @@ final class CoachingSession {
               restingHeartRate: athlete.restingHeartRate.toDouble(),
             ),
     );
+  }
+
+  /// Ritmo que toca en este punto, en vatios.
+  ///
+  ///  - A tope: lo que gasta su tanque (un poco más que el calibrado)
+  ///    de acá a la cima, apartando desde antes lo del remate: en el
+  ///    tramo final va un [CoachingParameters.finalBoost] más fuerte, y
+  ///    ya en él se gasta todo lo que quede.
+  ///  - Duro: su parte del ritmo a tope del segmento; en el tramo final
+  ///    sube al ritmo a tope. Nunca baja la reserva de su límite.
+  ///  - Fondo: su parte del ritmo a tope, sin bajar de su límite.
+  double? _modePlan() {
+    if (_effort.seconds == 0) return null;
+    final wPrime = athlete.power.wPrime.toDouble();
+    final balance = _effort.balance.toDouble();
+    final finalStretch = _finalStretch;
+    double untilFloor(Goal mode, {bool kick = false}) => pacedPowerOf(
+      profile,
+      athlete,
+      budget: balance - mode.reserveFloor * wPrime,
+      fromMeters: _along,
+      kickFromMeters: kick
+          ? finalStretchStart(profile.totalDistanceMeters, parameters)
+          : null,
+      kick: kick ? parameters.finalBoost : 0,
+    ).power;
+    return switch (goal) {
+      Goal.pr => untilFloor(Goal.pr, kick: !finalStretch),
+      Goal.ritmo => math.min(
+        finalStretch ? _segmentPace : goal.intensity * _segmentPace,
+        untilFloor(goal),
+      ),
+      Goal.recuperacion => math.min(
+        goal.intensity * _segmentPace,
+        untilFloor(goal),
+      ),
+    };
   }
 
   /// Si el consejo lo manda la reserva, el objetivo tiene piso: aflojar

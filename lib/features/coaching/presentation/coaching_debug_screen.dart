@@ -547,6 +547,7 @@ class _Verdict extends StatelessWidget {
   static String _reason(GovernorReason reason) => switch (reason) {
     GovernorReason.speak => 'habla',
     GovernorReason.turno => 'turno',
+    GovernorReason.tramoFinal => 'tramo final',
     GovernorReason.lowUrgency => 'sin urgencia',
     GovernorReason.noSituation => 'sin situación',
     GovernorReason.tooSoon => 'muy pronto',

@@ -232,7 +232,9 @@ abstract final class MessageBankValidator {
         );
       }
       final isExtra =
-          piece.slot == PieceSlot.secundaria || piece.slot == PieceSlot.plan;
+          piece.slot == PieceSlot.secundaria ||
+          piece.slot == PieceSlot.plan ||
+          piece.slot == PieceSlot.meta;
       if (isExtra && piece.wordCount > maxExtraWords) {
         yield (
           piece: piece.id,
@@ -243,7 +245,15 @@ abstract final class MessageBankValidator {
       }
       // Una pieza de apoyo sin etiqueta de aviso se podría decir
       // siempre, y ahí es donde salen los consejos imposibles.
-      if (isExtra && piece.tags.hints.isEmpty && piece.values.isEmpty) {
+      // La meta del tramo final es justamente lo que cambia de un modo a
+      // otro: sin modo se le diría «vacíate» al que va de fondo.
+      if (piece.slot == PieceSlot.meta && piece.tags.goals.isEmpty) {
+        yield (piece: piece.id, problem: 'meta sin modo: se diría en todos');
+      }
+      if (piece.slot != PieceSlot.meta &&
+          isExtra &&
+          piece.tags.hints.isEmpty &&
+          piece.values.isEmpty) {
         yield (
           piece: piece.id,
           problem: 'pieza de apoyo sin aviso ni número: se diría siempre',
@@ -300,8 +310,18 @@ abstract final class MessageBankValidator {
   /// Cobertura mínima para que el compositor nunca se quede a medias:
   ///
   ///  - cada situación cubierta, en cada tono, con estado y motivo;
-  ///  - cada acción posible, en cada tono, con su pieza de acción.
+  ///  - cada acción posible, en cada tono, con su pieza de acción;
+  ///  - cada modo con su meta para el tramo final.
   static Iterable<BankIssue> _coverageIssues(MessageBank bank) sync* {
+    for (final goal in Goal.values) {
+      if (!bank.slot(PieceSlot.meta).any((p) => p.tags.goals.contains(goal))) {
+        yield (
+          piece: goal.name,
+          problem: 'sin meta para el tramo final del modo ${goal.label}',
+        );
+      }
+    }
+
     bool has(
       PieceSlot slot, {
       required SituationKey situation,

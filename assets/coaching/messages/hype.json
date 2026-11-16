@@ -718,7 +718,8 @@
       "slot": "seguimiento",
       "text": "marca {potenciaActual} vatios aún",
       "diagnoses": [
-        "no-cumple"
+        "no-cumple",
+        "no-cumple-abajo"
       ],
       "values": [
         "potenciaActual"
@@ -852,6 +853,30 @@
       ]
     },
     {
+      "id": "hype.sg.nocumpleabajo.1",
+      "slot": "seguimiento",
+      "text": "sigue corto",
+      "diagnoses": [
+        "no-cumple-abajo"
+      ]
+    },
+    {
+      "id": "hype.sg.nocumpleabajo.2",
+      "slot": "seguimiento",
+      "text": "todavía no sube",
+      "diagnoses": [
+        "no-cumple-abajo"
+      ]
+    },
+    {
+      "id": "hype.sg.nocumpleabajo.3",
+      "slot": "seguimiento",
+      "text": "todavía va abajo",
+      "diagnoses": [
+        "no-cumple-abajo"
+      ]
+    },
+    {
       "id": "hype.sc.respira.1",
       "slot": "secundaria",
       "text": "respire hondo",
@@ -935,6 +960,9 @@
       "text": "suelte todo lo que le quede",
       "hints": [
         "apretar"
+      ],
+      "goals": [
+        "pr"
       ]
     },
     {
@@ -943,6 +971,81 @@
       "text": "ya no hay nada que guardar",
       "hints": [
         "apretar"
+      ],
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "hype.meta.pr.1",
+      "slot": "meta",
+      "text": "vacíese, esto se acaba ya",
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "hype.meta.pr.2",
+      "slot": "meta",
+      "text": "todo lo que tenga, ahora mismo",
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "hype.meta.pr.3",
+      "slot": "meta",
+      "text": "nada de guardar, a la cima",
+      "goals": [
+        "pr"
+      ]
+    },
+    {
+      "id": "hype.meta.ritmo.1",
+      "slot": "meta",
+      "text": "apriete el final, sin reventar",
+      "goals": [
+        "ritmo"
+      ]
+    },
+    {
+      "id": "hype.meta.ritmo.2",
+      "slot": "meta",
+      "text": "exprima lo que queda, controlado",
+      "goals": [
+        "ritmo"
+      ]
+    },
+    {
+      "id": "hype.meta.ritmo.3",
+      "slot": "meta",
+      "text": "fuerte, fuerte, pero que quede algo",
+      "goals": [
+        "ritmo"
+      ]
+    },
+    {
+      "id": "hype.meta.recuperacion.1",
+      "slot": "meta",
+      "text": "firme hasta arriba, sin forzar",
+      "goals": [
+        "recuperacion"
+      ]
+    },
+    {
+      "id": "hype.meta.recuperacion.2",
+      "slot": "meta",
+      "text": "controlado hasta la cima",
+      "goals": [
+        "recuperacion"
+      ]
+    },
+    {
+      "id": "hype.meta.recuperacion.3",
+      "slot": "meta",
+      "text": "llegue entero, que ya es suyo",
+      "goals": [
+        "recuperacion"
       ]
     },
     {
