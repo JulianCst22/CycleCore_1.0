@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 
 import '../../../core/database/database.dart';
+import '../../../core/geo/geo.dart';
 import '../../../core/ui/ui.dart';
 import '../../profile/profile.dart';
 import '../../segments/segments.dart';
@@ -19,6 +20,7 @@ import '../application/activities_providers.dart';
 import 'activity_charts.dart';
 import 'adjust_altitude_screen.dart';
 import 'save_activity_screen.dart';
+import 'segment_effort_screen.dart';
 import 'share_activity_screen.dart';
 import 'widgets/activity_curve_section.dart';
 import 'widgets/activity_xp_row.dart';
@@ -72,12 +74,13 @@ class _DerivedStats {
   factory _DerivedStats.fromPoints(List<RoutePointSnapshot> points) {
     if (points.length < 2) return const _DerivedStats();
 
-    double minAlt = points.first.altitude;
-    double maxAlt = points.first.altitude;
-    for (final p in points) {
-      minAlt = math.min(minAlt, p.altitude);
-      maxAlt = math.max(maxAlt, p.altitude);
-    }
+    // Del perfil limpio, el mismo que dibuja el gráfico.
+    final altitudes = cleanRouteProfile(
+      [for (final p in points) p.altitude],
+      [for (final p in points) p.distanceFromStartMeters],
+    );
+    final minAlt = altitudes.reduce(math.min);
+    final maxAlt = altitudes.reduce(math.max);
 
     return _DerivedStats(minAltitude: minAlt, maxAltitude: maxAlt);
   }
@@ -210,7 +213,9 @@ class _ActivityDetailBody extends ConsumerWidget {
             ),
           ],
           flexibleSpace: hasRoute
-              ? FlexibleSpaceBar(background: _RouteMap(points: routePoints))
+              ? FlexibleSpaceBar(
+                  background: ActivityRouteMap(points: routePoints),
+                )
               : null,
         ),
         SliverPadding(
@@ -561,7 +566,8 @@ String _joinNatural(List<String> items) {
 /// Sección "Segmentos en esta ruta": qué segmentos (ya creados por el
 /// usuario, en cualquier actividad) se completaron durante ESTA
 /// actividad puntual, cada uno con el tiempo hecho ese día y un tap
-/// que lleva a `SegmentDetailScreen`. El botón para recortar un
+/// que lleva al análisis de ese esfuerzo (`SegmentEffortScreen`). El
+/// botón para recortar un
 /// segmento nuevo desde esta misma ruta vive al final, dentro de la
 /// misma sección.
 class _SegmentsInRouteSection extends ConsumerWidget {
@@ -671,9 +677,12 @@ class _SegmentEffortTile extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(14),
+      // El análisis de este esfuerzo; desde ahí se llega a la ficha del
+      // segmento.
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => SegmentDetailScreen(segmentId: segment.id),
+          builder: (_) =>
+              SegmentEffortScreen(segmentId: segment.id, effortId: effort.id),
         ),
       ),
       child: Container(
@@ -758,10 +767,10 @@ String _formatEffortDuration(int totalSeconds) {
 /// agrupar puntos consecutivos del mismo color en un solo tramo (en
 /// vez de un `Polyline` nuevo por cada par de puntos) hace que la
 /// línea se vea de un tirón en vez de "piecitas" pegadas.
-class _RouteMap extends StatelessWidget {
+class ActivityRouteMap extends StatelessWidget {
   final List<RoutePointSnapshot> points;
 
-  const _RouteMap({required this.points});
+  const ActivityRouteMap({super.key, required this.points});
 
   @override
   Widget build(BuildContext context) {

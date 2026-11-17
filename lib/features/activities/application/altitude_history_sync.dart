@@ -11,7 +11,10 @@ import 'activities_providers.dart';
 ///    umbral de 10 m), GPX anclado al modelo y barómetro (nov. 2026).
 /// 3: solo Copernicus y capa 3 difusa (barómetro, Copernicus, GPX y
 ///    altitud en vivo pesados tramo por tramo) (nov. 2026).
-const int altitudeAlgorithmVersion = 3;
+/// 4: umbral del desnivel por tramo según el terreno (5 m en llano, 10 m
+///    en quebrado) y el último tramo de la salida cuenta aunque sea
+///    menor que el umbral (nov. 2026).
+const int altitudeAlgorithmVersion = 4;
 
 const _fingerprintKey = 'altitude_history_fingerprint_v2';
 

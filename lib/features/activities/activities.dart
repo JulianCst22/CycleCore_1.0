@@ -10,3 +10,4 @@ export 'application/altitude_history_sync.dart'
 export 'presentation/activities_list_screen.dart';
 export 'presentation/activity_profile_extension_points.dart';
 export 'presentation/save_activity_screen.dart';
+export 'presentation/segment_effort_screen.dart' show openSegmentEffortAnalysis;

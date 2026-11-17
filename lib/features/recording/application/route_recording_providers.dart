@@ -168,7 +168,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
   final AltitudeFusionService _altitudeFusion = AltitudeFusionService();
 
   /// Desnivel que se ve en vivo, contado como el del resumen final.
-  GainCounter _gainCounter = GainCounter();
+  LiveGainMeter _liveGain = LiveGainMeter();
 
   // Ventana de TIEMPO (no de distancia) -- ver LiveSlopeCalculator
   // para el porqué. Reemplaza a SlopeWindowCalculator SOLO acá, en el
@@ -317,8 +317,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     _journal.resume(snapshot);
 
     final points = snapshot.routePoints;
-    _gainCounter = GainCounter(gainMeters: snapshot.liveElevationGainMeters);
-    if (points.isNotEmpty) _gainCounter.add(points.last.altitude);
+    _liveGain = LiveGainMeter(gainMeters: snapshot.liveElevationGainMeters);
     _activeSegmentStartedAt = DateTime.now();
     state = RouteRecordingState(
       isRecording: true,
@@ -361,7 +360,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     await _elevation.preload();
 
     _altitudeFusion.reset();
-    _gainCounter = GainCounter();
+    _liveGain = LiveGainMeter();
     _slopeCalculator.reset();
     _altitudeFusionFilter.reset();
     _slopePlausibility.reset();
@@ -622,8 +621,6 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
       pressureHpa: _lastPressureHpa,
     );
 
-    _gainCounter.add(newPoint.altitude);
-
     // --- Distancia y velocidad: sensor de velocidad BLE con
     // prioridad, GPS como respaldo. El offset se recalcula solo cuando
     // el sensor "aparece" (pasa de no disponible a disponible), para
@@ -690,6 +687,13 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
 
     _liveDistanceHistory.add(newCumulativeDistance);
     _liveSpeedHistory.add(clampedSpeedKmh);
+    final liveAltitudes = [
+      for (final p in state.points) p.altitude,
+      newPoint.altitude,
+    ];
+    if (liveAltitudes.length == _liveDistanceHistory.length) {
+      _liveGain.update(liveAltitudes, _liveDistanceHistory);
+    }
     _journal.addPoint(
       JournalPoint(
         point: newPoint,
@@ -701,7 +705,7 @@ class RouteRecordingController extends StateNotifier<RouteRecordingState> {
     state = state.copyWith(
       points: [...state.points, newPoint],
       cumulativeDistanceMeters: newCumulativeDistance,
-      elevationGainMeters: _gainCounter.gainMeters,
+      elevationGainMeters: _liveGain.gainMeters,
       currentSlopePercent: trustedSlope,
       displaySlopePercent: displaySlope,
       currentSpeedKmh: clampedSpeedKmh,

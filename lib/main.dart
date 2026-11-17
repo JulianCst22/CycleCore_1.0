@@ -55,6 +55,7 @@ Future<void> main() async {
           voiceHasUnseenUnlocksProvider,
         ]),
         openActivityDetailProvider.overrideWithValue(openActivityDetail),
+        openSegmentEffortProvider.overrideWithValue(openSegmentEffortAnalysis),
         criticalPowerSummaryProvider.overrideWith(
           (ref) => ref.watch(criticalPowerSummaryOfAthleteProvider),
         ),

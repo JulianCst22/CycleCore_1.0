@@ -307,24 +307,35 @@ class _ProfilePainter extends CustomPainter {
     final total = points.last.distanceFromStartMeters;
     if (total <= 0) return;
 
-    double minA = points.first.altitude;
-    double maxA = points.first.altitude;
-    for (final p in points) {
-      if (p.altitude < minA) minA = p.altitude;
-      if (p.altitude > maxA) maxA = p.altitude;
+    // El perfil limpio con que se mide el desnivel, con la misma escala
+    // mínima que el gráfico del detalle.
+    final altitudes = cleanRouteProfile(
+      [for (final p in points) p.altitude],
+      [for (final p in points) p.distanceFromStartMeters],
+    );
+    double minA = altitudes.first;
+    double maxA = altitudes.first;
+    for (final a in altitudes) {
+      if (a < minA) minA = a;
+      if (a > maxA) maxA = a;
+    }
+    if (maxA - minA < profileChartMinSpanMeters) {
+      final mid = (minA + maxA) / 2;
+      minA = mid - profileChartMinSpanMeters / 2;
+      maxA = mid + profileChartMinSpanMeters / 2;
     }
     final span = maxA - minA;
 
-    Offset o(RoutePointSnapshot p) {
-      final x = (p.distanceFromStartMeters / total) * size.width;
-      final t = span <= 0 ? 0.5 : (p.altitude - minA) / span;
+    Offset o(int i) {
+      final x = (points[i].distanceFromStartMeters / total) * size.width;
+      final t = (altitudes[i] - minA) / span;
       return Offset(x, size.height - t * size.height);
     }
 
     final path = Path();
     final fill = Path()..moveTo(0, size.height);
     for (int i = 0; i < points.length; i++) {
-      final pt = o(points[i]);
+      final pt = o(i);
       if (i == 0) {
         path.moveTo(pt.dx, pt.dy);
       } else {

@@ -87,15 +87,12 @@ class RecordingSnapshot {
       points.fold(0, (max, p) => p.speedKmh > max ? p.speedKmh : max);
 
   /// Desnivel positivo tal como se venía contando en vivo (ver
-  /// `GainCounter`). Solo para el cockpit al reanudar -- el resumen
+  /// `LiveGainMeter`). Solo para el cockpit al reanudar -- el resumen
   /// final lo recalcula el aplanado.
-  double get liveElevationGainMeters {
-    final counter = GainCounter();
-    for (final p in points) {
-      counter.add(p.point.altitude);
-    }
-    return counter.gainMeters;
-  }
+  double get liveElevationGainMeters => LiveGainMeter().update(
+    [for (final p in points) p.point.altitude],
+    [for (final p in points) p.distanceMeters],
+  );
 
   List<RoutePoint> get routePoints => [for (final p in points) p.point];
 }

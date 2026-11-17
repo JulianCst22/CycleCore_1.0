@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/geo/geo.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../core/database/database.dart';
 
@@ -179,24 +180,32 @@ class _ElevationAreaPainter extends CustomPainter {
     final total = points.last.distanceFromStartMeters;
     if (total <= 0) return;
 
-    double minA = points.first.altitude, maxA = minA;
-    for (final p in points) {
-      minA = math.min(minA, p.altitude);
-      maxA = math.max(maxA, p.altitude);
+    // El perfil limpio con que se mide el desnivel, con la escala mínima
+    // de los gráficos de la app.
+    final altitudes = cleanRouteProfile(
+      [for (final p in points) p.altitude],
+      [for (final p in points) p.distanceFromStartMeters],
+    );
+    double minA = altitudes.reduce(math.min);
+    double maxA = altitudes.reduce(math.max);
+    if (maxA - minA < profileChartMinSpanMeters) {
+      final mid = (minA + maxA) / 2;
+      minA = mid - profileChartMinSpanMeters / 2;
+      maxA = mid + profileChartMinSpanMeters / 2;
     }
     final span = maxA - minA;
 
-    Offset o(RoutePointSnapshot p) {
-      final x = (p.distanceFromStartMeters / total) * size.width;
-      final t = span <= 0 ? 0.4 : (p.altitude - minA) / span;
+    Offset o(int i) {
+      final x = (points[i].distanceFromStartMeters / total) * size.width;
+      final t = (altitudes[i] - minA) / span;
       // 12% de aire arriba para que la cima no toque el borde.
       return Offset(x, size.height - t * size.height * 0.86 - size.height * 0.06);
     }
 
     // Área rellena por tramos de color según pendiente.
     for (int i = 0; i < points.length - 1; i++) {
-      final a = o(points[i]);
-      final b = o(points[i + 1]);
+      final a = o(i);
+      final b = o(i + 1);
       final seg = Path()
         ..moveTo(a.dx, size.height)
         ..lineTo(a.dx, a.dy)
@@ -214,7 +223,7 @@ class _ElevationAreaPainter extends CustomPainter {
     // Línea de cresta blanca sutil.
     final crest = Path();
     for (int i = 0; i < points.length; i++) {
-      final p = o(points[i]);
+      final p = o(i);
       i == 0 ? crest.moveTo(p.dx, p.dy) : crest.lineTo(p.dx, p.dy);
     }
     canvas.drawPath(

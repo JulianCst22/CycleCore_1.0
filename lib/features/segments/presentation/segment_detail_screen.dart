@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/ui/ui.dart';
 import '../domain/segment_source.dart';
+import '../application/extension_points.dart';
 import '../application/segments_providers.dart';
 import 'widgets/segment_altitude_profile.dart';
 import 'widgets/segment_comparison_sections.dart';
@@ -109,6 +110,7 @@ class _SegmentDetailBody extends ConsumerWidget {
     final effortsAsync = ref.watch(segmentEffortsProvider(segment.id));
     final efforts = effortsAsync.valueOrNull ?? const <SegmentEffort>[];
     final best = efforts.isEmpty ? null : efforts.first; // ya viene asc
+    final openEffort = ref.watch(openSegmentEffortProvider);
 
     return CustomScrollView(
       slivers: [
@@ -164,7 +166,12 @@ class _SegmentDetailBody extends ConsumerWidget {
               _StatRow(segment: segment),
               if (best != null) ...[
                 const SizedBox(height: 16),
-                _BestEffortCard(effort: best),
+                _BestEffortCard(
+                  effort: best,
+                  onTap: openEffort == null
+                      ? null
+                      : () => openEffort(context, best),
+                ),
               ],
               SegmentComparisonSections(segmentId: segment.id),
               const SizedBox(height: 20),
@@ -364,7 +371,10 @@ class _StatRow extends StatelessWidget {
 class _BestEffortCard extends StatelessWidget {
   final SegmentEffort effort;
 
-  const _BestEffortCard({required this.effort});
+  /// Abre su análisis; `null` si no hay (ver `openSegmentEffortProvider`).
+  final VoidCallback? onTap;
+
+  const _BestEffortCard({required this.effort, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -374,7 +384,7 @@ class _BestEffortCard extends StatelessWidget {
       if (effort.avgPower != null) '${effort.avgPower} W',
     ];
 
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: CcColors.gold.withValues(alpha: 0.1),
@@ -420,7 +430,19 @@ class _BestEffortCard extends StatelessWidget {
               ],
             ),
           ),
+          if (onTap != null)
+            const Icon(Icons.chevron_right, color: CcColors.gold, size: 20),
         ],
+      ),
+    );
+    final tap = onTap;
+    if (tap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: tap,
+        child: card,
       ),
     );
   }
@@ -494,6 +516,7 @@ class _HistorySection extends ConsumerWidget {
     }
 
     final best = efforts.first;
+    final openEffort = ref.watch(openSegmentEffortProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,9 +525,11 @@ class _HistorySection extends ConsumerWidget {
           children: [
             _SectionLabel('Historial · ${efforts.length}'),
             const Spacer(),
-            const Text(
-              'desliza para borrar',
-              style: TextStyle(color: CcColors.inkFaint, fontSize: 10.5),
+            Text(
+              openEffort == null
+                  ? 'desliza para borrar'
+                  : 'toca para analizar · desliza para borrar',
+              style: const TextStyle(color: CcColors.inkFaint, fontSize: 10.5),
             ),
           ],
         ),
@@ -529,6 +554,9 @@ class _HistorySection extends ConsumerWidget {
                 effort: effort,
                 bestDurationSeconds: best.durationSeconds,
                 isBest: effort.id == best.id,
+                onTap: openEffort == null
+                    ? null
+                    : () => openEffort(context, effort),
               ),
             ),
           ),
@@ -542,10 +570,14 @@ class _EffortTile extends StatelessWidget {
   final int bestDurationSeconds;
   final bool isBest;
 
+  /// Abre su análisis; `null` si no hay (ver `openSegmentEffortProvider`).
+  final VoidCallback? onTap;
+
   const _EffortTile({
     required this.effort,
     required this.bestDurationSeconds,
     required this.isBest,
+    this.onTap,
   });
 
   @override
@@ -559,7 +591,7 @@ class _EffortTile extends StatelessWidget {
       if (effort.avgPower != null) '${effort.avgPower} W',
     ].join(' · ');
 
-    return Container(
+    final tile = Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       decoration: BoxDecoration(
         color: CcColors.surfaceHi.withValues(alpha: 0.5),
@@ -614,7 +646,21 @@ class _EffortTile extends StatelessWidget {
               ),
             ],
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: CcColors.inkFaint, size: 18),
+          ],
         ],
+      ),
+    );
+    final tap = onTap;
+    if (tap == null) return tile;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: tap,
+        child: tile,
       ),
     );
   }

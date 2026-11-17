@@ -78,7 +78,8 @@ class FlattenedAltitudeResult {
 ///     (`SlopeWindowCalculator`), alimentada con la altitud ya limpia.
 ///
 /// El desnivel (+/-) se mide sobre la distancia (`computeRouteGainLoss`:
-/// remuestreo, promedio móvil y histéresis), no sumando cada delta --
+/// remuestreo, promedio móvil y histéresis con el umbral de cada tramo
+/// según su terreno), no sumando cada delta --
 /// así el ruido del modelo de elevación (techos y árboles, sus costuras)
 /// no infla el desnivel en ambos sentidos.
 class ActivityAltitudeFlattener {
@@ -86,10 +87,10 @@ class ActivityAltitudeFlattener {
   final int smoothingRadius;
   final double slopeWindowMeters;
 
-  /// Promedio móvil (m) y cambio mínimo (m) con que se mide el
-  /// desnivel -- ver `computeRouteGainLoss`.
+  /// Promedio móvil (m) con que se mide el desnivel -- ver
+  /// `computeRouteGainLoss`. El umbral lo decide cada tramo según su
+  /// terreno (`routeGainThresholds`).
   final double gainWindowMeters;
-  final double elevationHysteresisMeters;
 
   final double maxPlausibleGradePercent;
 
@@ -98,7 +99,6 @@ class ActivityAltitudeFlattener {
     this.smoothingRadius = 1,
     this.slopeWindowMeters = 40,
     this.gainWindowMeters = routeGainWindowMeters,
-    this.elevationHysteresisMeters = routeGainMinChangeMeters,
     this.maxPlausibleGradePercent = 35,
   });
 
@@ -163,16 +163,15 @@ class ActivityAltitudeFlattener {
     }
 
     // --- Desnivel +/- sobre la distancia, con histéresis. ---
-    // Misma receta con o sin barómetro. Strava cuenta los archivos
-    // barométricos con un umbral más bajo (2 m), pero en una prueba con
-    // un barómetro simulado sobre el terreno real ese umbral sumaba el
-    // microrrelieve del modelo (1.100 m contra 911 del Garmin): queda
-    // por calibrar con una salida real grabada junto al Garmin.
+    // El umbral lo decide cada tramo: 5 m en terreno llano, 10 m en
+    // terreno quebrado, con un paso gradual entre los dos. Misma receta
+    // con o sin barómetro: en una prueba con un barómetro simulado un
+    // umbral de 2 m sumaba el microrrelieve del modelo (1.100 m contra
+    // 911 del Garmin).
     final gl = computeRouteGainLoss(
       smoothedAltitudes,
       cumulativeDistanceMeters,
       windowMeters: gainWindowMeters,
-      minChangeMeters: elevationHysteresisMeters,
     );
 
     return FlattenedAltitudeResult(
