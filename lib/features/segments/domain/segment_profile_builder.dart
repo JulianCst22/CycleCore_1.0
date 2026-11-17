@@ -50,8 +50,8 @@ List<SegmentProfilePoint> profilePointsFromActivitySlice(
 ///   segmento importado de GPX y uno recortado de una actividad se
 ///   "sientan" iguales.
 /// - La altitud del GPX se usa TAL CUAL (es barométrica de un
-///   ciclocomputador, más fiable que la grilla SRTM) -- solo se
-///   suaviza levemente si [smoothingRadius] > 0.
+///   ciclocomputador, más fiable que la grilla del modelo de
+///   elevación) -- solo se suaviza levemente si [smoothingRadius] > 0.
 List<SegmentProfilePoint> profilePointsFromRawTrack(
   List<({double lat, double lng, double altitude})> track, {
   double slopeWindowMeters = 40,

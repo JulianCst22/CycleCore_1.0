@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-/// Identifica una tesela SRTM por su esquina suroeste (el estándar real
-/// que usan NASA/USGS y todo el ecosistema GIS) -- ej. lat=4.6, lng=-74.08
+/// Identifica una tesela `.hgt` por su esquina suroeste (el estándar que
+/// usa todo el ecosistema GIS) -- ej. lat=4.6, lng=-74.08
 /// vive en la tesela "N04W075.hgt" (cubre de lat 4 a 5, lng -75 a -74).
 class SrtmTileId {
   final int latFloor;
@@ -35,7 +35,7 @@ class SrtmTileId {
 }
 
 /// Calcula todas las teselas que cubren un radio (en km) alrededor de una
-/// posición. Cada tesela SRTM es de 1°×1° (~111 km de lado), así que esto
+/// posición. Cada tesela es de 1°×1° (~111 km de lado), así que esto
 /// se traduce naturalmente en "la tesela donde estás + las vecinas que
 /// toque el radio" -- sin necesitar fronteras departamentales/políticas.
 List<SrtmTileId> tilesForRadius({

@@ -38,8 +38,8 @@ class _LoadedTrack {
 /// Fuente de elevación de **PRIORIDAD 1**: los perfiles congelados de
 /// los segmentos que nacieron de un GPX (importados o del catálogo).
 /// La altitud de un GPX de ciclocomputador es barométrica: su FORMA es
-/// más fiable que la grilla SRTM (~30 m), pero su NIVEL depende de cómo
-/// se calibró el aparato. Por eso, en cuanto hay modelo de elevación,
+/// más fiable que la grilla del modelo (~30 m), pero su NIVEL depende de
+/// cómo se calibró el aparato. Por eso, en cuanto hay modelo de elevación,
 /// cada track se ancla a él ([anchorTo]): de uno se toma la forma y del
 /// otro el nivel.
 ///
@@ -118,7 +118,7 @@ class GpxTrackRepository {
   ///
   /// En la salida a La Calera del 28-oct-2026, un GPX importado traía
   /// la forma de la subida Teusacá - Patios bien pero 730 m por debajo,
-  /// y como el GPX ganaba sobre el SRTM, la actividad «bajó» hasta
+  /// y como el GPX ganaba sobre el modelo, la actividad «bajó» hasta
   /// 2.100 m. Anclado, ese mismo GPX queda al nivel del terreno.
   ///
   /// Un track que el modelo no cubre lo bastante se deja tal cual (no

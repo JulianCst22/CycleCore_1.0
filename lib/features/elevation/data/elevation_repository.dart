@@ -34,8 +34,8 @@ class ElevationRepository {
   /// ejemplo, porque su servidor no las tiene).
   static const _declinedKey = 'elevation_tiles_declined_v1';
 
-  /// Preferencias de cuando hubo otros modelos (SRTM, FABDEM): se borran
-  /// en la limpieza.
+  /// Preferencias de cuando hubo otros modelos de elevación: se borran en
+  /// la limpieza.
   static const _obsoleteKeys = [
     'elevation_tile_datasets_v1',
     'elevation_dataset_v1',
@@ -124,7 +124,7 @@ class ElevationRepository {
     return missing;
   }
 
-  /// El archivo existe y mide lo que mide una tesela SRTM completa.
+  /// El archivo existe y mide lo que mide una tesela `.hgt` completa.
   static Future<bool> _isComplete(String filePath) async {
     final file = File(filePath);
     if (!await file.exists()) return false;
@@ -240,9 +240,9 @@ class ElevationRepository {
     _catalogCache.remove(fileNameOf(key));
   }
 
-  /// La app usó antes otros modelos (SRTM de la NASA y FABDEM). Sus
-  /// teselas se borran del teléfono -- el registro y el archivo -- y
-  /// quedan solo las de Copernicus.
+  /// La app usó antes otros modelos de elevación. Sus teselas se borran
+  /// del teléfono -- el registro y el archivo -- y quedan solo las de
+  /// Copernicus.
   Future<void> _removeObsoleteTiles() =>
       _cleanup ??= _runCleanup().catchError((Object _) {
         _cleanup = null; // se reintenta la próxima vez

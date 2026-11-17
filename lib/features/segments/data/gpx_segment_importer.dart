@@ -54,8 +54,8 @@ class GpxImportResult {
 /// Toma los `<trkpt>` de todos los `<trk>/<trkseg>`; si no hay ninguno,
 /// cae a los `<rtept>` de las rutas. La altitud (`<ele>`) se usa TAL
 /// CUAL: en un GPX de ciclocomputador es barométrica y más fiable que
-/// la grilla SRTM (por eso es prioridad 1 sobre HGT). La distancia
-/// acumulada y la pendiente se calculan en
+/// la grilla del modelo de elevación (por eso es prioridad 1 sobre
+/// HGT). La distancia acumulada y la pendiente se calculan en
 /// `profilePointsFromRawTrack`, con el mismo criterio que el resto de
 /// la app.
 class GpxSegmentImporter {

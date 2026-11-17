@@ -3,7 +3,8 @@ enum ElevationSource {
   /// Perfil de un GPX de ciclocomputador -- prioridad 1.
   gpx,
 
-  /// Grilla SRTM/HGT descargada -- prioridad 2.
+  /// Grilla del modelo de elevación (Copernicus, `.hgt`) descargada --
+  /// prioridad 2.
   hgt,
 
   /// Ninguna fuente confiable en esa coordenada -- el llamador cae al

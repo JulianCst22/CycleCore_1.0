@@ -2,8 +2,8 @@
 /// ya recolectadas por RouteRecordingController -- este archivo no
 /// sabe leer sensores, solo agrupa lo que ya se leyó.
 class AltitudeSourceReading {
-  /// Altitud del DEM (SRTM/NASA) para esta coordenada, o null si no hay
-  /// tesela descargada.
+  /// Altitud del modelo de elevación (Copernicus) para esta coordenada,
+  /// o null si no hay tesela descargada.
   final double? demAltitude;
 
   /// Altitud en tiempo real ya fusionada por AltitudeFusionService

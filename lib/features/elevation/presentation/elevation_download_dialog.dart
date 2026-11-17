@@ -96,7 +96,7 @@ class _ElevationDownloadDialogContentState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            // Unos 25 MB por tesela SRTM1 (las SRTM3 pesan ~3 MB).
+            // Unos 25 MB por tesela de Copernicus (grilla de 30 m).
             'Vamos a descargar el mapa de elevación de tu zona '
             '(~${_pending.length * 25} MB) para calcular pendientes con '
             'precisión, sin depender del barómetro del celular.',

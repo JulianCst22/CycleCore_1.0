@@ -1,14 +1,16 @@
 import 'dart:collection';
 import 'dart:io';
 
-/// Lee archivos SRTM (`.hgt`) para obtener una altitud confiable en una
-/// coordenada exacta, en vez de depender del GPS/barómetro del celular.
+/// Lee las teselas `.hgt` del modelo de elevación (Copernicus) para
+/// obtener una altitud confiable en una coordenada exacta, en vez de
+/// depender del GPS/barómetro del celular.
 ///
-/// Formato SRTM: grilla cuadrada de enteros de 16 bits con signo,
+/// Formato `.hgt`: grilla cuadrada de enteros de 16 bits con signo,
 /// big-endian, fila por fila de norte a sur, columna por columna de
-/// oeste a este. El tamaño del lado (1201 para SRTM3 ~90m, 3601 para
-/// SRTM1 ~30m) se deduce del tamaño del archivo, y un archivo que no
-/// mide exactamente eso se rechaza (ver [sideForLength]).
+/// oeste a este. El tamaño del lado (3601 para las de ~30 m, como las de
+/// Copernicus; 1201 para las de ~90 m) se deduce del tamaño del archivo,
+/// y un archivo que no mide exactamente eso se rechaza (ver
+/// [sideForLength]).
 ///
 /// Todo es SÍNCRONO a propósito: son lecturas de disco locales, muy
 /// rápidas, y así se puede llamar directo desde `_onNewPosition` sin
@@ -17,8 +19,7 @@ class SrtmTileReader {
   static const int _maxOpenHandles = 3;
   final LinkedHashMap<String, RandomAccessFile> _openHandles = LinkedHashMap();
 
-  /// Lados de las grillas SRTM que existen: SRTM1 (~30 m) y SRTM3
-  /// (~90 m).
+  /// Lados de las grillas `.hgt` que existen: ~30 m y ~90 m.
   static const List<int> _validSides = [3601, 1201];
 
   /// Lado de la grilla de un archivo de [bytes], o `null` si ese tamaño
@@ -34,7 +35,7 @@ class SrtmTileReader {
   }
 
   /// Altitud interpolada (metros) en (lat, lng), o null si el archivo no
-  /// existe o el dato en esa coordenada es un "hueco" conocido de SRTM.
+  /// existe o el dato en esa coordenada es un "hueco" del modelo.
   double? elevationAt({
     required String filePath,
     required int tileLatFloor,
@@ -84,8 +85,8 @@ class SrtmTileReader {
     final value = (bytes[0] << 8) | bytes[1];
     final signed = value >= 0x8000 ? value - 0x10000 : value;
 
-    // -32768 es el valor estándar "sin dato" de SRTM (huecos de radar,
-    // típicamente sobre agua o sombras del sensor).
+    // -32768 es el valor estándar "sin dato" del formato `.hgt` (huecos
+    // de radar, típicamente sobre agua o sombras del sensor).
     if (signed == -32768) return null;
     return signed.toDouble();
   }

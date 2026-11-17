@@ -79,8 +79,8 @@ class FlattenedAltitudeResult {
 ///
 /// El desnivel (+/-) se mide sobre la distancia (`computeRouteGainLoss`:
 /// remuestreo, promedio móvil y histéresis), no sumando cada delta --
-/// así el ruido del modelo de elevación (techos y árboles del SRTM, sus
-/// costuras) no infla el desnivel en ambos sentidos.
+/// así el ruido del modelo de elevación (techos y árboles, sus costuras)
+/// no infla el desnivel en ambos sentidos.
 class ActivityAltitudeFlattener {
   final ElevationLookup resolver;
   final int smoothingRadius;

@@ -17,8 +17,8 @@ class AltitudeFusionResult {
 }
 
 /// CAPA 1 del modelo geoespacial: decide, punto por punto, cuánto pesar
-/// el DEM (SRTM/NASA) frente a la altitud en tiempo real usando un
-/// motor difuso Sugeno de orden cero.
+/// el modelo de elevación (Copernicus) frente a la altitud en tiempo
+/// real usando un motor difuso Sugeno de orden cero.
 ///
 /// La persistencia de una discrepancia (¿cuánta distancia lleva
 /// sostenida?) se mide con una RACHA CONTINUA por distancia -- se
